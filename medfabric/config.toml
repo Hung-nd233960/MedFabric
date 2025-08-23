@@ -1,0 +1,7 @@
+[criterion]
+BasalCentral = 4
+BasalCortex = 3
+CoronaRadiata = 3
+
+[path]
+data = "/data"
