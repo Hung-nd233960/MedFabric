@@ -447,7 +447,7 @@ def test_add_evaluate_image_invalid_region(
             doctor.uuid,
             image.uuid,
             session.session_id,
-            region="InvalidRegion",  # Invalid region
+            region="InvalidRegion",  # invalid region
             basal_score_central_left=2,
             basal_score_central_right=3,
             basal_score_cortex_left=None,

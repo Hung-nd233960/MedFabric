@@ -131,6 +131,7 @@ class Session(Base):
     login_time: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
+        default=datetime.now(),
         server_default=text("CURRENT_TIMESTAMP"),
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

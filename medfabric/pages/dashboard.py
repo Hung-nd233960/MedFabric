@@ -59,6 +59,7 @@ def get_image_sets_with_evaluation_status(
         [
             {
                 "index": imgset.index,
+                "uuid": imgset.uuid,
                 "scan_id": imgset.image_set_id,
                 "patient_id": imgset.patient_id,
                 "num_images": imgset.num_images,
@@ -144,16 +145,27 @@ else:
                 use_container_width=True,
                 hide_index=True,
                 column_config=config_chosen,
+                column_order=[
+                    "index",
+                    "scan_id",
+                    "patient_id",
+                    "num_images",
+                    "evaluated",
+                ],
+                key="selected_image_sets",
             )
             st.write(f"You have chosen {len(selected_scans)} scans for evaluation.")
             if st.button("Evaluate Selected Scans"):
                 # Store selected scans in session state for further processing
-                st.session_state.selected_scans = selected_scans["scan_id"].tolist()
+                st.session_state.selected_scans = selected_scans["uuid"].tolist()
                 st.success(
                     f"Selected {len(st.session_state.selected_scans)} scans for evaluation."
                 )
+                print(
+                    f"Selected scans for evaluation: {st.session_state.selected_scans}"
+                )
                 time.sleep(1)
-                st.switch_page("pages/label.py")
+                # st.switch_page("pages/label.py")
         else:
             st.subheader("No Scans Selected")
             st.write("Please select scans to evaluate by checking the 'Evaluate' box.")
