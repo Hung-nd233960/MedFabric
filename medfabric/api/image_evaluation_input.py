@@ -2,6 +2,7 @@
 # medfabric/api/image_evaluation_input.py
 import uuid as uuid_lib
 from typing import Optional
+from enum import Enum
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from medfabric.db.models import ImageEvaluation, Region
@@ -150,28 +151,50 @@ def check_image_evaluation_exists(
     )
 
 
-def validate_evaluation_scores(**kwargs):
+class VerificationMode(Enum):
+    STRICT = "strict"
+    LENIENT = "lenient"
+
+
+def validate_evaluation_scores(mode=VerificationMode.STRICT, **kwargs) -> bool:
     """
     Validates that the provided scores are within acceptable ranges.
-    Raises InvalidEvaluationError if any score is out of range."""
+
+    Returns:
+        True if all scores valid.
+        False if invalid (in LENIENT mode).
+    Raises:
+        InvalidEvaluationError in STRICT mode when validation fails.
+    """
     for name, max_val in SCORE_LIMITS.items():
         value = kwargs.get(name)
         if value is not None and not 0 <= value <= max_val:
-            raise InvalidEvaluationError(
-                f"{name} must be between 0 and {max_val}, got {value}."
-            )
+            if mode is VerificationMode.STRICT:
+                raise InvalidEvaluationError(
+                    f"{name} must be between 0 and {max_val}, got {value}."
+                )
+            return False
+    return True
 
 
 def region_score_requirements(
     region: Region,
-    basal_score_central_left,
-    basal_score_central_right,
-    basal_score_cortex_left,
-    basal_score_cortex_right,
-    corona_score_left,
-    corona_score_right,
-):
-    """Validates that the provided scores align with the specified region."""
+    basal_score_central_left: Optional[int],
+    basal_score_central_right: Optional[int],
+    basal_score_cortex_left: Optional[int],
+    basal_score_cortex_right: Optional[int],
+    corona_score_left: Optional[int],
+    corona_score_right: Optional[int],
+    mode=VerificationMode.STRICT,
+) -> bool:
+    """Validates that the provided scores align with the specified region.
+
+    Returns:
+        True if valid.
+        False if invalid (in LENIENT mode).
+    Raises:
+        InvalidEvaluationError in STRICT mode when validation fails.
+    """
     scores = {
         "basal_score_central_left": basal_score_central_left,
         "basal_score_central_right": basal_score_central_right,
@@ -183,14 +206,7 @@ def region_score_requirements(
     region_score_requirements = {
         Region.None_: {
             "required": [],
-            "forbidden": [
-                "basal_score_central_left",
-                "basal_score_central_right",
-                "basal_score_cortex_left",
-                "basal_score_cortex_right",
-                "corona_score_left",
-                "corona_score_right",
-            ],
+            "forbidden": list(scores.keys()),
         },
         Region.BasalCentral: {
             "required": ["basal_score_central_left", "basal_score_central_right"],
@@ -215,13 +231,19 @@ def region_score_requirements(
     # Check required fields
     for field in reqs["required"]:
         if scores[field] is None:
-            raise InvalidEvaluationError(
-                f"{field} must be provided for region '{region.name}'."
-            )
+            if mode is VerificationMode.STRICT:
+                raise InvalidEvaluationError(
+                    f"{field} must be provided for region '{region.name}'."
+                )
+            return False
 
     # Check forbidden fields
     for field in reqs["forbidden"]:
         if scores[field] is not None:
-            raise InvalidEvaluationError(
-                f"{field} must not be provided for region '{region.name}'."
-            )
+            if mode is VerificationMode.STRICT:
+                raise InvalidEvaluationError(
+                    f"{field} must not be provided for region '{region.name}'."
+                )
+            return False
+
+    return True

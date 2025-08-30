@@ -1,6 +1,6 @@
 # medfabric/api/image_input.py
 """Module for handling image operations in the MedFabric API."""
-from typing import Optional
+from typing import Optional, List
 import uuid as uuid_lib
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -80,6 +80,37 @@ def is_image_in_set(
         .first()
         is not None
     )
+
+
+def get_all_images_in_set(
+    session: Session, image_set_uuid: uuid_lib.UUID
+) -> List[uuid_lib.UUID]:
+    """
+    Retrieve all image UUIDs in a given image set.
+
+    Args:
+        session (Session): SQLAlchemy DB session
+        image_set_uuid (uuid.UUID): ID of the image set
+
+    Returns:
+        List of image UUIDs in the set
+    """
+    images = session.query(Image).filter_by(image_set_uuid=image_set_uuid).all()
+    return [image.uuid for image in images]
+
+
+def get_image_by_uuid(session: Session, image_uuid: uuid_lib.UUID) -> Optional[Image]:
+    """
+    Retrieve an image by its UUID.
+
+    Args:
+        session (Session): SQLAlchemy DB session
+        image_uuid (uuid.UUID): UUID of the image to retrieve
+
+    Returns:
+        Image object if found, else None
+    """
+    return session.query(Image).filter_by(uuid=image_uuid).first()
 
 
 def add_image(

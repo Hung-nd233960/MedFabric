@@ -23,9 +23,14 @@ def get_paths() -> dict[str, str]:
     return load_config().get("path", {})
 
 
+def get_image_adjustments() -> dict[str, Any]:
+    """Return image adjustment defaults from [image_adjustments] section."""
+    return load_config().get("image_adjustments", {})
+
+
 CRITERION = get_criterion()
 PATHS = get_paths()
-
+DEFAULT_IMAGE_ADJUSTMENT = get_image_adjustments()
 BASAL_CENTRAL_MAX = CRITERION.get("BasalCentral", 4)
 BASAL_CORTEX_MAX = CRITERION.get("BasalCortex", 3)
 CORONA_MAX = CRITERION.get("CoronaRadiata", 3)
@@ -39,3 +44,6 @@ SCORE_LIMITS = {
     "corona_score_left": CORONA_MAX,
     "corona_score_right": CORONA_MAX,
 }
+DEFAULT_BRIGHTNESS = DEFAULT_IMAGE_ADJUSTMENT.get("default_brightness", 0)
+DEFAULT_CONTRAST = DEFAULT_IMAGE_ADJUSTMENT.get("default_contrast", 1.0)
+DEFAULT_FILTER = DEFAULT_IMAGE_ADJUSTMENT.get("default_filter", "None")

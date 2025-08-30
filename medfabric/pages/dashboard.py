@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from medfabric.api.errors import EmptyDatasetError
 from medfabric.api.image_set_input import get_all_image_sets, exist_any_image_set
 from medfabric.api.get_evaluated_sets import get_doctor_image_sets
-from medfabric.pages.dashboard.dashboard_config import (
+from medfabric.pages.dashboard_helper.dashboard_config import (
     config_self,
     config_chosen,
 )
@@ -165,7 +165,7 @@ else:
                     f"Selected scans for evaluation: {st.session_state.selected_scans}"
                 )
                 time.sleep(1)
-                # st.switch_page("pages/label.py")
+                st.switch_page("pages/label.py")
         else:
             st.subheader("No Scans Selected")
             st.write("Please select scans to evaluate by checking the 'Evaluate' box.")

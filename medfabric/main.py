@@ -1,8 +1,8 @@
 # medfabric/main.py
 import streamlit as st
-from medfabric.db.database import Base, URL_OBJECT
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
+from medfabric.db.database import Base, URL_OBJECT
 
 
 # 1. Cache the engine + session factory globally
