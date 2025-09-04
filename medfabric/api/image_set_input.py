@@ -1,0 +1,144 @@
+# medfabric/api/image_set_input.py
+"""Module for handling image set input operations in the MedFabric API."""
+
+from typing import Optional
+import uuid as uuid_lib
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
+from medfabric.db.models import ImageSet
+from medfabric.api.errors import (
+    PatientNotFoundError,
+    DatabaseError,
+    InvalidImageSetError,
+)
+from medfabric.api.patients import check_patient_exists
+
+
+def add_image_set(
+    session: Session,
+    image_set_id: str,
+    num_images: int,
+    folder_path: Optional[str] = None,
+    patient_id: Optional[str] = None,
+    description: Optional[str] = None,
+) -> ImageSet:
+    """
+    Add a new image set to the database.
+    Args:
+        session (Session): SQLAlchemy session.
+        image_set_id (str): Unique identifier for the image set.
+        patient_id (str): ID of the patient associated with the image set.
+        num_images (int): Number of images in the set.
+        folder_path (str, optional): Path to the folder containing the images.
+        description (str, optional): Description of the image set.
+    Returns:
+        ImageSet: The created image set record.
+    """
+    if not image_set_id:
+        raise InvalidImageSetError("Image set ID cannot be empty.")
+
+        # if check_image_set_exists(session, image_set_id):
+        # raise ImageSetAlreadyExistsError(
+        #     f"Image set with ID '{image_set_id}' already exists."
+        # )
+
+    if patient_id is not None:
+        if not check_patient_exists(session, patient_id):
+            raise PatientNotFoundError(
+                f"Patient with ID '{patient_id}' does not exist."
+            )
+    if num_images <= 0:
+        raise InvalidImageSetError("Number of images must be greater than zero.")
+
+    if not description:
+        description = None
+
+    image_set = ImageSet(
+        image_set_id=image_set_id,
+        patient_id=patient_id,
+        num_images=num_images,
+        folder_path=folder_path,
+        description=description,
+    )
+    try:
+        session.add(image_set)
+        session.commit()
+        return image_set
+    except SQLAlchemyError as exc:
+        session.rollback()
+        raise DatabaseError(f"Failed to add image set: {exc}") from exc
+
+
+def get_image_set(session: Session, uuid: uuid_lib.UUID) -> Optional[ImageSet]:
+    """
+    Retrieve an image set by its UUID.
+
+    Args:
+        session (Session): SQLAlchemy DB session
+        uuid (uuid.UUID): UUID of the image set to retrieve
+
+    Returns:
+        ImageSet if found, None otherwise
+    """
+    return session.query(ImageSet).filter_by(uuid=uuid).first()
+
+
+def get_image_set_by_id_and_patient(
+    session: Session, image_set_id: str, patient_id: Optional[str] = None
+) -> Optional[uuid_lib.UUID]:
+    """
+    Retrieve an image set by its ID and optional patient ID.
+
+    Args:
+        session (Session): SQLAlchemy DB session
+        image_set_id (str): ID of the image set to retrieve
+        patient_id (str, optional): ID of the patient associated with the image set
+
+    Returns:
+        uuid.UUID if found, None otherwise
+    """
+    query = session.query(ImageSet).filter_by(image_set_id=image_set_id)
+    if patient_id is not None:
+        query = query.filter_by(patient_id=patient_id)
+    image_set = query.first()
+    return image_set.uuid if image_set else None
+
+
+def get_all_image_sets(session: Session) -> list[ImageSet]:
+    """
+    Retrieve all image sets from the database.
+
+    Args:
+        session (Session): SQLAlchemy DB session
+
+    Returns:
+        List of all ImageSet records
+    """
+    return session.query(ImageSet).all()
+
+
+def check_image_set_exists(session: Session, image_set_uuid: uuid_lib.UUID) -> bool:
+    """
+    Check if an image set with the given UUID exists.
+
+    Args:
+        session (Session): SQLAlchemy DB session
+        image_set_uuid (uuid.UUID): UUID of the image set to check
+
+    Returns:
+        True if exists, False otherwise
+    """
+    return session.query(ImageSet).filter_by(uuid=image_set_uuid).first() is not None
+
+
+def exist_any_image_set(session: Session) -> bool:
+    """
+    Check if there is at least one image set in the database.
+
+    Args:
+        session (Session): SQLAlchemy DB session
+
+    Returns:
+        True if at least one image set exists, False otherwise
+    """
+    return session.query(ImageSet).first() is not None

@@ -6,6 +6,7 @@ data/
 __pycache__/
 .github/
 deprecated/
+.pytest_cache/
 
 # Dependencies
 node_modules/
@@ -41,3 +42,7 @@ Thumbs.db
 # Env / secrets
 .env
 .env.*
+
+dev_data/
+results/
+testing_env/
