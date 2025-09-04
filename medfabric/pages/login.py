@@ -46,9 +46,6 @@ with st.form("login_form", clear_on_submit=True, enter_to_submit=True, border=Tr
         except DatabaseError:
             logging.exception("Database error during login for '%s'", username_input)
             st.error("A database error occurred. Please try again later.")
-        except Exception as e:
-            logging.exception("Unexpected error during login for '%s'", username_input)
-            st.error(f"An unexpected error occurred: {str(e)}")
 st.write("Don't have an account?")
 
 if st.button("Register"):

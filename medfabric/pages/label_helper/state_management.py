@@ -16,11 +16,15 @@ import uuid as uuid_lib
 from enum import Enum, auto
 from dataclasses import dataclass, field
 from typing import Optional, List, Union
+import pandas as pd
+
 from sqlalchemy.orm import Session as db_Session
 from medfabric.pages.label_helper.session_initialization import (
     ImageSetEvaluationSession,
 )
-from medfabric.db.models import Region
+from medfabric.pages.label_helper.image_set_session_status import (
+    create_set_status_dataframe,
+)
 from medfabric.api.config import DEFAULT_BRIGHTNESS, DEFAULT_CONTRAST
 
 
@@ -34,6 +38,7 @@ class EventType(Enum):
     # Set Controls
     NEXT_SET = auto()
     PREV_SET = auto()
+    JUMP_TO_SET = auto()
     # Image Adjustments
     BRIGHTNESS_CHANGED = auto()
     CONTRAST_CHANGED = auto()
@@ -96,9 +101,8 @@ class LabelingAppState:
     contrast: float = DEFAULT_CONTRAST
     filter_type: FilterType = FilterType.NONE
     session_index: int = 0
-    unsatisfactory_sessions: List[int] = field(default_factory=list)
+    set_status_df: pd.DataFrame = field(default_factory=create_set_status_dataframe)
     all_sessions_satisfactory: bool = False
-    score_box_render_mode: Optional[Region] = Region.None_
 
     @property
     def current_session(self) -> ImageSetEvaluationSession:
@@ -185,7 +189,9 @@ def raise_flag(
     event_type: EventType,
     payload: Optional[str] = None,
 ):
+
     if payload is None:
         flag.push(HalfEvent(type=event_type))
     else:
         flag.push(CompletedEvent(type=event_type, payload=payload))
+    # print(flag._queue)

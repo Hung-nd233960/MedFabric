@@ -11,6 +11,7 @@ from medfabric.pages.dashboard_helper.dashboard_config import (
     config_self,
     config_chosen,
 )
+from medfabric.pages.utils import reset
 
 st.set_page_config(
     page_title="Dashboard",
@@ -63,7 +64,7 @@ def get_image_sets_with_evaluation_status(
                 "scan_id": imgset.image_set_id,
                 "patient_id": imgset.patient_id,
                 "num_images": imgset.num_images,
-                "evaluated": imgset.image_set_id in evaluated_ids,
+                "evaluated": imgset.uuid in evaluated_ids,
                 "edit": False,
             }
             for imgset in all_image_sets
@@ -116,7 +117,7 @@ else:
         st.subheader("Choose scans to evaluate")
         edited_data = st.data_editor(
             data=df,
-            use_container_width=True,
+            width="stretch",
             column_config=config_self,
             disabled=[
                 "index",
@@ -142,7 +143,7 @@ else:
             st.subheader("Selected Scans for Evaluation")
             st.dataframe(
                 selected_scans.drop(columns=["edit"]),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
                 column_config=config_chosen,
                 column_order=[
@@ -169,3 +170,6 @@ else:
         else:
             st.subheader("No Scans Selected")
             st.write("Please select scans to evaluate by checking the 'Evaluate' box.")
+
+if st.button("Logout"):
+    reset()

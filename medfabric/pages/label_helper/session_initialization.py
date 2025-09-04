@@ -1,6 +1,6 @@
 # pylint: disable: missing-class-docstring, missing-module-docstring, missing-function-docstring
 #  medfabric/pages/label/label_session_initialization.py
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, List, Dict
 import uuid as uuid_lib
@@ -13,6 +13,9 @@ from medfabric.db.models import (
 from medfabric.api.image_set_input import get_image_set
 from medfabric.api.image_input import get_all_images_in_set, get_image_by_uuid
 from medfabric.pages.label_helper.image_helper import load_dicom_image
+from medfabric.pages.label_helper.image_session_status import (
+    initialize_slice_df,
+)
 
 
 @dataclass
@@ -47,8 +50,14 @@ class ImageSetEvaluationSession:
     irrelevant_data: bool = False
     #   conflicted: bool
     current_index: int = 0
+    slice_status_df: pd.DataFrame = field(default_factory=initialize_slice_df)
     patient_information: Optional[pd.DataFrame] = None
     dirty: bool = False  # Indicates if the evaluation has been modified
+    render_score_box_mode: bool = True
+
+    @property
+    def current_image_session(self) -> ImageEvaluationSession:
+        return self.images_sessions[self.current_index]
 
 
 def initialize_evaluation_session(
