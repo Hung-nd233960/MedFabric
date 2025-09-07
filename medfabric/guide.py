@@ -1,5 +1,6 @@
-import streamlit as st
 from pathlib import Path
+import streamlit as st
+
 
 file_path = Path("docs/UserGuide.md").read_text(encoding="utf-8")
 

@@ -1,6 +1,8 @@
-import pandas as pd
+# pylint: disable = C0114, C0115, C0116
+# medfabric/pages/label_helper/image_set_session_status.py
 import uuid
 from enum import Enum
+import pandas as pd
 
 
 # Enum for status
