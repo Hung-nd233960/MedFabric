@@ -1,32 +1,36 @@
 services:
   app:
-    build: .
     container_name: medfabric_app
-    ports:
+    build: 
+      context: .
+      dockerfile: app.Dockerfile
+    ports: 
       - "8501:8501"
-    volumes:
-      - ./public_data:/MedFabric/public_data  # host folder mapped to container
-      - ./medfabric:/MedFabric/medfabric      # optional if you want live code reload
-      - ./.streamlit:/MedFabric/.streamlit
     depends_on:
       - db
-    environment:
-    - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-
+#        condition: service_healthy
+#        restart: true
+    volumes:
+      - ./:/app
+      - ./medfabric:/app/medfabric:ro
+      - ./public_data:/app/public_data   
   db:
     container_name: medfabric_db
-    image: postgres:15
+    build:
+      context: .
+      dockerfile: db.Dockerfile
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
 
   pgadmin:
     image: dpage/pgadmin4
     container_name: medfabric_pgadmin
-    restart: always
     ports:
       - "8080:80"
     environment:
@@ -36,17 +40,19 @@ services:
       - pgadmin_data:/var/lib/pgadmin
     depends_on:
       - db
-  tailscale:
-    image: tailscale/tailscale:latest
-    container_name: medfabric_tailscale
-    network_mode: "host"
-    cap_add:
-      - NET_ADMIN
-      - SYS_MODULE
-    volumes:
-      - ./tailscale:/var/lib/tailscale
-    command: tailscaled
+
+#  tailscale:
+#    image: tailscale/tailscale:latest
+#    container_name: medfabric_tailscale
+#    network_mode: "host"
+#    cap_add:
+#      - NET_ADMIN
+#      - SYS_MODULE
+#    volumes:
+#      - tailscale:/var/lib/tailscale
+#    command: tailscaled
 
 volumes:
   db_data:
   pgadmin_data:
+#  tailscale:

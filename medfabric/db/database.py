@@ -1,8 +1,10 @@
+# pylint: disable=missing-module-docstring, missing-class-docstring, missing-function-docstring
 # /medfabric/db/database.py
 from sqlalchemy import create_engine
 from sqlalchemy import URL
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.orm import scoped_session
+import streamlit as st
 
 
 # ------------------------
@@ -16,14 +18,13 @@ class Base(DeclarativeBase):
 # 2. Database URL
 # ------------------------
 # Syntax: postgresql+psycopg://username:password@host:port/dbname
-# dev: ibmehust2025 ; meduser: ibmehust
 URL_OBJECT = URL.create(
     "postgresql+psycopg",
-    username="dev",
-    password="ibmehust2025",
-    host="localhost",
+    username=st.secrets["POSTGRES_USER"],
+    password=st.secrets["POSTGRES_PASSWORD"],
+    host="db",
     port=5432,
-    database="medfabric",
+    database=st.secrets["POSTGRES_DB"],
 )
 
 # ------------------------
