@@ -209,7 +209,12 @@ def region_score_requirements(
             "forbidden": list(scores.keys()),
         },
         Region.BasalCentral: {
-            "required": ["basal_score_central_left", "basal_score_central_right"],
+            "required": [
+                "basal_score_central_left",
+                "basal_score_central_right",
+                "basal_score_cortex_left",
+                "basal_score_cortex_right",
+            ],
             "forbidden": ["corona_score_left", "corona_score_right"],
         },
         Region.BasalCortex: {

@@ -39,6 +39,7 @@ class ImageEvaluationSession:
 
 @dataclass
 class ImageSetEvaluationSession:
+    set_index: int
     uuid: uuid_lib.UUID
     image_set_id: str
     patient_id: Optional[str]
@@ -112,6 +113,7 @@ def initialize_image_set_evaluation(
         )
         image_sessions.append(img_base)
     return ImageSetEvaluationSession(
+        set_index=image_set.index,
         uuid=image_set.uuid,
         image_set_id=image_set.image_set_id,
         patient_id=image_set.patient_id,

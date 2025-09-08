@@ -13,11 +13,11 @@ from medfabric.pages.dashboard_helper.dashboard_config import (
 )
 from medfabric.pages.utils import reset
 
-st.set_page_config(
-    page_title="Dashboard",
-    page_icon=":bar_chart:",
-    layout="wide",
-)
+
+def format_string(s: bool) -> str:
+    if s:
+        return "✅ Evaluated"
+    return "❌ Not Evaluated"
 
 
 @st.cache_data
@@ -41,7 +41,7 @@ def get_image_sets_with_evaluation_status(
                 - scan_id (str): The unique identifier of the image set.
                 - patient_id (str): The unique identifier of the patient.
                 - num_images (int): The number of images in the image set.
-                - evaluated (bool): Whether the image set has been evaluated by the doctor.
+                - evaluated (str): Whether the image set has been evaluated by the doctor.
                 - edit (bool): Placeholder column, currently set to False.
             - The number of evaluated image sets (int).
             - The total number of image sets (int).
@@ -64,7 +64,7 @@ def get_image_sets_with_evaluation_status(
                 "scan_id": imgset.image_set_id,
                 "patient_id": imgset.patient_id,
                 "num_images": imgset.num_images,
-                "evaluated": imgset.uuid in evaluated_ids,
+                "evaluated": format_string(imgset.uuid in evaluated_ids),
                 "edit": False,
             }
             for imgset in all_image_sets

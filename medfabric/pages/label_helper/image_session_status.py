@@ -16,7 +16,7 @@ def initialize_slice_df() -> pd.DataFrame:
 
 def _reorder_slices(df: pd.DataFrame) -> pd.DataFrame:
     """Sort slices by slice_index but preserve original values."""
-    return df.sort_values("slice_index").reset_index(drop=True)
+    return df.sort_values("slice_index")
 
 
 def add_slice(
@@ -31,7 +31,7 @@ def add_slice(
         raise TypeError("image_uuid must be a uuid.UUID")
 
     new_row = {
-        "slice_index": slice_index,
+        "slice_index": slice_index + 1,
         "image_uuid": str(image_uuid),
         "region": region.value,
         "status": status.value,
@@ -118,7 +118,7 @@ def handle_df_region_change(
     else:
         # UUID not found → add new slice (region + initial status)
         new_row = {
-            "slice_index": slice_index,
+            "slice_index": slice_index + 1,
             "image_uuid": str(image_uuid),
             "region": new_region.value,
             "status": status.value,

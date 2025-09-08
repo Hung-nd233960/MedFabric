@@ -1,7 +1,8 @@
 [server]
 fileWatcherType = "none"
-headless = false
+headless = true
 port = 8501
+showEmailPrompt = false
 [client]
 showSidebarNavigation = false
 toolbarMode = "minimal"

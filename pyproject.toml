@@ -1,6 +1,6 @@
 [project]
 name = "MedFabric"
-version = "1.7.0"
+version = "2.0.0"
 description = "A labeling tool for CT scans"
 authors = [{ name = "Hung-nd233960", email = "hung1qqo@gmail.com" }]
 readme = "README.md"
@@ -25,11 +25,10 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "medfabric"
-version = "1.7.0"
+version = "2.0.0"
 description = "A labeling tool for CT scans"
-authors = ["Hung-nd233960 <hung1qqo@gmail.com>"]
 packages = [{ include = "medfabric" }]
-
+package-mode = false
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"

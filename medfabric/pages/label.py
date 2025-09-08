@@ -21,6 +21,10 @@ from medfabric.pages.label_helper.image_set_session_status import (
     add_row,
     get_invalid_indices,
 )
+from medfabric.pages.label_helper.column_config import (
+    config_image_eval,
+    config_set_eval,
+)
 
 
 def initial_setup():
@@ -279,6 +283,7 @@ def render_labeling_column(
                             "Basal Cortex Score",
                             min_value=0,
                             max_value=BASAL_CORTEX_MAX,
+                            value=None,
                             step=1,
                             key=key_basal_cortex_left,
                             on_change=raise_flag,
@@ -296,6 +301,7 @@ def render_labeling_column(
                             "Basal Central Score",
                             min_value=0,
                             max_value=BASAL_CENTRAL_MAX,
+                            value=None,
                             step=1,
                             key=key_basal_central_left,
                             on_change=raise_flag,
@@ -314,6 +320,7 @@ def render_labeling_column(
                             "Corona Radiata Score",
                             min_value=0,
                             max_value=CORONA_MAX,
+                            value=None,
                             step=1,
                             key=key_corona_left,
                             on_change=raise_flag,
@@ -333,6 +340,7 @@ def render_labeling_column(
                             "Basal Cortex Score",
                             min_value=0,
                             max_value=BASAL_CORTEX_MAX,
+                            value=None,
                             step=1,
                             key=key_basal_cortex_right,
                             on_change=raise_flag,
@@ -350,6 +358,7 @@ def render_labeling_column(
                             "Basal Central Score",
                             min_value=0,
                             max_value=BASAL_CENTRAL_MAX,
+                            value=None,
                             step=1,
                             key=key_basal_central_right,
                             on_change=raise_flag,
@@ -368,6 +377,7 @@ def render_labeling_column(
                             "Corona Radiata Score",
                             min_value=0,
                             max_value=CORONA_MAX,
+                            value=None,
                             step=1,
                             key=key_corona_right,
                             on_change=raise_flag,
@@ -517,18 +527,30 @@ with col3:
             st.write(
                 f"Set {app.app_state.session_index + 1} of {len(app.app_state.labeling_session)}"
             )
-
-            render_set_column(
-                prev_key=app.key_mngr.make(UIElementType.BUTTON, EventType.PREV_SET),
-                next_key=app.key_mngr.make(UIElementType.BUTTON, EventType.NEXT_SET),
-                jump_to_key=app.key_mngr.make(
-                    UIElementType.SLIDER,
-                    EventType.JUMP_TO_SET,
-                    app.app_state.current_session.uuid,
-                ),
-                current_index=app.app_state.session_index,
-                num_sets=len(app.app_state.labeling_session),
-            )
+            zcol1, zcol2 = st.columns([1, 1])
+            with zcol1:
+                if app.app_state.current_session.patient_id:
+                    st.write(f"Patient ID: {app.app_state.current_session.patient_id}")
+                if app.app_state.current_session.image_set_id:
+                    st.write(f"Scan Type: {app.app_state.current_session.image_set_id}")
+            with zcol2:
+                st.write(f"Set Index: {app.app_state.current_session.set_index}")
+            if len(app.app_state.labeling_session) > 1:
+                render_set_column(
+                    prev_key=app.key_mngr.make(
+                        UIElementType.BUTTON, EventType.PREV_SET
+                    ),
+                    next_key=app.key_mngr.make(
+                        UIElementType.BUTTON, EventType.NEXT_SET
+                    ),
+                    jump_to_key=app.key_mngr.make(
+                        UIElementType.SLIDER,
+                        EventType.JUMP_TO_SET,
+                        app.app_state.current_session.uuid,
+                    ),
+                    current_index=app.app_state.session_index,
+                    num_sets=len(app.app_state.labeling_session),
+                )
         with st.expander("Current Image Set Status", expanded=True):
             if not app.app_state.current_session.render_score_box_mode:
                 st.info("This image set is valid for submission.")
@@ -537,6 +559,8 @@ with col3:
                     app.app_state.current_session.slice_status_df,
                     width="stretch",
                     hide_index=True,
+                    column_config=config_image_eval,
+                    column_order=["slice_index", "region", "status"],
                 )
 
         with st.expander("Set Annotations", expanded=True):
@@ -575,7 +599,7 @@ with col3:
             invalid_indices = get_invalid_indices(app.app_state.set_status_df)
             if invalid_indices:
                 st.warning(
-                    f"Some image sets are invalid. Invalid set indices: {", ".join(map(str, [i + 1 for i in invalid_indices]))}"
+                    f"Some image sets are invalid. Invalid set indices: {", ".join(map(str, [i for i in invalid_indices]))}"
                 )
             else:
                 st.success("All image sets are valid.")
@@ -593,4 +617,6 @@ with col3:
                 app.app_state.set_status_df,
                 width="stretch",
                 hide_index=True,
+                column_config=config_set_eval,
+                column_order=["index", "status"],
             )

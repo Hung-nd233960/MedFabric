@@ -19,7 +19,7 @@ st.session_state.config_self = {
         pinned=True,
         help="Number of images in the scan",
     ),
-    "evaluated": st.column_config.CheckboxColumn(
+    "evaluated": st.column_config.TextColumn(
         label="Evaluated",
         disabled=True,
         help="Indicates if the scan has been evaluated by you",
@@ -48,7 +48,7 @@ st.session_state.config_chosen = {
         pinned=True,
         help="Number of images in the scan",
     ),
-    "evaluated": st.column_config.CheckboxColumn(
+    "evaluated": st.column_config.TextColumn(
         label="Evaluated",
         disabled=True,
         help="Indicates if the scan has been evaluated by you",

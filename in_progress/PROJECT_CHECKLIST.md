@@ -143,7 +143,7 @@ Obviously, you should feel free to adapt this checklist to your needs.
 
 ---
 
-## Launch!
+## Launch
 
 1. Get your solution ready for production (plug into production data inputs, write unit tests, etc.).
 2. Write monitoring code to check your system’s live performance at regular intervals and trigger alerts when it drops:
@@ -151,8 +151,6 @@ Obviously, you should feel free to adapt this checklist to your needs.
    - Measuring performance may require a human pipeline (e.g., via a crowdsourcing service).
    - Also monitor your inputs’ quality.
 3. Retrain your models on a regular basis with fresh data (automate as much as possible).
-
-
 
 - Objectives:
 
@@ -170,3 +168,6 @@ Obviously, you should feel free to adapt this checklist to your needs.
 - vd: neu co 5 set, thi neu xong 2 set va do 1 set, luu 2 set du va luu nhap 3 set con lai
 - neu tiep tuc thi tiep tuc 3 set con lai
 - co 1 bac si co quyen quyet dinh cuoi cung
+
+- bo anh can co thong tin set id va benh nhan
+- lazy loading anh dicom, khong can load toan bo anh vao ram

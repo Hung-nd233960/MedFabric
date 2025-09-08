@@ -44,8 +44,6 @@ with st.form(
                     st.error("Username already exists. Please choose another.")
                 except DatabaseError:
                     st.error("A database error occurred. Please try again later.")
-                except Exception as e:
-                    st.error(f"An unexpected error occurred: {str(e)}")
 st.write("Already have an account?")
 if st.button("Login"):
     st.switch_page("pages/login.py")
