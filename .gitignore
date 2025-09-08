@@ -24,4 +24,5 @@ deprecated/
 dev_data/
 results/
 testing_env/
-secrets.toml
+.streamlit/secrets.toml
+
