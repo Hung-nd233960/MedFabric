@@ -4,8 +4,7 @@ services:
     build: 
       context: .
       dockerfile: ./docker/app.Dockerfile
-    ports: 
-      - "8501:8501"
+    network_mode: service:tailscale
     depends_on:
       - db
 #        condition: service_healthy
@@ -40,19 +39,26 @@ services:
       - pgadmin_data:/var/lib/pgadmin
     depends_on:
       - db
-
-#  tailscale:
-#    image: tailscale/tailscale:latest
-#    container_name: medfabric_tailscale
-#    network_mode: "host"
-#    cap_add:
-#      - NET_ADMIN
-#      - SYS_MODULE
-#    volumes:
-#      - tailscale:/var/lib/tailscale
-#    command: tailscaled
+  
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: tailscale
+    hostname: medfabric
+    environment:
+      - TS_AUTHKEY=${TS_AUTH_KEY}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+    volumes:
+      - ts-test:/var/lib/tailscale
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
+    restart: unless-stopped
+#    command: tailscale serve 8501
 
 volumes:
   db_data:
   pgadmin_data:
-#  tailscale:
+  ts-test:
+    driver: local
