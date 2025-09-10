@@ -128,11 +128,20 @@ def add_image(
     Returns:
         Image: The created image record.
     """
-    if not image_id:
-        raise InvalidImageError("Image ID cannot be empty.")
+    if not isinstance(image_id, str) or not image_id.strip():
+        raise InvalidImageError("Image ID must be a non-empty string.")
+    image_id = image_id.strip()
+
+    if not isinstance(slice_index, int):
+        raise InvalidImageError("Slice index must be an integer.")
 
     if slice_index < 0:
         raise InvalidImageError("Slice index must be non-negative.")
+
+    if isinstance(image_set_uuid, uuid_lib.UUID):
+        pass
+    else:
+        raise InvalidImageError("Image set UUID must be a valid uuid.UUID.")
 
     image_set = get_image_set(session, image_set_uuid)
     if not image_set:

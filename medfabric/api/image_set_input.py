@@ -7,11 +7,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from medfabric.db.models import ImageSet
 from medfabric.api.errors import (
-    PatientNotFoundError,
+    #    PatientNotFoundError,
     DatabaseError,
     InvalidImageSetError,
 )
-from medfabric.api.patients import check_patient_exists
+
+# from medfabric.api.patients import check_patient_exists
+from medfabric.api.utils.normalize_folder_path import normalize_folder_path
 
 
 def add_image_set(
@@ -34,22 +36,34 @@ def add_image_set(
     Returns:
         ImageSet: The created image set record.
     """
-    if not image_set_id:
-        raise InvalidImageSetError("Image set ID cannot be empty.")
+    if isinstance(image_set_id, str):
+        image_set_id = image_set_id.strip()
+        if not image_set_id:
+            raise InvalidImageSetError("Image set ID cannot be empty or whitespace.")
+    else:
+        raise InvalidImageSetError("Image set ID must be a string.")
 
-        # if check_image_set_exists(session, image_set_id):
-        # raise ImageSetAlreadyExistsError(
-        #     f"Image set with ID '{image_set_id}' already exists."
-        # )
+    if isinstance(num_images, int):
+        if num_images <= 0:
+            raise InvalidImageSetError("Number of images must be greater than zero.")
+    else:
+        raise InvalidImageSetError("Number of images must be an integer.")
+
+    if isinstance(folder_path, str):
+        folder_path = normalize_folder_path(folder_path)
+    else:
+        if folder_path is not None:
+            raise InvalidImageSetError("Folder path must be a string or None.")
 
     if patient_id is not None:
-        if not check_patient_exists(session, patient_id):
-            raise PatientNotFoundError(
-                f"Patient with ID '{patient_id}' does not exist."
-            )
-    if num_images <= 0:
-        raise InvalidImageSetError("Number of images must be greater than zero.")
-
+        if isinstance(patient_id, str):
+            patient_id = patient_id.strip()
+            if not patient_id:
+                raise InvalidImageSetError("Patient ID cannot be empty or whitespace.")
+        #            if not check_patient_exists(session, patient_id):
+        #                raise PatientNotFoundError(f"Patient with ID '{patient_id}' not found.")
+        else:
+            raise InvalidImageSetError("Patient ID must be a string or None.")
     if not description:
         description = None
 

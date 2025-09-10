@@ -4,7 +4,7 @@ BasalCortex = 3
 CoronaRadiata = 3
 
 [path]
-data = "/data"
+data = "/data_set"
 
 [image_adjustments]
 default_brightness = 0

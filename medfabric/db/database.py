@@ -1,47 +1,45 @@
 # pylint: disable=missing-module-docstring, missing-class-docstring, missing-function-docstring
 # /medfabric/db/database.py
+import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy import URL
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.orm import scoped_session
-import streamlit as st
 
 
-# ------------------------
-# 1. Define a base class
-# ------------------------
 class Base(DeclarativeBase):
     pass
 
 
-# ------------------------
-# 2. Database URL
-# ------------------------
 # Syntax: postgresql+psycopg://username:password@host:port/dbname
+
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
+
+# URL_OBJECT = URL.create(
+#    "postgresql+psycopg",
+#    username=os.getenv("POSTGRES_USER"),
+#    password=os.getenv("POSTGRES_PASSWORD"),
+#    host=os.getenv("POSTGRES_HOST"),
+#    port=int(os.getenv("POSTGRES_PORT", "5432")),
+#    database=os.getenv("POSTGRES_DB"),
+# )
+
 URL_OBJECT = URL.create(
     "postgresql+psycopg",
-    username=st.secrets["POSTGRES_USER"],
-    password=st.secrets["POSTGRES_PASSWORD"],
+    username="ibmehust",
+    password="ibmehust2025",
     host="db",
     port=5432,
-    database=st.secrets["POSTGRES_DB"],
+    database="medfabric",
 )
 
-# ------------------------
-# 3. Engine (lazy by default in 2.0)
-# ------------------------
 engine = create_engine(URL_OBJECT, echo=True)  # echo=True logs SQL
 
-# ------------------------
-# 4. Session factory
-# ------------------------
 session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Session = scoped_session(session_factory)
 
 
-# ------------------------
-# 5. Example usage
-# ------------------------
 def get_db():
     db = Session()  # scoped_session creates or reuses current Session
     try:

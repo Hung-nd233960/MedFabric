@@ -5,7 +5,6 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from medfabric.db.database import Base, URL_OBJECT
 
 
-# 1. Cache the engine + session factory globally
 @st.cache_resource
 def get_session_factory():
     engine = create_engine(URL_OBJECT, echo=True)
@@ -15,7 +14,6 @@ def get_session_factory():
 
 SessionFactory = get_session_factory()
 
-# 2. Per-user DB session (stored in Streamlit session_state)
 if "db_session" not in st.session_state:
     st.session_state.db_session = SessionFactory()
 

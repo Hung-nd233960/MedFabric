@@ -12,7 +12,8 @@ services:
     volumes:
       - ./:/app
       - ./medfabric:/app/medfabric:ro
-      - ./public_data:/app/public_data   
+      - ./data_sets:/app/data_sets:ro
+      
   db:
     container_name: medfabric_db
     build:
@@ -24,6 +25,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - db_data:/var/lib/postgresql/data
+      - ./db_backup:/db_backup   
     ports:
       - "5432:5432"
 

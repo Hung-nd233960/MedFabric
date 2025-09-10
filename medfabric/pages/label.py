@@ -98,8 +98,7 @@ def render_text(text: str) -> str:
         return "Basal Ganglia (Central)"
     elif text == "CoronaRadiata":
         return "Corona Radiata"
-    else:
-        return text
+    return text
 
 
 def render_image_region_selection(key: str) -> None:
@@ -599,7 +598,7 @@ with col3:
             invalid_indices = get_invalid_indices(app.app_state.set_status_df)
             if invalid_indices:
                 st.warning(
-                    f"Some image sets are invalid. Invalid set indices: {", ".join(map(str, [i for i in invalid_indices]))}"
+                    f"Some image sets are invalid. Invalid set indices: {list(invalid_indices)}"
                 )
             else:
                 st.success("All image sets are valid.")

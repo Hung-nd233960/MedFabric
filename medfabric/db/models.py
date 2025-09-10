@@ -76,6 +76,19 @@ class Doctors(Base):
         return value
 
 
+class Datasets(Base):
+    __tablename__ = "datasets"
+
+    dataset_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    dataset_uuid: Mapped[uuid_lib.UUID] = mapped_column(
+        UUID(as_uuid=True), default=uuid_lib.uuid4, nullable=False, unique=True
+    )
+    name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+
 class ImageSet(Base):
     """Represents a unique CT scan session (image set) belonging to a patient."""
 

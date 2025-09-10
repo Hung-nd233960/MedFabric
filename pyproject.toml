@@ -1,6 +1,6 @@
 [project]
 name = "MedFabric"
-version = "2.0.0"
+version = "2.1.1"
 description = "A labeling tool for CT scans"
 authors = [{ name = "Hung-nd233960", email = "hung1qqo@gmail.com" }]
 readme = "README.md"
@@ -18,6 +18,7 @@ dependencies = [
     "pylibjpeg-libjpeg (>=2.3.0,<3.0.0)",
     "pylibjpeg-openjpeg (>=2.5.0,<3.0.0)",
     "pydicom (>=3.0.1, <4.0.0)",
+    "dotenv (>=0.9.9,<0.10.0)",
 ]
 
 [build-system]
@@ -26,7 +27,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "medfabric"
-version = "2.0.0"
+version = "2.1.1"
 description = "A labeling tool for CT scans"
 packages = [{ include = "medfabric" }]
 package-mode = false
