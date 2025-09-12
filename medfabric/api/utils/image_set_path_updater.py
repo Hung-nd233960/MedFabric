@@ -1,7 +1,7 @@
 import uuid as uuid_lib
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
-from medfabric.db.models import ImageSet
+from medfabric.db.orm_model import ImageSet
 from medfabric.api.errors import ImageSetNotFoundError, DatabaseError
 
 

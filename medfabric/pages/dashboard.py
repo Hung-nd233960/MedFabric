@@ -5,24 +5,31 @@ import streamlit as st
 import pandas as pd
 from sqlalchemy.orm import Session
 from medfabric.api.errors import EmptyDatasetError
-from medfabric.api.image_set_input import get_all_image_sets, exist_any_image_set
+from medfabric.api.image_set_input import (
+    get_all_image_sets_in_a_data_set,
+    exist_any_image_set,
+)
 from medfabric.api.get_evaluated_sets import get_doctor_image_sets
 from medfabric.pages.dashboard_helper.dashboard_config import (
     config_self,
     config_chosen,
 )
+from medfabric.api.data_sets import get_all_data_sets
 from medfabric.pages.utils import reset
+from medfabric.db.engine import get_session_factory
+from medfabric.pages.utils import sudden_close
+from medfabric.api.patients import get_patient_by_uuid
 
-st.set_page_config(
-    page_title="Dashboard",
-    page_icon=":bar_chart:",
-    layout="wide",
-)
+
+def format_string(s: bool) -> str:
+    if s:
+        return "✅ Evaluated"
+    return "❌ Not Evaluated"
 
 
 @st.cache_data
 def get_image_sets_with_evaluation_status(
-    _db_session: Session, doctor_uuid: uuid_lib.UUID
+    _db_session: Session, doctor_uuid: uuid_lib.UUID, dataset_uuid: uuid_lib.UUID
 ) -> Tuple[pd.DataFrame, int, int, float]:
     """
     Retrieve a DataFrame containing image sets along with their evaluation status by a specific doctor.
@@ -34,14 +41,14 @@ def get_image_sets_with_evaluation_status(
 
     Args:
         doctor_uuid (uuid_lib.UUID): The unique identifier of the doctor.
-
+        dataset_uuid (uuid_lib.UUID): The unique identifier of the dataset to filter image sets.
     Returns:
         Tuple[pd.DataFrame, int, int, float]: A tuple containing:
             - A pandas DataFrame with columns:
                 - scan_id (str): The unique identifier of the image set.
                 - patient_id (str): The unique identifier of the patient.
                 - num_images (int): The number of images in the image set.
-                - evaluated (bool): Whether the image set has been evaluated by the doctor.
+                - evaluated (str): Whether the image set has been evaluated by the doctor.
                 - edit (bool): Placeholder column, currently set to False.
             - The number of evaluated image sets (int).
             - The total number of image sets (int).
@@ -52,7 +59,7 @@ def get_image_sets_with_evaluation_status(
     # Step 1: Get image_set_ids this doctor has evaluated
     evaluated_ids = get_doctor_image_sets(_db_session, doctor_uuid)
     # Step 2: Get all image sets
-    all_image_sets = get_all_image_sets(_db_session)
+    all_image_sets = get_all_image_sets_in_a_data_set(_db_session, dataset_uuid)
     if all_image_sets is None:
         raise EmptyDatasetError("No image sets found in the database.")
     # Step 3: Build DataFrame with evaluation status
@@ -61,10 +68,16 @@ def get_image_sets_with_evaluation_status(
             {
                 "index": imgset.index,
                 "uuid": imgset.uuid,
-                "scan_id": imgset.image_set_id,
-                "patient_id": imgset.patient_id,
+                "scan_id": imgset.image_set_name,
+                "patient_id": (
+                    patient.patient_id
+                    if (
+                        patient := get_patient_by_uuid(_db_session, imgset.patient_uuid)
+                    )
+                    else "N/A"
+                ),
                 "num_images": imgset.num_images,
-                "evaluated": imgset.uuid in evaluated_ids,
+                "evaluated": format_string(imgset.uuid in evaluated_ids),
                 "edit": False,
             }
             for imgset in all_image_sets
@@ -77,46 +90,51 @@ def get_image_sets_with_evaluation_status(
 
 
 # Column configuration for displaying self-labeled data
-
-doctor_uuid = st.session_state.get("user")
+sess = st.session_state
 doctor_session = st.session_state.get("user_session")
 st.set_page_config(
     page_title="Dashboard",
     page_icon=":bar_chart:",
     layout="wide",
 )
-db_session = st.session_state.get("db_session")
-if doctor_uuid is None:
-    st.error("You must be logged in to view this information.")
-    st.stop()
-elif doctor_session is None:
-    st.error("User session not found. Please log in again.")
-    st.stop()
-elif "db_session" not in st.session_state or db_session is None:
-    st.error("Database session not found. Please restart the application.")
-    st.stop()
-elif not exist_any_image_set(db_session):
-    st.error("Error retrieving image sets. Please contact the maintainer.")
-    st.stop()
-else:
-    st.title("Dashboard")
+if "dashboard_initialized" not in st.session_state:
+    db_session = get_session_factory()()
+    if doctor_session is None:
+        st.error("User session not found. Please log in again.")
+        sudden_close(db_session)
+    elif not exist_any_image_set(db_session):
+        st.error("Error retrieving image sets. Please contact the maintainer.")
+        sudden_close(db_session)
+    else:
+        all_datasets = get_all_data_sets(db_session)
+        current_dataset = all_datasets[0]
+        df, evaluated_count, total_count, progress = (
+            get_image_sets_with_evaluation_status(
+                db_session, doctor_session.doctor_uuid, current_dataset.dataset_uuid
+            )
+        )
+        db_session.close()
+        st.session_state.all_sets_df = df
+        st.session_state.evaluated_count = evaluated_count
+        st.session_state.total_count = total_count
+        st.session_state.progress = progress
+        st.session_state.db_session = db_session
+        st.session_state.dashboard_initialized = True
 
-    df, evaluated_count, total_count, progress = get_image_sets_with_evaluation_status(
-        db_session, doctor_uuid
-    )
 
+if st.session_state.get("dashboard_initialized", True):
     st.progress(
-        value=progress,
+        value=sess.progress,
         text=(
-            f"Patients Labeled: {evaluated_count} / {total_count} "
-            f"({progress * 100:.2f}%)"
+            f"Patients Labeled: {sess.evaluated_count} / {sess.total_count} "
+            f"({sess.progress * 100:.2f}%)"
         ),
     )
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Choose scans to evaluate")
         edited_data = st.data_editor(
-            data=df,
+            data=sess.all_sets_df,
             width="stretch",
             column_config=config_self,
             disabled=[
@@ -156,6 +174,7 @@ else:
                 key="selected_image_sets",
             )
             st.write(f"You have chosen {len(selected_scans)} scans for evaluation.")
+
             if st.button("Evaluate Selected Scans"):
                 # Store selected scans in session state for further processing
                 st.session_state.selected_scans = selected_scans["uuid"].tolist()

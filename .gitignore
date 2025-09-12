@@ -1,22 +1,10 @@
 .conda/
 .venv/
 .mypy_cache/
-data/
-.vscode/
 __pycache__/
 .github/
 deprecated/
 .pytest_cache/
-
-# Dependencies
-node_modules/
-
-# Builds / packaged apps
-dist/
-out/
-build/
-release/
-*.asar
 
 # Temp / cache
 .npm/
@@ -24,20 +12,9 @@ release/
 .yarn-cache/
 .cache/
 
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-*.log
-
-# OS files
-.DS_Store
-Thumbs.db
 
 # Editor settings
 .vscode/
-.idea/
 
 # Env / secrets
 .env
@@ -46,3 +23,8 @@ Thumbs.db
 dev_data/
 results/
 testing_env/
+.streamlit/secrets.toml
+
+data_sets/*
+!data_sets/.gitkeep
+public_data/*

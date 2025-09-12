@@ -5,7 +5,9 @@ from typing import Optional
 from enum import Enum
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from medfabric.db.models import ImageEvaluation, Region
+from pydantic import ValidationError
+from medfabric.db.orm_model import ImageEvaluation, Region
+from medfabric.db.pydantic_model import ImageEvaluationCreate
 from medfabric.api.errors import (
     UserNotFoundError,
     ImageNotFoundError,
@@ -29,9 +31,9 @@ from medfabric.api.config import SCORE_LIMITS
 
 def add_evaluate_image(
     session: Session,
-    doctor_id: uuid_lib.UUID,
+    doctor_uuid: uuid_lib.UUID,
     image_uuid: uuid_lib.UUID,
-    session_id: uuid_lib.UUID,
+    session_uuid: uuid_lib.UUID,
     region: Region = Region.None_,
     basal_score_central_left: Optional[int] = None,
     basal_score_central_right: Optional[int] = None,
@@ -44,76 +46,100 @@ def add_evaluate_image(
     """
     Evaluates a single image by a doctor.
     """
+    try:
+        image_eval_validate = ImageEvaluationCreate(
+            doctor_uuid=doctor_uuid,
+            image_uuid=image_uuid,
+            session_uuid=session_uuid,
+            region=region,
+            basal_score_central_left=basal_score_central_left,
+            basal_score_central_right=basal_score_central_right,
+            basal_score_cortex_left=basal_score_cortex_left,
+            basal_score_cortex_right=basal_score_cortex_right,
+            corona_score_left=corona_score_left,
+            corona_score_right=corona_score_right,
+            notes=notes,
+        )
+        doctor_uuid_ = image_eval_validate.doctor_uuid
+        image_uuid_ = image_eval_validate.image_uuid
+        session_uuid_ = image_eval_validate.session_uuid
+        region_ = image_eval_validate.region
+        basal_score_central_left_ = image_eval_validate.basal_score_central_left
+        basal_score_central_right_ = image_eval_validate.basal_score_central_right
+        basal_score_cortex_left_ = image_eval_validate.basal_score_cortex_left
+        basal_score_cortex_right_ = image_eval_validate.basal_score_cortex_right
+        corona_score_left_ = image_eval_validate.corona_score_left
+        corona_score_right_ = image_eval_validate.corona_score_right
+        notes_ = image_eval_validate.notes
+    except ValidationError as e:
+        raise InvalidEvaluationError(f"Invalid evaluation data: {e}") from e
 
     # --- Entity existence checks ---
-    if not doctor_exists(session, doctor_id):
+    if not doctor_exists(session, doctor_uuid_):
         raise UserNotFoundError("Doctor with the given UUID does not exist.")
 
-    if not check_image_exists_by_uuid(session, image_uuid):
+    if not check_image_exists_by_uuid(session, image_uuid_):
         raise ImageNotFoundError("Image with the given UUID does not exist.")
 
-    session_result = get_session(session, session_id)
+    session_result = get_session(session, session_uuid_)
     if not session_result:
         raise SessionNotFoundError("Session with the given ID does not exist.")
 
-    if session_result.doctor_id != doctor_id:
+    if session_result.doctor_uuid != doctor_uuid_:
         raise SessionMismatchError("The session does not belong to the given doctor.")
 
     if not session_result.is_active:
         raise SessionInactiveError("The session is not active.")
-
-    if not isinstance(region, Region):
-        raise InvalidEvaluationError(f"Expected Region, got {region!r}")
-
-    image_set_uuid = get_set_id_from_image_id(session, image_uuid)
-    if not image_set_uuid:
-        raise ImageNotFoundError("Image does not belong to any image set.")
-
+    image_set_uuid_ = get_set_id_from_image_id(session, image_uuid_)
+    if not image_set_uuid_:
+        raise ImageNotFoundError("Image with the given UUID does not exist.")
     # --- Duplicate evaluation checks ---
-    if check_set_evaluation_exists(session, doctor_id, image_set_uuid, session_id):
+    if check_set_evaluation_exists(
+        session, doctor_uuid_, image_set_uuid_, session_uuid_
+    ):
         raise EvaluationAlreadyExistsError(
             "An evaluation for this image set by the doctor in the given session already exists."
         )
 
-    if check_image_evaluation_exists(session, doctor_id, image_uuid, session_id):
+    if check_image_evaluation_exists(session, doctor_uuid_, image_uuid_, session_uuid_):
         raise EvaluationAlreadyExistsError(
             "An evaluation for this image by the doctor in the given session already exists."
         )
 
     # --- Validate region and score consistency ---
     region_score_requirements(
-        region,
-        basal_score_central_left,
-        basal_score_central_right,
-        basal_score_cortex_left,
-        basal_score_cortex_right,
-        corona_score_left,
-        corona_score_right,
+        region_,
+        basal_score_central_left_,
+        basal_score_central_right_,
+        basal_score_cortex_left_,
+        basal_score_cortex_right_,
+        corona_score_left_,
+        corona_score_right_,
     )
 
     # Check score ranges
     validate_evaluation_scores(
-        basal_score_central_left=basal_score_central_left,
-        basal_score_central_right=basal_score_central_right,
-        basal_score_cortex_left=basal_score_cortex_left,
-        basal_score_cortex_right=basal_score_cortex_right,
-        corona_score_left=corona_score_left,
-        corona_score_right=corona_score_right,
+        basal_score_central_left=basal_score_central_left_,
+        basal_score_central_right=basal_score_central_right_,
+        basal_score_cortex_left=basal_score_cortex_left_,
+        basal_score_cortex_right=basal_score_cortex_right_,
+        corona_score_left=corona_score_left_,
+        corona_score_right=corona_score_right_,
     )
 
     # --- Create evaluation ---
     evaluation = ImageEvaluation(
-        doctor_id=doctor_id,
-        image_uuid=image_uuid,
-        session_id=session_id,
-        region=region,
-        basal_score_central_left=basal_score_central_left,
-        basal_score_central_right=basal_score_central_right,
-        basal_score_cortex_left=basal_score_cortex_left,
-        basal_score_cortex_right=basal_score_cortex_right,
-        corona_score_left=corona_score_left,
-        corona_score_right=corona_score_right,
-        notes=notes,
+        doctor_uuid=doctor_uuid_,
+        image_uuid=image_uuid_,
+        session_uuid=session_uuid_,
+        region=region_,
+        basal_score_central_left=basal_score_central_left_,
+        basal_score_central_right=basal_score_central_right_,
+        basal_score_cortex_left=basal_score_cortex_left_,
+        basal_score_cortex_right=basal_score_cortex_right_,
+        corona_score_left=corona_score_left_,
+        corona_score_right=corona_score_right_,
+        notes=notes_,
     )
 
     try:
@@ -127,25 +153,27 @@ def add_evaluate_image(
 
 def check_image_evaluation_exists(
     session: Session,
-    doctor_id: uuid_lib.UUID,
+    doctor_uuid: uuid_lib.UUID,
     image_uuid: uuid_lib.UUID,
-    session_id: uuid_lib.UUID,
+    session_uuid: uuid_lib.UUID,
 ) -> bool:
     """
     Checks if an image evaluation exists for the given doctor, image, and session.
 
     Args:
         session (Session): SQLAlchemy session.
-        doctor_id (uuid.UUID): ID of the doctor.
+        doctor_uuid (uuid.UUID): ID of the doctor.
         image_uuid (uuid.UUID): ID of the image.
-        session_id (uuid.UUID): ID of the session.
+        session_uuid (uuid.UUID): ID of the session.
 
     Returns:
         bool: True if the evaluation exists, False otherwise.
     """
     return (
         session.query(ImageEvaluation)
-        .filter_by(doctor_id=doctor_id, image_uuid=image_uuid, session_id=session_id)
+        .filter_by(
+            doctor_uuid=doctor_uuid, image_uuid=image_uuid, session_uuid=session_uuid
+        )
         .first()
         is not None
     )
@@ -209,7 +237,12 @@ def region_score_requirements(
             "forbidden": list(scores.keys()),
         },
         Region.BasalCentral: {
-            "required": ["basal_score_central_left", "basal_score_central_right"],
+            "required": [
+                "basal_score_central_left",
+                "basal_score_central_right",
+                "basal_score_cortex_left",
+                "basal_score_cortex_right",
+            ],
             "forbidden": ["corona_score_left", "corona_score_right"],
         },
         Region.BasalCortex: {

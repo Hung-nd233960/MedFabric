@@ -10,6 +10,9 @@ ignore =
     .tox,
     .eggs,
     *.egg-info
+    .ipynb_checkpoints
+    .streamlit
+    deprecated
 
 init-hook='import sys; sys.path.append(".")'
 load-plugins=pylint.extensions.docparams

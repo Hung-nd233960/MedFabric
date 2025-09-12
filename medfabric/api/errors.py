@@ -7,6 +7,23 @@ class MedFabricError(Exception):
     """Base class for all MedFabric API errors."""
 
 
+# --- DataSet domain ---
+class DataSetError(MedFabricError):
+    """Base class for data set-related errors."""
+
+
+class InvalidDataSetError(DataSetError):
+    """Raised when a data set is invalid or does not meet criteria."""
+
+
+class DataSetNotFoundError(DataSetError):
+    """Raised when a data set is not found."""
+
+
+class DataSetAlreadyExistsError(DataSetError):
+    """Raised when a data set with the same name already exists."""
+
+
 # --- Session-related errors ---
 class SessionError(MedFabricError):
     """Base class for session-related errors."""

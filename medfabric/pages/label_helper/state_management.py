@@ -17,8 +17,6 @@ from enum import Enum, auto
 from dataclasses import dataclass, field
 from typing import Optional, List, Union
 import pandas as pd
-
-from sqlalchemy.orm import Session as db_Session
 from medfabric.pages.label_helper.session_initialization import (
     ImageSetEvaluationSession,
 )
@@ -31,6 +29,7 @@ from medfabric.api.config import DEFAULT_BRIGHTNESS, DEFAULT_CONTRAST
 class EventType(Enum):
     """Types of user interaction events."""
 
+    LOGIN = auto()
     # Image Controls
     NEXT_IMAGE = auto()
     PREV_IMAGE = auto()
@@ -96,7 +95,6 @@ class LabelingAppState:
     labeling_session: List[ImageSetEvaluationSession]
     doctor_id: uuid_lib.UUID
     login_session: uuid_lib.UUID
-    db_session: db_Session
     brightness: int = DEFAULT_BRIGHTNESS
     contrast: float = DEFAULT_CONTRAST
     filter_type: FilterType = FilterType.NONE

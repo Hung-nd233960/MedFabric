@@ -2,7 +2,7 @@ from typing import Optional, List
 from dataclasses import dataclass, field
 import uuid as uuid_lib
 from sqlalchemy.orm import Session as db_Session
-from medfabric.db.models import (
+from medfabric.db.orm_model import (
     ImageEvaluation,
     ImageSetEvaluation,
 )
@@ -39,9 +39,9 @@ def submit_result_image(
     """
     evaluation = add_evaluate_image(
         session=db_session,
-        doctor_id=doctor_uuid,
+        doctor_uuid=doctor_uuid,
         image_uuid=result.image_uuid,
-        session_id=session_uuid,
+        session_uuid=session_uuid,
         region=result.region,
         basal_score_central_left=result.basal_score_central_left,
         basal_score_central_right=result.basal_score_central_right,
@@ -71,9 +71,9 @@ def submit_result_image_set_evaluation(
     """
     evaluation = add_evaluate_image_set(
         session=db_session,
-        doctor_id=doctor_uuid,
+        doctor_uuid=doctor_uuid,
         image_set_uuid=result.uuid,
-        session_id=session_uuid,
+        session_uuid=session_uuid,
         is_low_quality=result.low_quality,
         is_irrelevant=result.irrelevant_data,
     )
@@ -95,16 +95,16 @@ def submit_image_set_results(
         session_uuid: UUID of the evaluation session.
         result: ImageSetEvaluationSession object containing the evaluation details.
     Returns:
-        SubmissionResult object containing either the ImageSetEvaluation or a list of ImageEvaluations.
+        SubmissionResult object containing either the
+        ImageSetEvaluation or a list of ImageEvaluations.
     """
     if result.low_quality or result.irrelevant_data:
         set_eval = submit_result_image_set_evaluation(
             db_session, doctor_uuid, session_uuid, result
         )
         return SubmissionResult(set_evaluation=set_eval)
-    else:
-        image_evals = [
-            submit_result_image(db_session, doctor_uuid, session_uuid, img_sess)
-            for img_sess in result.images_sessions
-        ]
+    image_evals = [
+        submit_result_image(db_session, doctor_uuid, session_uuid, img_sess)
+        for img_sess in result.images_sessions
+    ]
     return SubmissionResult(image_evaluations=[e for e in image_evals if e])

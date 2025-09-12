@@ -1,0 +1,527 @@
+image_set_name,patient_id,dataset_name,folder_path,num_images
+CT Plain,CQ500-CT-407,public_dev,data_sets/public_dev/CQ500-CT-407/CT Plain,34
+CT PLAIN THIN,CQ500-CT-407,public_dev,data_sets/public_dev/CQ500-CT-407/CT PLAIN THIN,272
+CT Plain THIN,CQ500-CT-445,public_dev,data_sets/public_dev/CQ500-CT-445/CT Plain THIN,307
+CT Plain 3mm,CQ500-CT-445,public_dev,data_sets/public_dev/CQ500-CT-445/CT Plain 3mm,52
+CT Plain,CQ500-CT-431,public_dev,data_sets/public_dev/CQ500-CT-431/CT Plain,32
+CT PLAIN THIN,CQ500-CT-431,public_dev,data_sets/public_dev/CQ500-CT-431/CT PLAIN THIN,96
+CT Plain-2,CQ500-CT-431,public_dev,data_sets/public_dev/CQ500-CT-431/CT Plain-2,12
+CT PLAIN THIN-2,CQ500-CT-431,public_dev,data_sets/public_dev/CQ500-CT-431/CT PLAIN THIN-2,256
+CT Plain 3mm-2,CQ500-CT-487,public_dev,data_sets/public_dev/CQ500-CT-487/CT Plain 3mm-2,53
+CT Plain 3mm,CQ500-CT-487,public_dev,data_sets/public_dev/CQ500-CT-487/CT Plain 3mm,30
+CT Plain,CQ500-CT-460,public_dev,data_sets/public_dev/CQ500-CT-460/CT Plain,32
+CT PLAIN THIN,CQ500-CT-460,public_dev,data_sets/public_dev/CQ500-CT-460/CT PLAIN THIN,123
+CT PRE CONTRAST THIN,CQ500-CT-191,public_dev,data_sets/public_dev/CQ500-CT-191/CT PRE CONTRAST THIN,260
+CT PRE CONTRAST 5MM STD,CQ500-CT-191,public_dev,data_sets/public_dev/CQ500-CT-191/CT PRE CONTRAST 5MM STD,33
+CT 55mm Plain,CQ500-CT-302,public_dev,data_sets/public_dev/CQ500-CT-302/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-302,public_dev,data_sets/public_dev/CQ500-CT-302/CT Thin Plain,256
+CT PRE CONTRAST THIN,CQ500-CT-36,public_dev,data_sets/public_dev/CQ500-CT-36/CT PRE CONTRAST THIN,233
+CT PRE CONTRAST 5MM STD,CQ500-CT-36,public_dev,data_sets/public_dev/CQ500-CT-36/CT PRE CONTRAST 5MM STD,30
+CT Plain,CQ500-CT-267,public_dev,data_sets/public_dev/CQ500-CT-267/CT Plain,30
+CT C,CQ500-CT-267,public_dev,data_sets/public_dev/CQ500-CT-267/CT C,30
+CT C THIN,CQ500-CT-267,public_dev,data_sets/public_dev/CQ500-CT-267/CT C THIN,122
+CT PLAIN THIN,CQ500-CT-267,public_dev,data_sets/public_dev/CQ500-CT-267/CT PLAIN THIN,240
+CT Plain,CQ500-CT-38,public_dev,data_sets/public_dev/CQ500-CT-38/CT Plain,30
+CT PLAIN THIN,CQ500-CT-38,public_dev,data_sets/public_dev/CQ500-CT-38/CT PLAIN THIN,69
+CT PRE CONTRAST THIN,CQ500-CT-390,public_dev,data_sets/public_dev/CQ500-CT-390/CT PRE CONTRAST THIN,222
+CT PRE CONTRAST 5MM STD,CQ500-CT-390,public_dev,data_sets/public_dev/CQ500-CT-390/CT PRE CONTRAST 5MM STD,28
+CT 5mm POST CONTRAST,CQ500-CT-390,public_dev,data_sets/public_dev/CQ500-CT-390/CT 5mm POST CONTRAST,222
+CT PRE CONTRAST THIN,CQ500-CT-124,public_dev,data_sets/public_dev/CQ500-CT-124/CT PRE CONTRAST THIN,226
+CT PRE CONTRAST 5MM STD,CQ500-CT-124,public_dev,data_sets/public_dev/CQ500-CT-124/CT PRE CONTRAST 5MM STD,29
+CT 5mm POST CONTRAST,CQ500-CT-124,public_dev,data_sets/public_dev/CQ500-CT-124/CT 5mm POST CONTRAST,232
+CT Plain THIN,CQ500-CT-484,public_dev,data_sets/public_dev/CQ500-CT-484/CT Plain THIN,349
+CT Plain 3mm,CQ500-CT-484,public_dev,data_sets/public_dev/CQ500-CT-484/CT Plain 3mm,42
+CT 5mm,CQ500-CT-2,public_dev,data_sets/public_dev/CQ500-CT-2/CT 5mm,32
+CT 0.625mm,CQ500-CT-2,public_dev,data_sets/public_dev/CQ500-CT-2/CT 0.625mm,256
+CT 55mm Plain,CQ500-CT-44,public_dev,data_sets/public_dev/CQ500-CT-44/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-44,public_dev,data_sets/public_dev/CQ500-CT-44/CT Thin Plain,41
+CT PRE CONTRAST THIN,CQ500-CT-47,public_dev,data_sets/public_dev/CQ500-CT-47/CT PRE CONTRAST THIN,228
+CT PRE CONTRAST 5MM STD,CQ500-CT-47,public_dev,data_sets/public_dev/CQ500-CT-47/CT PRE CONTRAST 5MM STD,29
+CT 5mm,CQ500-CT-193,public_dev,data_sets/public_dev/CQ500-CT-193/CT 5mm,32
+CT 0.625mm,CQ500-CT-193,public_dev,data_sets/public_dev/CQ500-CT-193/CT 0.625mm,256
+CT Plain,CQ500-CT-178,public_dev,data_sets/public_dev/CQ500-CT-178/CT Plain,26
+CT PLAIN THIN,CQ500-CT-178,public_dev,data_sets/public_dev/CQ500-CT-178/CT PLAIN THIN,208
+CT Plain,CQ500-CT-335,public_dev,data_sets/public_dev/CQ500-CT-335/CT Plain,28
+CT PLAIN THIN,CQ500-CT-335,public_dev,data_sets/public_dev/CQ500-CT-335/CT PLAIN THIN,7
+CT PLAIN THIN,CQ500-CT-272,public_dev,data_sets/public_dev/CQ500-CT-272/CT PLAIN THIN,194
+CT PRE CONTRAST THIN,CQ500-CT-441,public_dev,data_sets/public_dev/CQ500-CT-441/CT PRE CONTRAST THIN,231
+CT PRE CONTRAST 5MM STD,CQ500-CT-441,public_dev,data_sets/public_dev/CQ500-CT-441/CT PRE CONTRAST 5MM STD,29
+CT Axial 0.625 HiResVS40,CQ500-CT-93,public_dev,data_sets/public_dev/CQ500-CT-93/CT Axial 0.625 HiResVS40,205
+CT 0.625 MM HI RES,CQ500-CT-93,public_dev,data_sets/public_dev/CQ500-CT-93/CT 0.625 MM HI RES,156
+CT PRE CONTRAST THIN,CQ500-CT-93,public_dev,data_sets/public_dev/CQ500-CT-93/CT PRE CONTRAST THIN,233
+CT PLAIN THIN,CQ500-CT-79,public_dev,data_sets/public_dev/CQ500-CT-79/CT PLAIN THIN,221
+CT PRE CONTRAST THIN,CQ500-CT-74,public_dev,data_sets/public_dev/CQ500-CT-74/CT PRE CONTRAST THIN,240
+CT PRE CONTRAST 5MM STD,CQ500-CT-74,public_dev,data_sets/public_dev/CQ500-CT-74/CT PRE CONTRAST 5MM STD,30
+CT Plain,CQ500-CT-350,public_dev,data_sets/public_dev/CQ500-CT-350/CT Plain,32
+CT PLAIN THIN,CQ500-CT-350,public_dev,data_sets/public_dev/CQ500-CT-350/CT PLAIN THIN,197
+CT Plain 3mm,CQ500-CT-131,public_dev,data_sets/public_dev/CQ500-CT-131/CT Plain 3mm,49
+CT 55mm Plain,CQ500-CT-81,public_dev,data_sets/public_dev/CQ500-CT-81/CT 55mm Plain,36
+CT Thin Plain,CQ500-CT-81,public_dev,data_sets/public_dev/CQ500-CT-81/CT Thin Plain,288
+CT Plain,CQ500-CT-85,public_dev,data_sets/public_dev/CQ500-CT-85/CT Plain,34
+CT POST CONTRAST,CQ500-CT-85,public_dev,data_sets/public_dev/CQ500-CT-85/CT POST CONTRAST,256
+CT POST CONTRAST-2,CQ500-CT-85,public_dev,data_sets/public_dev/CQ500-CT-85/CT POST CONTRAST-2,32
+CT PLAIN THIN,CQ500-CT-85,public_dev,data_sets/public_dev/CQ500-CT-85/CT PLAIN THIN,272
+CT PRE CONTRAST THIN,CQ500-CT-77,public_dev,data_sets/public_dev/CQ500-CT-77/CT PRE CONTRAST THIN,233
+CT PRE CONTRAST 5MM STD,CQ500-CT-77,public_dev,data_sets/public_dev/CQ500-CT-77/CT PRE CONTRAST 5MM STD,30
+CT Plain,CQ500-CT-258,public_dev,data_sets/public_dev/CQ500-CT-258/CT Plain,34
+CT PLAIN THIN,CQ500-CT-258,public_dev,data_sets/public_dev/CQ500-CT-258/CT PLAIN THIN,1
+CT Plain THIN,CQ500-CT-151,public_dev,data_sets/public_dev/CQ500-CT-151/CT Plain THIN,325
+CT Plain 3mm,CQ500-CT-151,public_dev,data_sets/public_dev/CQ500-CT-151/CT Plain 3mm,55
+CT POST CONTRAST-4,CQ500-CT-442,public_dev,data_sets/public_dev/CQ500-CT-442/CT POST CONTRAST-4,256
+CT 55mm Plain,CQ500-CT-442,public_dev,data_sets/public_dev/CQ500-CT-442/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-442,public_dev,data_sets/public_dev/CQ500-CT-442/CT Thin Plain,256
+CT POST CONTRAST,CQ500-CT-442,public_dev,data_sets/public_dev/CQ500-CT-442/CT POST CONTRAST,32
+CT POST CONTRAST-2,CQ500-CT-442,public_dev,data_sets/public_dev/CQ500-CT-442/CT POST CONTRAST-2,8
+CT POST CONTRAST-3,CQ500-CT-442,public_dev,data_sets/public_dev/CQ500-CT-442/CT POST CONTRAST-3,64
+CT Plain,CQ500-CT-329,public_dev,data_sets/public_dev/CQ500-CT-329/CT Plain,32
+CT HRCT,CQ500-CT-329,public_dev,data_sets/public_dev/CQ500-CT-329/CT HRCT,98
+CT PLAIN THIN,CQ500-CT-329,public_dev,data_sets/public_dev/CQ500-CT-329/CT PLAIN THIN,256
+CT PRE CONTRAST THIN,CQ500-CT-97,public_dev,data_sets/public_dev/CQ500-CT-97/CT PRE CONTRAST THIN,245
+CT PRE CONTRAST 5MM STD,CQ500-CT-97,public_dev,data_sets/public_dev/CQ500-CT-97/CT PRE CONTRAST 5MM STD,31
+CT Plain,CQ500-CT-255,public_dev,data_sets/public_dev/CQ500-CT-255/CT Plain,28
+CT PLAIN THIN,CQ500-CT-255,public_dev,data_sets/public_dev/CQ500-CT-255/CT PLAIN THIN,224
+CT 55mm Plain,CQ500-CT-365,public_dev,data_sets/public_dev/CQ500-CT-365/CT 55mm Plain,32
+CT Thin Plain-2,CQ500-CT-365,public_dev,data_sets/public_dev/CQ500-CT-365/CT Thin Plain-2,556
+CT Thin Plain,CQ500-CT-365,public_dev,data_sets/public_dev/CQ500-CT-365/CT Thin Plain,256
+CT 55mm Plain,CQ500-CT-320,public_dev,data_sets/public_dev/CQ500-CT-320/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-320,public_dev,data_sets/public_dev/CQ500-CT-320/CT Thin Plain,200
+CT PRE CONTRAST THIN,CQ500-CT-472,public_dev,data_sets/public_dev/CQ500-CT-472/CT PRE CONTRAST THIN,233
+CT PRE CONTRAST 5MM STD,CQ500-CT-472,public_dev,data_sets/public_dev/CQ500-CT-472/CT PRE CONTRAST 5MM STD,30
+CT Plain 3mm,CQ500-CT-295,public_dev,data_sets/public_dev/CQ500-CT-295/CT Plain 3mm,53
+CT 55mm Plain,CQ500-CT-53,public_dev,data_sets/public_dev/CQ500-CT-53/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-53,public_dev,data_sets/public_dev/CQ500-CT-53/CT Thin Plain,256
+CT Plain,CQ500-CT-70,public_dev,data_sets/public_dev/CQ500-CT-70/CT Plain,36
+CT PLAIN THIN,CQ500-CT-70,public_dev,data_sets/public_dev/CQ500-CT-70/CT PLAIN THIN,76
+CT Thin Plain,CQ500-CT-163,public_dev,data_sets/public_dev/CQ500-CT-163/CT Thin Plain,4
+CT 55mm Plain,CQ500-CT-451,public_dev,data_sets/public_dev/CQ500-CT-451/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-451,public_dev,data_sets/public_dev/CQ500-CT-451/CT Thin Plain,256
+CT Plain,CQ500-CT-171,public_dev,data_sets/public_dev/CQ500-CT-171/CT Plain,32
+CT PLAIN THIN,CQ500-CT-171,public_dev,data_sets/public_dev/CQ500-CT-171/CT PLAIN THIN,18
+CT Plain,CQ500-CT-292,public_dev,data_sets/public_dev/CQ500-CT-292/CT Plain,30
+CT C,CQ500-CT-292,public_dev,data_sets/public_dev/CQ500-CT-292/CT C,30
+CT C THIN,CQ500-CT-292,public_dev,data_sets/public_dev/CQ500-CT-292/CT C THIN,240
+CT PLAIN THIN,CQ500-CT-292,public_dev,data_sets/public_dev/CQ500-CT-292/CT PLAIN THIN,240
+CT PRE CONTRAST THIN,CQ500-CT-414,public_dev,data_sets/public_dev/CQ500-CT-414/CT PRE CONTRAST THIN,233
+CT PRE CONTRAST 5MM STD,CQ500-CT-414,public_dev,data_sets/public_dev/CQ500-CT-414/CT PRE CONTRAST 5MM STD,30
+CT Plain,CQ500-CT-218,public_dev,data_sets/public_dev/CQ500-CT-218/CT Plain,26
+CT PLAIN THIN,CQ500-CT-218,public_dev,data_sets/public_dev/CQ500-CT-218/CT PLAIN THIN,207
+CT PLAIN THIN,CQ500-CT-448,public_dev,data_sets/public_dev/CQ500-CT-448/CT PLAIN THIN,214
+CT Plain,CQ500-CT-387,public_dev,data_sets/public_dev/CQ500-CT-387/CT Plain,32
+CT PLAIN THIN,CQ500-CT-387,public_dev,data_sets/public_dev/CQ500-CT-387/CT PLAIN THIN,16
+CT PRE CONTRAST THIN,CQ500-CT-353,public_dev,data_sets/public_dev/CQ500-CT-353/CT PRE CONTRAST THIN,228
+CT PRE CONTRAST 5MM STD,CQ500-CT-353,public_dev,data_sets/public_dev/CQ500-CT-353/CT PRE CONTRAST 5MM STD,29
+CT PRE CONTRAST THIN,CQ500-CT-88,public_dev,data_sets/public_dev/CQ500-CT-88/CT PRE CONTRAST THIN,247
+CT PRE CONTRAST 5MM STD,CQ500-CT-88,public_dev,data_sets/public_dev/CQ500-CT-88/CT PRE CONTRAST 5MM STD,31
+CT 5mm POST CONTRAST,CQ500-CT-88,public_dev,data_sets/public_dev/CQ500-CT-88/CT 5mm POST CONTRAST,247
+CT Plain,CQ500-CT-280,public_dev,data_sets/public_dev/CQ500-CT-280/CT Plain,30
+CT PLAIN THIN,CQ500-CT-280,public_dev,data_sets/public_dev/CQ500-CT-280/CT PLAIN THIN,56
+CT Plain,CQ500-CT-464,public_dev,data_sets/public_dev/CQ500-CT-464/CT Plain,32
+CT PLAIN THIN,CQ500-CT-464,public_dev,data_sets/public_dev/CQ500-CT-464/CT PLAIN THIN,12
+CT Plain,CQ500-CT-301,public_dev,data_sets/public_dev/CQ500-CT-301/CT Plain,32
+CT PLAIN THIN,CQ500-CT-301,public_dev,data_sets/public_dev/CQ500-CT-301/CT PLAIN THIN,256
+CT 55mm Plain,CQ500-CT-212,public_dev,data_sets/public_dev/CQ500-CT-212/CT 55mm Plain,36
+CT Thin Plain,CQ500-CT-212,public_dev,data_sets/public_dev/CQ500-CT-212/CT Thin Plain,232
+CT PLAIN THIN,CQ500-CT-317,public_dev,data_sets/public_dev/CQ500-CT-317/CT PLAIN THIN,91
+CT Plain,CQ500-CT-490,public_dev,data_sets/public_dev/CQ500-CT-490/CT Plain,30
+CT PLAIN THIN,CQ500-CT-490,public_dev,data_sets/public_dev/CQ500-CT-490/CT PLAIN THIN,46
+CT Plain THIN,CQ500-CT-100,public_dev,data_sets/public_dev/CQ500-CT-100/CT Plain THIN,337
+CT Plain 3mm,CQ500-CT-100,public_dev,data_sets/public_dev/CQ500-CT-100/CT Plain 3mm,57
+CT 55mm Plain,CQ500-CT-465,public_dev,data_sets/public_dev/CQ500-CT-465/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-465,public_dev,data_sets/public_dev/CQ500-CT-465/CT Thin Plain,256
+CT PLAIN THIN,CQ500-CT-204,public_dev,data_sets/public_dev/CQ500-CT-204/CT PLAIN THIN,240
+CT PRE CONTRAST THIN,CQ500-CT-105,public_dev,data_sets/public_dev/CQ500-CT-105/CT PRE CONTRAST THIN,224
+CT I To S,CQ500-CT-105,public_dev,data_sets/public_dev/CQ500-CT-105/CT I To S,232
+CT PRE CONTRAST 5MM STD,CQ500-CT-105,public_dev,data_sets/public_dev/CQ500-CT-105/CT PRE CONTRAST 5MM STD,28
+CT 5mm,CQ500-CT-361,public_dev,data_sets/public_dev/CQ500-CT-361/CT 5mm,32
+CT 0.625mm,CQ500-CT-361,public_dev,data_sets/public_dev/CQ500-CT-361/CT 0.625mm,256
+CT Plain,CQ500-CT-164,public_dev,data_sets/public_dev/CQ500-CT-164/CT Plain,30
+CT POST CONTRAST,CQ500-CT-164,public_dev,data_sets/public_dev/CQ500-CT-164/CT POST CONTRAST,240
+CT POST CONTRAST-2,CQ500-CT-164,public_dev,data_sets/public_dev/CQ500-CT-164/CT POST CONTRAST-2,30
+CT PLAIN THIN,CQ500-CT-164,public_dev,data_sets/public_dev/CQ500-CT-164/CT PLAIN THIN,240
+CT Plain,CQ500-CT-323,public_dev,data_sets/public_dev/CQ500-CT-323/CT Plain,30
+CT PLAIN THIN,CQ500-CT-323,public_dev,data_sets/public_dev/CQ500-CT-323/CT PLAIN THIN,240
+CT 0.625mm-2,CQ500-CT-401,public_dev,data_sets/public_dev/CQ500-CT-401/CT 0.625mm-2,256
+CT 5mm,CQ500-CT-401,public_dev,data_sets/public_dev/CQ500-CT-401/CT 5mm,32
+CT 0.625mm,CQ500-CT-401,public_dev,data_sets/public_dev/CQ500-CT-401/CT 0.625mm,256
+CT 5mm-2,CQ500-CT-401,public_dev,data_sets/public_dev/CQ500-CT-401/CT 5mm-2,32
+CT PRE CONTRAST THIN,CQ500-CT-39,public_dev,data_sets/public_dev/CQ500-CT-39/CT PRE CONTRAST THIN,233
+CT PRE CONTRAST 5MM STD,CQ500-CT-39,public_dev,data_sets/public_dev/CQ500-CT-39/CT PRE CONTRAST 5MM STD,30
+CT PLAIN THIN,CQ500-CT-30,public_dev,data_sets/public_dev/CQ500-CT-30/CT PLAIN THIN,256
+CT PRE CONTRAST THIN,CQ500-CT-482,public_dev,data_sets/public_dev/CQ500-CT-482/CT PRE CONTRAST THIN,250
+CT PRE CONTRAST 5MM STD,CQ500-CT-482,public_dev,data_sets/public_dev/CQ500-CT-482/CT PRE CONTRAST 5MM STD,32
+CT Plain,CQ500-CT-73,public_dev,data_sets/public_dev/CQ500-CT-73/CT Plain,30
+CT C,CQ500-CT-73,public_dev,data_sets/public_dev/CQ500-CT-73/CT C,30
+CT C THIN,CQ500-CT-73,public_dev,data_sets/public_dev/CQ500-CT-73/CT C THIN,240
+CT DE,CQ500-CT-73,public_dev,data_sets/public_dev/CQ500-CT-73/CT DE,30
+CT PLAIN THIN,CQ500-CT-73,public_dev,data_sets/public_dev/CQ500-CT-73/CT PLAIN THIN,240
+CT DE THIN,CQ500-CT-73,public_dev,data_sets/public_dev/CQ500-CT-73/CT DE THIN,240
+CT Plain,CQ500-CT-26,public_dev,data_sets/public_dev/CQ500-CT-26/CT Plain,30
+CT C,CQ500-CT-26,public_dev,data_sets/public_dev/CQ500-CT-26/CT C,30
+CT C THIN,CQ500-CT-26,public_dev,data_sets/public_dev/CQ500-CT-26/CT C THIN,70
+CT PLAIN THIN,CQ500-CT-26,public_dev,data_sets/public_dev/CQ500-CT-26/CT PLAIN THIN,240
+CT Plain,CQ500-CT-130,public_dev,data_sets/public_dev/CQ500-CT-130/CT Plain,32
+CT PLAIN THIN,CQ500-CT-130,public_dev,data_sets/public_dev/CQ500-CT-130/CT PLAIN THIN,256
+CT 55mm Plain,CQ500-CT-321,public_dev,data_sets/public_dev/CQ500-CT-321/CT 55mm Plain,36
+CT Thin Plain,CQ500-CT-321,public_dev,data_sets/public_dev/CQ500-CT-321/CT Thin Plain,187
+CT Plain,CQ500-CT-262,public_dev,data_sets/public_dev/CQ500-CT-262/CT Plain,30
+CT PLAIN THIN,CQ500-CT-262,public_dev,data_sets/public_dev/CQ500-CT-262/CT PLAIN THIN,240
+CT Plain 3mm,CQ500-CT-170,public_dev,data_sets/public_dev/CQ500-CT-170/CT Plain 3mm,53
+CT PRE CONTRAST THIN,CQ500-CT-478,public_dev,data_sets/public_dev/CQ500-CT-478/CT PRE CONTRAST THIN,239
+CT PRE CONTRAST 5MM STD,CQ500-CT-478,public_dev,data_sets/public_dev/CQ500-CT-478/CT PRE CONTRAST 5MM STD,30
+CT 55mm Plain,CQ500-CT-242,public_dev,data_sets/public_dev/CQ500-CT-242/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-242,public_dev,data_sets/public_dev/CQ500-CT-242/CT Thin Plain,256
+CT 3.753.75mm Plain,CQ500-CT-6,public_dev,data_sets/public_dev/CQ500-CT-6/CT 3.753.75mm Plain,98
+CT Thin Plain,CQ500-CT-6,public_dev,data_sets/public_dev/CQ500-CT-6/CT Thin Plain,584
+CT Thin Details,CQ500-CT-6,public_dev,data_sets/public_dev/CQ500-CT-6/CT Thin Details,584
+CT 55mm Plain,CQ500-CT-418,public_dev,data_sets/public_dev/CQ500-CT-418/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-418,public_dev,data_sets/public_dev/CQ500-CT-418/CT Thin Plain,256
+CT PRE CONTRAST THIN,CQ500-CT-222,public_dev,data_sets/public_dev/CQ500-CT-222/CT PRE CONTRAST THIN,226
+CT PRE CONTRAST 5MM STD,CQ500-CT-222,public_dev,data_sets/public_dev/CQ500-CT-222/CT PRE CONTRAST 5MM STD,29
+CT PRE CONTRAST THIN,CQ500-CT-439,public_dev,data_sets/public_dev/CQ500-CT-439/CT PRE CONTRAST THIN,225
+CT PRE CONTRAST 5MM STD,CQ500-CT-439,public_dev,data_sets/public_dev/CQ500-CT-439/CT PRE CONTRAST 5MM STD,29
+CT PRE CONTRAST THIN,CQ500-CT-467,public_dev,data_sets/public_dev/CQ500-CT-467/CT PRE CONTRAST THIN,246
+CT PRE CONTRAST 5MM STD,CQ500-CT-467,public_dev,data_sets/public_dev/CQ500-CT-467/CT PRE CONTRAST 5MM STD,31
+CT Plain,CQ500-CT-327,public_dev,data_sets/public_dev/CQ500-CT-327/CT Plain,32
+CT PLAIN THIN,CQ500-CT-327,public_dev,data_sets/public_dev/CQ500-CT-327/CT PLAIN THIN,174
+CT CECT THIN,CQ500-CT-424,public_dev,data_sets/public_dev/CQ500-CT-424/CT CECT THIN,234
+CT PLAIN THIN,CQ500-CT-424,public_dev,data_sets/public_dev/CQ500-CT-424/CT PLAIN THIN,225
+CT Plain 3mm,CQ500-CT-46,public_dev,data_sets/public_dev/CQ500-CT-46/CT Plain 3mm,57
+CT Plain,CQ500-CT-453,public_dev,data_sets/public_dev/CQ500-CT-453/CT Plain,30
+CT Thin Plain,CQ500-CT-453,public_dev,data_sets/public_dev/CQ500-CT-453/CT Thin Plain,222
+CT PLAIN THIN,CQ500-CT-453,public_dev,data_sets/public_dev/CQ500-CT-453/CT PLAIN THIN,240
+CT 55mm Plain,CQ500-CT-444,public_dev,data_sets/public_dev/CQ500-CT-444/CT 55mm Plain,36
+CT Thin Plain,CQ500-CT-444,public_dev,data_sets/public_dev/CQ500-CT-444/CT Thin Plain,288
+CT Plain,CQ500-CT-315,public_dev,data_sets/public_dev/CQ500-CT-315/CT Plain,28
+CT PLAIN THIN,CQ500-CT-315,public_dev,data_sets/public_dev/CQ500-CT-315/CT PLAIN THIN,53
+CT Plain,CQ500-CT-3,public_dev,data_sets/public_dev/CQ500-CT-3/CT Plain,30
+CT PLAIN THIN,CQ500-CT-3,public_dev,data_sets/public_dev/CQ500-CT-3/CT PLAIN THIN,240
+CT Plain,CQ500-CT-152,public_dev,data_sets/public_dev/CQ500-CT-152/CT Plain,30
+CT PLAIN THIN,CQ500-CT-152,public_dev,data_sets/public_dev/CQ500-CT-152/CT PLAIN THIN,240
+CT PRE CONTRAST THIN,CQ500-CT-289,public_dev,data_sets/public_dev/CQ500-CT-289/CT PRE CONTRAST THIN,233
+CT PRE CONTRAST 5MM STD,CQ500-CT-289,public_dev,data_sets/public_dev/CQ500-CT-289/CT PRE CONTRAST 5MM STD,30
+CT 5mm POST CONTRAST,CQ500-CT-289,public_dev,data_sets/public_dev/CQ500-CT-289/CT 5mm POST CONTRAST,233
+CT Thin Stnd,CQ500-CT-298,public_dev,data_sets/public_dev/CQ500-CT-298/CT Thin Stnd,413
+CT Plain,CQ500-CT-78,public_dev,data_sets/public_dev/CQ500-CT-78/CT Plain,32
+CT PLAIN THIN,CQ500-CT-78,public_dev,data_sets/public_dev/CQ500-CT-78/CT PLAIN THIN,256
+CT 5mm,CQ500-CT-357,public_dev,data_sets/public_dev/CQ500-CT-357/CT 5mm,32
+CT 0.625mm,CQ500-CT-357,public_dev,data_sets/public_dev/CQ500-CT-357/CT 0.625mm,256
+CT PRE CONTRAST THIN,CQ500-CT-330,public_dev,data_sets/public_dev/CQ500-CT-330/CT PRE CONTRAST THIN,263
+CT PRE CONTRAST 5MM STD,CQ500-CT-330,public_dev,data_sets/public_dev/CQ500-CT-330/CT PRE CONTRAST 5MM STD,33
+CT 55mm Plain,CQ500-CT-287,public_dev,data_sets/public_dev/CQ500-CT-287/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-287,public_dev,data_sets/public_dev/CQ500-CT-287/CT Thin Plain,256
+CT PRE CONTRAST THIN,CQ500-CT-117,public_dev,data_sets/public_dev/CQ500-CT-117/CT PRE CONTRAST THIN,118
+CT PRE CONTRAST 5MM STD,CQ500-CT-117,public_dev,data_sets/public_dev/CQ500-CT-117/CT PRE CONTRAST 5MM STD,30
+CT 5mm POST CONTRAST,CQ500-CT-117,public_dev,data_sets/public_dev/CQ500-CT-117/CT 5mm POST CONTRAST,233
+CT 55mm Plain,CQ500-CT-232,public_dev,data_sets/public_dev/CQ500-CT-232/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-232,public_dev,data_sets/public_dev/CQ500-CT-232/CT Thin Plain,256
+CT Plain 3mm,CQ500-CT-5,public_dev,data_sets/public_dev/CQ500-CT-5/CT Plain 3mm,53
+CT 55mm Plain,CQ500-CT-127,public_dev,data_sets/public_dev/CQ500-CT-127/CT 55mm Plain,44
+CT Thin Plain,CQ500-CT-127,public_dev,data_sets/public_dev/CQ500-CT-127/CT Thin Plain,352
+CT PRE CONTRAST THIN,CQ500-CT-333,public_dev,data_sets/public_dev/CQ500-CT-333/CT PRE CONTRAST THIN,233
+CT PRE CONTRAST 5MM STD,CQ500-CT-333,public_dev,data_sets/public_dev/CQ500-CT-333/CT PRE CONTRAST 5MM STD,30
+CT 55mm Plain,CQ500-CT-367,public_dev,data_sets/public_dev/CQ500-CT-367/CT 55mm Plain,32
+CT Thin Plain-2,CQ500-CT-367,public_dev,data_sets/public_dev/CQ500-CT-367/CT Thin Plain-2,256
+CT Thin Plain,CQ500-CT-367,public_dev,data_sets/public_dev/CQ500-CT-367/CT Thin Plain,256
+CT 55mm Plain-2,CQ500-CT-367,public_dev,data_sets/public_dev/CQ500-CT-367/CT 55mm Plain-2,32
+CT 55mm Plain,CQ500-CT-148,public_dev,data_sets/public_dev/CQ500-CT-148/CT 55mm Plain,36
+CT Thin Plain-2,CQ500-CT-148,public_dev,data_sets/public_dev/CQ500-CT-148/CT Thin Plain-2,288
+CT Thin Plain,CQ500-CT-148,public_dev,data_sets/public_dev/CQ500-CT-148/CT Thin Plain,64
+CT POST CONTRAST,CQ500-CT-148,public_dev,data_sets/public_dev/CQ500-CT-148/CT POST CONTRAST,8
+CT Thin Plain-3,CQ500-CT-148,public_dev,data_sets/public_dev/CQ500-CT-148/CT Thin Plain-3,288
+CT POST CONTRAST-2,CQ500-CT-148,public_dev,data_sets/public_dev/CQ500-CT-148/CT POST CONTRAST-2,288
+CT POST CONTRAST-3,CQ500-CT-148,public_dev,data_sets/public_dev/CQ500-CT-148/CT POST CONTRAST-3,36
+CT PRE CONTRAST THIN,CQ500-CT-286,public_dev,data_sets/public_dev/CQ500-CT-286/CT PRE CONTRAST THIN,233
+CT PRE CONTRAST 5MM STD,CQ500-CT-286,public_dev,data_sets/public_dev/CQ500-CT-286/CT PRE CONTRAST 5MM STD,30
+CT PRE CONTRAST THIN,CQ500-CT-99,public_dev,data_sets/public_dev/CQ500-CT-99/CT PRE CONTRAST THIN,246
+CT PRE CONTRAST 5MM STD,CQ500-CT-99,public_dev,data_sets/public_dev/CQ500-CT-99/CT PRE CONTRAST 5MM STD,31
+CT PRE CONTRAST THIN,CQ500-CT-165,public_dev,data_sets/public_dev/CQ500-CT-165/CT PRE CONTRAST THIN,239
+CT PRE CONTRAST 5MM STD,CQ500-CT-165,public_dev,data_sets/public_dev/CQ500-CT-165/CT PRE CONTRAST 5MM STD,30
+CT Plain,CQ500-CT-437,public_dev,data_sets/public_dev/CQ500-CT-437/CT Plain,30
+CT 55mm Plain,CQ500-CT-281,public_dev,data_sets/public_dev/CQ500-CT-281/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-281,public_dev,data_sets/public_dev/CQ500-CT-281/CT Thin Plain,256
+CT 55mm Plain-2,CQ500-CT-281,public_dev,data_sets/public_dev/CQ500-CT-281/CT 55mm Plain-2,256
+CT PRE CONTRAST THIN,CQ500-CT-89,public_dev,data_sets/public_dev/CQ500-CT-89/CT PRE CONTRAST THIN,233
+CT PRE CONTRAST 5MM STD,CQ500-CT-89,public_dev,data_sets/public_dev/CQ500-CT-89/CT PRE CONTRAST 5MM STD,30
+CT PRE CONTRAST THIN,CQ500-CT-23,public_dev,data_sets/public_dev/CQ500-CT-23/CT PRE CONTRAST THIN,225
+CT PRE CONTRAST 5MM STD,CQ500-CT-23,public_dev,data_sets/public_dev/CQ500-CT-23/CT PRE CONTRAST 5MM STD,29
+CT 5mm POST CONTRAST,CQ500-CT-23,public_dev,data_sets/public_dev/CQ500-CT-23/CT 5mm POST CONTRAST,225
+CT PLAIN THIN,CQ500-CT-354,public_dev,data_sets/public_dev/CQ500-CT-354/CT PLAIN THIN,187
+CT Plain 3mm,CQ500-CT-288,public_dev,data_sets/public_dev/CQ500-CT-288/CT Plain 3mm,55
+CT PLAIN THIN,CQ500-CT-475,public_dev,data_sets/public_dev/CQ500-CT-475/CT PLAIN THIN,256
+CT Plain,CQ500-CT-179,public_dev,data_sets/public_dev/CQ500-CT-179/CT Plain,30
+CT PLAIN THIN,CQ500-CT-179,public_dev,data_sets/public_dev/CQ500-CT-179/CT PLAIN THIN,240
+CT 55mm Plain,CQ500-CT-410,public_dev,data_sets/public_dev/CQ500-CT-410/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-410,public_dev,data_sets/public_dev/CQ500-CT-410/CT Thin Plain,256
+CT 55mm Plain,CQ500-CT-20,public_dev,data_sets/public_dev/CQ500-CT-20/CT 55mm Plain,36
+CT Thin Plain,CQ500-CT-20,public_dev,data_sets/public_dev/CQ500-CT-20/CT Thin Plain,288
+CT Plain,CQ500-CT-156,public_dev,data_sets/public_dev/CQ500-CT-156/CT Plain,30
+CT PLAIN THIN,CQ500-CT-156,public_dev,data_sets/public_dev/CQ500-CT-156/CT PLAIN THIN,161
+CT Plain 3mm,CQ500-CT-161,public_dev,data_sets/public_dev/CQ500-CT-161/CT Plain 3mm,47
+CT 55mm Plain,CQ500-CT-185,public_dev,data_sets/public_dev/CQ500-CT-185/CT 55mm Plain,36
+CT Thin Plain,CQ500-CT-185,public_dev,data_sets/public_dev/CQ500-CT-185/CT Thin Plain,288
+CT Plain,CQ500-CT-37,public_dev,data_sets/public_dev/CQ500-CT-37/CT Plain,30
+CT C,CQ500-CT-37,public_dev,data_sets/public_dev/CQ500-CT-37/CT C,22
+CT PLAIN THIN,CQ500-CT-37,public_dev,data_sets/public_dev/CQ500-CT-37/CT PLAIN THIN,240
+CT Plain,CQ500-CT-331,public_dev,data_sets/public_dev/CQ500-CT-331/CT Plain,30
+CT PLAIN THIN,CQ500-CT-331,public_dev,data_sets/public_dev/CQ500-CT-331/CT PLAIN THIN,188
+CT Plain 3mm,CQ500-CT-209,public_dev,data_sets/public_dev/CQ500-CT-209/CT Plain 3mm,54
+CT Plain,CQ500-CT-104,public_dev,data_sets/public_dev/CQ500-CT-104/CT Plain,28
+CT PLAIN THIN,CQ500-CT-104,public_dev,data_sets/public_dev/CQ500-CT-104/CT PLAIN THIN,224
+CT THIN,CQ500-CT-470,public_dev,data_sets/public_dev/CQ500-CT-470/CT THIN,449
+CT 5 MM PRE CONTRAST-2,CQ500-CT-470,public_dev,data_sets/public_dev/CQ500-CT-470/CT 5 MM PRE CONTRAST-2,60
+CT PRE CONTRAST THIN,CQ500-CT-470,public_dev,data_sets/public_dev/CQ500-CT-470/CT PRE CONTRAST THIN,250
+CT PRE CONTRAST 5MM STD,CQ500-CT-470,public_dev,data_sets/public_dev/CQ500-CT-470/CT PRE CONTRAST 5MM STD,32
+CT 5mm POST CONTRAST,CQ500-CT-470,public_dev,data_sets/public_dev/CQ500-CT-470/CT 5mm POST CONTRAST,247
+CT 5 MM PRE CONTRAST,CQ500-CT-470,public_dev,data_sets/public_dev/CQ500-CT-470/CT 5 MM PRE CONTRAST,57
+CT THIN-2,CQ500-CT-470,public_dev,data_sets/public_dev/CQ500-CT-470/CT THIN-2,473
+CT PRE CONTRAST THIN,CQ500-CT-195,public_dev,data_sets/public_dev/CQ500-CT-195/CT PRE CONTRAST THIN,233
+CT PRE CONTRAST 5MM STD,CQ500-CT-195,public_dev,data_sets/public_dev/CQ500-CT-195/CT PRE CONTRAST 5MM STD,30
+CT Plain,CQ500-CT-293,public_dev,data_sets/public_dev/CQ500-CT-293/CT Plain,30
+CT PLAIN THIN,CQ500-CT-293,public_dev,data_sets/public_dev/CQ500-CT-293/CT PLAIN THIN,240
+CT 55mm Plain,CQ500-CT-231,public_dev,data_sets/public_dev/CQ500-CT-231/CT 55mm Plain,36
+CT Thin Plain-2,CQ500-CT-231,public_dev,data_sets/public_dev/CQ500-CT-231/CT Thin Plain-2,288
+CT Thin Plain,CQ500-CT-231,public_dev,data_sets/public_dev/CQ500-CT-231/CT Thin Plain,288
+CT 55mm Plain-2,CQ500-CT-231,public_dev,data_sets/public_dev/CQ500-CT-231/CT 55mm Plain-2,36
+CT 55mm Plain,CQ500-CT-25,public_dev,data_sets/public_dev/CQ500-CT-25/CT 55mm Plain,36
+CT Thin Plain,CQ500-CT-25,public_dev,data_sets/public_dev/CQ500-CT-25/CT Thin Plain,288
+CT 55mm Plain,CQ500-CT-375,public_dev,data_sets/public_dev/CQ500-CT-375/CT 55mm Plain,40
+CT Thin Plain,CQ500-CT-375,public_dev,data_sets/public_dev/CQ500-CT-375/CT Thin Plain,320
+CT PRE CONTRAST THIN,CQ500-CT-119,public_dev,data_sets/public_dev/CQ500-CT-119/CT PRE CONTRAST THIN,258
+CT PRE CONTRAST 5MM STD,CQ500-CT-119,public_dev,data_sets/public_dev/CQ500-CT-119/CT PRE CONTRAST 5MM STD,33
+CT 55mm Plain,CQ500-CT-462,public_dev,data_sets/public_dev/CQ500-CT-462/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-462,public_dev,data_sets/public_dev/CQ500-CT-462/CT Thin Plain,256
+CT 55mm Plain,CQ500-CT-246,public_dev,data_sets/public_dev/CQ500-CT-246/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-246,public_dev,data_sets/public_dev/CQ500-CT-246/CT Thin Plain,256
+CT PRE CONTRAST THIN,CQ500-CT-311,public_dev,data_sets/public_dev/CQ500-CT-311/CT PRE CONTRAST THIN,233
+CT PRE CONTRAST 5MM STD,CQ500-CT-311,public_dev,data_sets/public_dev/CQ500-CT-311/CT PRE CONTRAST 5MM STD,30
+CT PRE CONTRAST THIN,CQ500-CT-132,public_dev,data_sets/public_dev/CQ500-CT-132/CT PRE CONTRAST THIN,251
+CT PRE CONTRAST 5MM STD,CQ500-CT-132,public_dev,data_sets/public_dev/CQ500-CT-132/CT PRE CONTRAST 5MM STD,32
+CT Plain,CQ500-CT-83,public_dev,data_sets/public_dev/CQ500-CT-83/CT Plain,28
+CT PLAIN THIN,CQ500-CT-83,public_dev,data_sets/public_dev/CQ500-CT-83/CT PLAIN THIN,17
+CT 55mm Plain,CQ500-CT-428,public_dev,data_sets/public_dev/CQ500-CT-428/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-428,public_dev,data_sets/public_dev/CQ500-CT-428/CT Thin Plain,252
+CT PLAIN THIN,CQ500-CT-82,public_dev,data_sets/public_dev/CQ500-CT-82/CT PLAIN THIN,274
+CT Plain,CQ500-CT-459,public_dev,data_sets/public_dev/CQ500-CT-459/CT Plain,32
+CT PLAIN THIN,CQ500-CT-459,public_dev,data_sets/public_dev/CQ500-CT-459/CT PLAIN THIN,256
+CT Plain,CQ500-CT-91,public_dev,data_sets/public_dev/CQ500-CT-91/CT Plain,34
+CT PLAIN THIN,CQ500-CT-91,public_dev,data_sets/public_dev/CQ500-CT-91/CT PLAIN THIN,12
+CT PRE CONTRAST THIN,CQ500-CT-34,public_dev,data_sets/public_dev/CQ500-CT-34/CT PRE CONTRAST THIN,249
+CT PRE CONTRAST 5MM STD,CQ500-CT-34,public_dev,data_sets/public_dev/CQ500-CT-34/CT PRE CONTRAST 5MM STD,32
+CT PRE CONTRAST THIN,CQ500-CT-276,public_dev,data_sets/public_dev/CQ500-CT-276/CT PRE CONTRAST THIN,233
+CT Plain,CQ500-CT-259,public_dev,data_sets/public_dev/CQ500-CT-259/CT Plain,30
+CT PLAIN THIN,CQ500-CT-259,public_dev,data_sets/public_dev/CQ500-CT-259/CT PLAIN THIN,46
+CT Plain,CQ500-CT-450,public_dev,data_sets/public_dev/CQ500-CT-450/CT Plain,28
+CT POST CONTRAST,CQ500-CT-450,public_dev,data_sets/public_dev/CQ500-CT-450/CT POST CONTRAST,28
+CT POST CONTRAST-2,CQ500-CT-450,public_dev,data_sets/public_dev/CQ500-CT-450/CT POST CONTRAST-2,15
+CT PLAIN THIN,CQ500-CT-450,public_dev,data_sets/public_dev/CQ500-CT-450/CT PLAIN THIN,224
+CT Plain 3mm,CQ500-CT-94,public_dev,data_sets/public_dev/CQ500-CT-94/CT Plain 3mm,52
+CT Plain 3mm,CQ500-CT-199,public_dev,data_sets/public_dev/CQ500-CT-199/CT Plain 3mm,51
+CT PRE CONTRAST THIN,CQ500-CT-42,public_dev,data_sets/public_dev/CQ500-CT-42/CT PRE CONTRAST THIN,237
+CT PRE CONTRAST 5MM STD,CQ500-CT-42,public_dev,data_sets/public_dev/CQ500-CT-42/CT PRE CONTRAST 5MM STD,30
+CT Plain,CQ500-CT-145,public_dev,data_sets/public_dev/CQ500-CT-145/CT Plain,30
+CT PLAIN THIN,CQ500-CT-145,public_dev,data_sets/public_dev/CQ500-CT-145/CT PLAIN THIN,50
+CT PRE CONTRAST THIN,CQ500-CT-69,public_dev,data_sets/public_dev/CQ500-CT-69/CT PRE CONTRAST THIN,233
+CT PRE CONTRAST 5MM STD,CQ500-CT-69,public_dev,data_sets/public_dev/CQ500-CT-69/CT PRE CONTRAST 5MM STD,30
+CT 55mm Plain,CQ500-CT-466,public_dev,data_sets/public_dev/CQ500-CT-466/CT 55mm Plain,36
+CT Thin Plain,CQ500-CT-466,public_dev,data_sets/public_dev/CQ500-CT-466/CT Thin Plain,288
+CT PRE CONTRAST THIN,CQ500-CT-252,public_dev,data_sets/public_dev/CQ500-CT-252/CT PRE CONTRAST THIN,260
+CT PRE CONTRAST 5MM STD,CQ500-CT-252,public_dev,data_sets/public_dev/CQ500-CT-252/CT PRE CONTRAST 5MM STD,33
+CT 55mm Plain,CQ500-CT-235,public_dev,data_sets/public_dev/CQ500-CT-235/CT 55mm Plain,40
+CT Thin Plain,CQ500-CT-235,public_dev,data_sets/public_dev/CQ500-CT-235/CT Thin Plain,320
+CT Plain,CQ500-CT-433,public_dev,data_sets/public_dev/CQ500-CT-433/CT Plain,30
+CT PLAIN THIN,CQ500-CT-433,public_dev,data_sets/public_dev/CQ500-CT-433/CT PLAIN THIN,90
+CT SOFT THIN,CQ500-CT-206,public_dev,data_sets/public_dev/CQ500-CT-206/CT SOFT THIN,217
+CT PLAIN THIN,CQ500-CT-206,public_dev,data_sets/public_dev/CQ500-CT-206/CT PLAIN THIN,194
+CT PRE CONTRAST THIN,CQ500-CT-72,public_dev,data_sets/public_dev/CQ500-CT-72/CT PRE CONTRAST THIN,238
+CT PRE CONTRAST 5MM STD,CQ500-CT-72,public_dev,data_sets/public_dev/CQ500-CT-72/CT PRE CONTRAST 5MM STD,30
+CT 5mm POST CONTRAST,CQ500-CT-72,public_dev,data_sets/public_dev/CQ500-CT-72/CT 5mm POST CONTRAST,238
+CT Plain THIN,CQ500-CT-391,public_dev,data_sets/public_dev/CQ500-CT-391/CT Plain THIN,319
+CT Plain 3mm,CQ500-CT-391,public_dev,data_sets/public_dev/CQ500-CT-391/CT Plain 3mm,54
+CT HELICAL,CQ500-CT-391,public_dev,data_sets/public_dev/CQ500-CT-391/CT HELICAL,163
+CT Plain,CQ500-CT-96,public_dev,data_sets/public_dev/CQ500-CT-96/CT Plain,23
+CT POST CONTRAST,CQ500-CT-96,public_dev,data_sets/public_dev/CQ500-CT-96/CT POST CONTRAST,140
+CT PRE CONTRAST THIN,CQ500-CT-58,public_dev,data_sets/public_dev/CQ500-CT-58/CT PRE CONTRAST THIN,259
+CT PRE CONTRAST 5MM STD,CQ500-CT-58,public_dev,data_sets/public_dev/CQ500-CT-58/CT PRE CONTRAST 5MM STD,33
+CT 55mm Plain,CQ500-CT-405,public_dev,data_sets/public_dev/CQ500-CT-405/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-405,public_dev,data_sets/public_dev/CQ500-CT-405/CT Thin Plain,255
+CT 55mm Plain,CQ500-CT-62,public_dev,data_sets/public_dev/CQ500-CT-62/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-62,public_dev,data_sets/public_dev/CQ500-CT-62/CT Thin Plain,256
+CT Thin Stand,CQ500-CT-62,public_dev,data_sets/public_dev/CQ500-CT-62/CT Thin Stand,355
+CT PLAIN THIN,CQ500-CT-201,public_dev,data_sets/public_dev/CQ500-CT-201/CT PLAIN THIN,247
+CT 0.625mm-2,CQ500-CT-32,public_dev,data_sets/public_dev/CQ500-CT-32/CT 0.625mm-2,256
+CT 5mm,CQ500-CT-32,public_dev,data_sets/public_dev/CQ500-CT-32/CT 5mm,32
+CT 0.625mm,CQ500-CT-32,public_dev,data_sets/public_dev/CQ500-CT-32/CT 0.625mm,256
+CT 5mm-2,CQ500-CT-32,public_dev,data_sets/public_dev/CQ500-CT-32/CT 5mm-2,32
+CT 55mm Plain,CQ500-CT-180,public_dev,data_sets/public_dev/CQ500-CT-180/CT 55mm Plain,36
+CT Thin Plain,CQ500-CT-180,public_dev,data_sets/public_dev/CQ500-CT-180/CT Thin Plain,288
+CT 5mm,CQ500-CT-17,public_dev,data_sets/public_dev/CQ500-CT-17/CT 5mm,32
+CT 0.625mm,CQ500-CT-17,public_dev,data_sets/public_dev/CQ500-CT-17/CT 0.625mm,256
+CT PRE CONTRAST THIN,CQ500-CT-71,public_dev,data_sets/public_dev/CQ500-CT-71/CT PRE CONTRAST THIN,233
+CT PRE CONTRAST 5MM STD,CQ500-CT-71,public_dev,data_sets/public_dev/CQ500-CT-71/CT PRE CONTRAST 5MM STD,30
+CT 5mm POST CONTRAST,CQ500-CT-71,public_dev,data_sets/public_dev/CQ500-CT-71/CT 5mm POST CONTRAST,233
+CT Plain,CQ500-CT-253,public_dev,data_sets/public_dev/CQ500-CT-253/CT Plain,28
+CT PLAIN THIN,CQ500-CT-253,public_dev,data_sets/public_dev/CQ500-CT-253/CT PLAIN THIN,224
+CT Plain,CQ500-CT-51,public_dev,data_sets/public_dev/CQ500-CT-51/CT Plain,28
+CT PLAIN THIN,CQ500-CT-51,public_dev,data_sets/public_dev/CQ500-CT-51/CT PLAIN THIN,26
+CT 55mm Plain,CQ500-CT-142,public_dev,data_sets/public_dev/CQ500-CT-142/CT 55mm Plain,36
+CT Thin Plain,CQ500-CT-142,public_dev,data_sets/public_dev/CQ500-CT-142/CT Thin Plain,288
+CT PRE CONTRAST THIN,CQ500-CT-177,public_dev,data_sets/public_dev/CQ500-CT-177/CT PRE CONTRAST THIN,233
+CT PRE CONTRAST 5MM STD,CQ500-CT-177,public_dev,data_sets/public_dev/CQ500-CT-177/CT PRE CONTRAST 5MM STD,30
+CT Plain,CQ500-CT-101,public_dev,data_sets/public_dev/CQ500-CT-101/CT Plain,28
+CT POST CONTRAST,CQ500-CT-101,public_dev,data_sets/public_dev/CQ500-CT-101/CT POST CONTRAST,28
+CT POST CONTRAST-2,CQ500-CT-101,public_dev,data_sets/public_dev/CQ500-CT-101/CT POST CONTRAST-2,21
+CT PLAIN THIN,CQ500-CT-101,public_dev,data_sets/public_dev/CQ500-CT-101/CT PLAIN THIN,224
+CT Thin Soft,CQ500-CT-332,public_dev,data_sets/public_dev/CQ500-CT-332/CT Thin Soft,286
+CT Plain,CQ500-CT-332,public_dev,data_sets/public_dev/CQ500-CT-332/CT Plain,286
+CT PRE CONTRAST THIN,CQ500-CT-471,public_dev,data_sets/public_dev/CQ500-CT-471/CT PRE CONTRAST THIN,246
+CT PRE CONTRAST 5MM STD,CQ500-CT-471,public_dev,data_sets/public_dev/CQ500-CT-471/CT PRE CONTRAST 5MM STD,31
+CT PRE CONTRAST THIN,CQ500-CT-261,public_dev,data_sets/public_dev/CQ500-CT-261/CT PRE CONTRAST THIN,260
+CT PRE CONTRAST 5MM STD,CQ500-CT-261,public_dev,data_sets/public_dev/CQ500-CT-261/CT PRE CONTRAST 5MM STD,33
+CT Plain 3mm,CQ500-CT-304,public_dev,data_sets/public_dev/CQ500-CT-304/CT Plain 3mm,55
+CT Plain 3mm,CQ500-CT-409,public_dev,data_sets/public_dev/CQ500-CT-409/CT Plain 3mm,57
+CT 55mm Plain,CQ500-CT-198,public_dev,data_sets/public_dev/CQ500-CT-198/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-198,public_dev,data_sets/public_dev/CQ500-CT-198/CT Thin Plain,256
+CT PRE CONTRAST THIN,CQ500-CT-194,public_dev,data_sets/public_dev/CQ500-CT-194/CT PRE CONTRAST THIN,233
+CT PRE CONTRAST 5MM STD,CQ500-CT-194,public_dev,data_sets/public_dev/CQ500-CT-194/CT PRE CONTRAST 5MM STD,30
+CT 5mm POST CONTRAST,CQ500-CT-194,public_dev,data_sets/public_dev/CQ500-CT-194/CT 5mm POST CONTRAST,233
+CT 55mm Plain,CQ500-CT-150,public_dev,data_sets/public_dev/CQ500-CT-150/CT 55mm Plain,32
+CT Thin Contrast,CQ500-CT-150,public_dev,data_sets/public_dev/CQ500-CT-150/CT Thin Contrast,256
+CT Thin Plain,CQ500-CT-150,public_dev,data_sets/public_dev/CQ500-CT-150/CT Thin Plain,256
+CT 55mm Contrast,CQ500-CT-150,public_dev,data_sets/public_dev/CQ500-CT-150/CT 55mm Contrast,32
+CT PLAIN THIN,CQ500-CT-158,public_dev,data_sets/public_dev/CQ500-CT-158/CT PLAIN THIN,290
+CT Plain,CQ500-CT-308,public_dev,data_sets/public_dev/CQ500-CT-308/CT Plain,28
+CT POST CONTRAST,CQ500-CT-308,public_dev,data_sets/public_dev/CQ500-CT-308/CT POST CONTRAST,18
+CT PLAIN THIN,CQ500-CT-308,public_dev,data_sets/public_dev/CQ500-CT-308/CT PLAIN THIN,224
+CT BRAIN PLAIN,CQ500-CT-476,public_dev,data_sets/public_dev/CQ500-CT-476/CT BRAIN PLAIN,37
+CT PLAIN THIN,CQ500-CT-476,public_dev,data_sets/public_dev/CQ500-CT-476/CT PLAIN THIN,241
+CT PRE CONTRAST THIN,CQ500-CT-45,public_dev,data_sets/public_dev/CQ500-CT-45/CT PRE CONTRAST THIN,224
+CT PRE CONTRAST 5MM STD,CQ500-CT-45,public_dev,data_sets/public_dev/CQ500-CT-45/CT PRE CONTRAST 5MM STD,28
+CT PRE CONTRAST THIN,CQ500-CT-98,public_dev,data_sets/public_dev/CQ500-CT-98/CT PRE CONTRAST THIN,270
+CT PRE CONTRAST 5MM STD,CQ500-CT-98,public_dev,data_sets/public_dev/CQ500-CT-98/CT PRE CONTRAST 5MM STD,34
+CT 55mm Plain,CQ500-CT-200,public_dev,data_sets/public_dev/CQ500-CT-200/CT 55mm Plain,36
+CT Thin Plain,CQ500-CT-200,public_dev,data_sets/public_dev/CQ500-CT-200/CT Thin Plain,288
+CT PRE CONTRAST THIN,CQ500-CT-146,public_dev,data_sets/public_dev/CQ500-CT-146/CT PRE CONTRAST THIN,233
+CT PRE CONTRAST 5MM STD,CQ500-CT-146,public_dev,data_sets/public_dev/CQ500-CT-146/CT PRE CONTRAST 5MM STD,30
+CT 5mm POST CONTRAST,CQ500-CT-146,public_dev,data_sets/public_dev/CQ500-CT-146/CT 5mm POST CONTRAST,233
+CT PRE CONTRAST THIN,CQ500-CT-141,public_dev,data_sets/public_dev/CQ500-CT-141/CT PRE CONTRAST THIN,247
+CT PRE CONTRAST 5MM STD,CQ500-CT-141,public_dev,data_sets/public_dev/CQ500-CT-141/CT PRE CONTRAST 5MM STD,31
+CT 55mm Plain,CQ500-CT-373,public_dev,data_sets/public_dev/CQ500-CT-373/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-373,public_dev,data_sets/public_dev/CQ500-CT-373/CT Thin Plain,256
+CT 55mm Plain,CQ500-CT-103,public_dev,data_sets/public_dev/CQ500-CT-103/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-103,public_dev,data_sets/public_dev/CQ500-CT-103/CT Thin Plain,256
+CT Plain,CQ500-CT-223,public_dev,data_sets/public_dev/CQ500-CT-223/CT Plain,25
+CT PLAIN THIN,CQ500-CT-223,public_dev,data_sets/public_dev/CQ500-CT-223/CT PLAIN THIN,204
+CT 5mm,CQ500-CT-167,public_dev,data_sets/public_dev/CQ500-CT-167/CT 5mm,36
+CT 0.625mm,CQ500-CT-167,public_dev,data_sets/public_dev/CQ500-CT-167/CT 0.625mm,148
+CT Plain,CQ500-CT-307,public_dev,data_sets/public_dev/CQ500-CT-307/CT Plain,46
+CT PLAIN THIN,CQ500-CT-307,public_dev,data_sets/public_dev/CQ500-CT-307/CT PLAIN THIN,21
+CT Plain,CQ500-CT-294,public_dev,data_sets/public_dev/CQ500-CT-294/CT Plain,30
+CT PLAIN THIN,CQ500-CT-294,public_dev,data_sets/public_dev/CQ500-CT-294/CT PLAIN THIN,240
+CT PRE CONTRAST THIN,CQ500-CT-360,public_dev,data_sets/public_dev/CQ500-CT-360/CT PRE CONTRAST THIN,242
+CT PRE CONTRAST 5MM STD,CQ500-CT-360,public_dev,data_sets/public_dev/CQ500-CT-360/CT PRE CONTRAST 5MM STD,31
+CT 5mm,CQ500-CT-282,public_dev,data_sets/public_dev/CQ500-CT-282/CT 5mm,32
+CT 0.625mm,CQ500-CT-282,public_dev,data_sets/public_dev/CQ500-CT-282/CT 0.625mm,132
+CT PRE CONTRAST THIN,CQ500-CT-175,public_dev,data_sets/public_dev/CQ500-CT-175/CT PRE CONTRAST THIN,223
+CT PRE CONTRAST 5MM STD,CQ500-CT-175,public_dev,data_sets/public_dev/CQ500-CT-175/CT PRE CONTRAST 5MM STD,28
+CT 55mm Plain,CQ500-CT-214,public_dev,data_sets/public_dev/CQ500-CT-214/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-214,public_dev,data_sets/public_dev/CQ500-CT-214/CT Thin Plain,256
+CT Plain,CQ500-CT-162,public_dev,data_sets/public_dev/CQ500-CT-162/CT Plain,24
+CT PLAIN THIN,CQ500-CT-162,public_dev,data_sets/public_dev/CQ500-CT-162/CT PLAIN THIN,192
+CT Plain-3,CQ500-CT-162,public_dev,data_sets/public_dev/CQ500-CT-162/CT Plain-3,30
+CT Plain-2,CQ500-CT-162,public_dev,data_sets/public_dev/CQ500-CT-162/CT Plain-2,270
+CT PLAIN THIN-2,CQ500-CT-162,public_dev,data_sets/public_dev/CQ500-CT-162/CT PLAIN THIN-2,240
+CT 55mm Plain,CQ500-CT-110,public_dev,data_sets/public_dev/CQ500-CT-110/CT 55mm Plain,36
+CT Thin Plain,CQ500-CT-110,public_dev,data_sets/public_dev/CQ500-CT-110/CT Thin Plain,288
+CT Plain,CQ500-CT-325,public_dev,data_sets/public_dev/CQ500-CT-325/CT Plain,30
+CT PLAIN,CQ500-CT-325,public_dev,data_sets/public_dev/CQ500-CT-325/CT PLAIN,35
+CT PLAIN THIN,CQ500-CT-325,public_dev,data_sets/public_dev/CQ500-CT-325/CT PLAIN THIN,273
+CT PLAIN THIN-2,CQ500-CT-325,public_dev,data_sets/public_dev/CQ500-CT-325/CT PLAIN THIN-2,240
+CT Plain,CQ500-CT-270,public_dev,data_sets/public_dev/CQ500-CT-270/CT Plain,32
+CT PLAIN THIN,CQ500-CT-270,public_dev,data_sets/public_dev/CQ500-CT-270/CT PLAIN THIN,256
+CT Plain,CQ500-CT-351,public_dev,data_sets/public_dev/CQ500-CT-351/CT Plain,32
+CT PLAIN THIN,CQ500-CT-351,public_dev,data_sets/public_dev/CQ500-CT-351/CT PLAIN THIN,32
+CT 55mm Plain,CQ500-CT-394,public_dev,data_sets/public_dev/CQ500-CT-394/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-394,public_dev,data_sets/public_dev/CQ500-CT-394/CT Thin Plain,256
+CT PRE CONTRAST THIN,CQ500-CT-229,public_dev,data_sets/public_dev/CQ500-CT-229/CT PRE CONTRAST THIN,233
+CT PRE CONTRAST 5MM STD,CQ500-CT-229,public_dev,data_sets/public_dev/CQ500-CT-229/CT PRE CONTRAST 5MM STD,30
+CT 0.625mm DMPR on HiRes VS40,CQ500-CT-477,public_dev,data_sets/public_dev/CQ500-CT-477/CT 0.625mm DMPR on HiRes VS40,418
+CT PRE CONTRAST THIN,CQ500-CT-477,public_dev,data_sets/public_dev/CQ500-CT-477/CT PRE CONTRAST THIN,242
+CT PRE CONTRAST 5MM STD,CQ500-CT-477,public_dev,data_sets/public_dev/CQ500-CT-477/CT PRE CONTRAST 5MM STD,31
+CT 55mm Plain,CQ500-CT-184,public_dev,data_sets/public_dev/CQ500-CT-184/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-184,public_dev,data_sets/public_dev/CQ500-CT-184/CT Thin Plain,256
+CT PRE CONTRAST THIN,CQ500-CT-349,public_dev,data_sets/public_dev/CQ500-CT-349/CT PRE CONTRAST THIN,335
+CT PRE CONTRAST 5MM STD,CQ500-CT-349,public_dev,data_sets/public_dev/CQ500-CT-349/CT PRE CONTRAST 5MM STD,42
+CT Plain,CQ500-CT-7,public_dev,data_sets/public_dev/CQ500-CT-7/CT Plain,32
+CT PLAIN THIN,CQ500-CT-7,public_dev,data_sets/public_dev/CQ500-CT-7/CT PLAIN THIN,54
+CT 55mm Plain,CQ500-CT-54,public_dev,data_sets/public_dev/CQ500-CT-54/CT 55mm Plain,36
+CT Thin Plain,CQ500-CT-54,public_dev,data_sets/public_dev/CQ500-CT-54/CT Thin Plain,288
+CT Plain,CQ500-CT-116,public_dev,data_sets/public_dev/CQ500-CT-116/CT Plain,28
+CT PLAIN THIN,CQ500-CT-116,public_dev,data_sets/public_dev/CQ500-CT-116/CT PLAIN THIN,42
+CT 5mm,CQ500-CT-290,public_dev,data_sets/public_dev/CQ500-CT-290/CT 5mm,32
+CT 0.625mm,CQ500-CT-290,public_dev,data_sets/public_dev/CQ500-CT-290/CT 0.625mm,256
+CT PLAIN THIN,CQ500-CT-16,public_dev,data_sets/public_dev/CQ500-CT-16/CT PLAIN THIN,247
+CT 55mm Plain,CQ500-CT-395,public_dev,data_sets/public_dev/CQ500-CT-395/CT 55mm Plain,32
+CT Thin Plain-2,CQ500-CT-395,public_dev,data_sets/public_dev/CQ500-CT-395/CT Thin Plain-2,256
+CT Thin Plain,CQ500-CT-395,public_dev,data_sets/public_dev/CQ500-CT-395/CT Thin Plain,256
+CT 55mm Plain-2,CQ500-CT-395,public_dev,data_sets/public_dev/CQ500-CT-395/CT 55mm Plain-2,32
+CT 55mm Plain,CQ500-CT-463,public_dev,data_sets/public_dev/CQ500-CT-463/CT 55mm Plain,36
+CT Thin Plain-2,CQ500-CT-463,public_dev,data_sets/public_dev/CQ500-CT-463/CT Thin Plain-2,288
+CT Thin Plain,CQ500-CT-463,public_dev,data_sets/public_dev/CQ500-CT-463/CT Thin Plain,288
+CT 55mm Plain-2,CQ500-CT-463,public_dev,data_sets/public_dev/CQ500-CT-463/CT 55mm Plain-2,36
+CT Plain,CQ500-CT-368,public_dev,data_sets/public_dev/CQ500-CT-368/CT Plain,30
+CT POST CONTRAST,CQ500-CT-368,public_dev,data_sets/public_dev/CQ500-CT-368/CT POST CONTRAST,256
+CT POST CONTRAST-2,CQ500-CT-368,public_dev,data_sets/public_dev/CQ500-CT-368/CT POST CONTRAST-2,32
+CT PLAIN THIN,CQ500-CT-368,public_dev,data_sets/public_dev/CQ500-CT-368/CT PLAIN THIN,240
+CT PRE CONTRAST THIN,CQ500-CT-138,public_dev,data_sets/public_dev/CQ500-CT-138/CT PRE CONTRAST THIN,246
+CT PRE CONTRAST 5MM STD,CQ500-CT-138,public_dev,data_sets/public_dev/CQ500-CT-138/CT PRE CONTRAST 5MM STD,31
+CT 5mm,CQ500-CT-319,public_dev,data_sets/public_dev/CQ500-CT-319/CT 5mm,36
+CT 0.625mm,CQ500-CT-319,public_dev,data_sets/public_dev/CQ500-CT-319/CT 0.625mm,288
+CT 55mm Plain,CQ500-CT-76,public_dev,data_sets/public_dev/CQ500-CT-76/CT 55mm Plain,36
+CT Thin Plain,CQ500-CT-76,public_dev,data_sets/public_dev/CQ500-CT-76/CT Thin Plain,288
+CT 55mm Plain,CQ500-CT-300,public_dev,data_sets/public_dev/CQ500-CT-300/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-300,public_dev,data_sets/public_dev/CQ500-CT-300/CT Thin Plain,256
+CT 55mm Plain,CQ500-CT-299,public_dev,data_sets/public_dev/CQ500-CT-299/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-299,public_dev,data_sets/public_dev/CQ500-CT-299/CT Thin Plain,256
+CT POST CONTRAST,CQ500-CT-299,public_dev,data_sets/public_dev/CQ500-CT-299/CT POST CONTRAST,32
+CT POST CONTRAST-2,CQ500-CT-299,public_dev,data_sets/public_dev/CQ500-CT-299/CT POST CONTRAST-2,256
+CT Plain,CQ500-CT-468,public_dev,data_sets/public_dev/CQ500-CT-468/CT Plain,32
+CT PLAIN THIN,CQ500-CT-468,public_dev,data_sets/public_dev/CQ500-CT-468/CT PLAIN THIN,182
+CT Plain,CQ500-CT-197,public_dev,data_sets/public_dev/CQ500-CT-197/CT Plain,21
+CT 3.753.75mm Plain,CQ500-CT-172,public_dev,data_sets/public_dev/CQ500-CT-172/CT 3.753.75mm Plain,69
+CT 55mm Plain,CQ500-CT-172,public_dev,data_sets/public_dev/CQ500-CT-172/CT 55mm Plain,32
+CT Thin Plain-2,CQ500-CT-172,public_dev,data_sets/public_dev/CQ500-CT-172/CT Thin Plain-2,256
+CT Thin Plain,CQ500-CT-172,public_dev,data_sets/public_dev/CQ500-CT-172/CT Thin Plain,411
+CT Thin PLAIN,CQ500-CT-172,public_dev,data_sets/public_dev/CQ500-CT-172/CT Thin PLAIN,1049
+CT Thin Details,CQ500-CT-172,public_dev,data_sets/public_dev/CQ500-CT-172/CT Thin Details,411
+CT 5 MM,CQ500-CT-172,public_dev,data_sets/public_dev/CQ500-CT-172/CT 5 MM,132
+CT Plain,CQ500-CT-27,public_dev,data_sets/public_dev/CQ500-CT-27/CT Plain,28
+CT POST CONTRAST,CQ500-CT-27,public_dev,data_sets/public_dev/CQ500-CT-27/CT POST CONTRAST,112
+CT POST CONTRAST-2,CQ500-CT-27,public_dev,data_sets/public_dev/CQ500-CT-27/CT POST CONTRAST-2,28
+CT PLAIN THIN,CQ500-CT-27,public_dev,data_sets/public_dev/CQ500-CT-27/CT PLAIN THIN,224
+CT 5mm,CQ500-CT-411,public_dev,data_sets/public_dev/CQ500-CT-411/CT 5mm,36
+CT 0.625mm,CQ500-CT-411,public_dev,data_sets/public_dev/CQ500-CT-411/CT 0.625mm,288
+CT 55mm Plain,CQ500-CT-440,public_dev,data_sets/public_dev/CQ500-CT-440/CT 55mm Plain,32
+CT Thin Plain,CQ500-CT-440,public_dev,data_sets/public_dev/CQ500-CT-440/CT Thin Plain,256
+CT 5mm,CQ500-CT-174,public_dev,data_sets/public_dev/CQ500-CT-174/CT 5mm,32
+CT 0.625mm,CQ500-CT-174,public_dev,data_sets/public_dev/CQ500-CT-174/CT 0.625mm,256
+CT PRE CONTRAST THIN,CQ500-CT-324,public_dev,data_sets/public_dev/CQ500-CT-324/CT PRE CONTRAST THIN,233
+CT PRE CONTRAST 5MM STD,CQ500-CT-324,public_dev,data_sets/public_dev/CQ500-CT-324/CT PRE CONTRAST 5MM STD,30
+CT 5mm,CQ500-CT-50,public_dev,data_sets/public_dev/CQ500-CT-50/CT 5mm,32
+CT 0.625mm,CQ500-CT-50,public_dev,data_sets/public_dev/CQ500-CT-50/CT 0.625mm,256
+CT 55mm Plain,CQ500-CT-9,public_dev,data_sets/public_dev/CQ500-CT-9/CT 55mm Plain,36
+CT Thin Plain,CQ500-CT-9,public_dev,data_sets/public_dev/CQ500-CT-9/CT Thin Plain,288
+CT PRE CONTRAST THIN,CQ500-CT-122,public_dev,data_sets/public_dev/CQ500-CT-122/CT PRE CONTRAST THIN,252
+CT PRE CONTRAST 5MM STD,CQ500-CT-122,public_dev,data_sets/public_dev/CQ500-CT-122/CT PRE CONTRAST 5MM STD,32
+CT Plain 3mm,CQ500-CT-398,public_dev,data_sets/public_dev/CQ500-CT-398/CT Plain 3mm,54
+CT Plain THIN,CQ500-CT-322,public_dev,data_sets/public_dev/CQ500-CT-322/CT Plain THIN,319
+CT Plain 3mm,CQ500-CT-322,public_dev,data_sets/public_dev/CQ500-CT-322/CT Plain 3mm,54
+CT PRE CONTRAST THIN,CQ500-CT-49,public_dev,data_sets/public_dev/CQ500-CT-49/CT PRE CONTRAST THIN,232
+CT PRE CONTRAST 5MM STD,CQ500-CT-49,public_dev,data_sets/public_dev/CQ500-CT-49/CT PRE CONTRAST 5MM STD,29
+CT PRE CONTRAST THIN,CQ500-CT-21,public_dev,data_sets/public_dev/CQ500-CT-21/CT PRE CONTRAST THIN,226
+CT PRE CONTRAST 5MM STD,CQ500-CT-21,public_dev,data_sets/public_dev/CQ500-CT-21/CT PRE CONTRAST 5MM STD,29
+CT Plain THIN,CQ500-CT-306,public_dev,data_sets/public_dev/CQ500-CT-306/CT Plain THIN,331
+CT Plain 3mm,CQ500-CT-306,public_dev,data_sets/public_dev/CQ500-CT-306/CT Plain 3mm,56
+CT 55mm Plain,CQ500-CT-421,public_dev,data_sets/public_dev/CQ500-CT-421/CT 55mm Plain,36
+CT Thin Plain,CQ500-CT-421,public_dev,data_sets/public_dev/CQ500-CT-421/CT Thin Plain,288
+CT 5mm,CQ500-CT-271,public_dev,data_sets/public_dev/CQ500-CT-271/CT 5mm,32
+CT 0.625mm,CQ500-CT-271,public_dev,data_sets/public_dev/CQ500-CT-271/CT 0.625mm,256

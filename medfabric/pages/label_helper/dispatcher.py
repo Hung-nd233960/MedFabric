@@ -11,7 +11,7 @@ from medfabric.pages.label_helper.state_management import (
     EventFlags,
     UIElementType,
 )
-from medfabric.db.models import Region
+from medfabric.db.orm_model import Region
 from medfabric.pages.utils import reset
 from medfabric.pages.label_helper.submit_results import submit_image_set_results
 from medfabric.pages.label_helper.unsatisfactory_sessions import (
@@ -24,12 +24,14 @@ from medfabric.pages.label_helper.image_session_status import (
     handle_df_region_change,
     clear_all_slices,
     validate_slices,
+    consecutive_slices,
 )
 from medfabric.pages.label_helper.image_set_session_status import (
     SetStatus,
     mark_status,
 )
 from medfabric.api.config import DEFAULT_BRIGHTNESS, DEFAULT_CONTRAST, DEFAULT_FILTER
+from medfabric.db.engine import get_session_factory
 
 
 def reimplement_score_fields_in_session(
@@ -358,6 +360,10 @@ def handle_region_selected(event: CompletedEvent, app_state: LabelingAppState):
                 app_state.current_session.uuid,
                 SetStatus.VALID,
             )
+            app_state.current_session.render_valid_message = True
+        else:
+            app_state.current_session.render_valid_message = False
+
     elif payload_content == "BasalGangliaCentral":
         img_session.region = Region.BasalCentral
         reset_score_fields(app_state, Region.BasalCentral)
@@ -390,6 +396,10 @@ def handle_region_selected(event: CompletedEvent, app_state: LabelingAppState):
                 app_state.current_session.uuid,
                 SetStatus.VALID,
             )
+            app_state.current_session.render_valid_message = True
+        else:
+            app_state.current_session.render_valid_message = False
+
     elif payload_content == "CoronaRadiata":
         img_session.region = Region.CoronaRadiata
         reset_score_fields(app_state, Region.CoronaRadiata)
@@ -400,6 +410,10 @@ def handle_region_selected(event: CompletedEvent, app_state: LabelingAppState):
             img_session.image_uuid,
             Region.CoronaRadiata,
         )
+    if consecutive_slices(app_state.current_session.slice_status_df):
+        app_state.current_session.consecutive_slices = True
+    else:
+        app_state.current_session.consecutive_slices = False
 
 
 def evaluate_score_and_update_status(app_state: LabelingAppState):
@@ -429,6 +443,9 @@ def handle_basal_central_left_score(event: CompletedEvent, app_state: LabelingAp
             app_state.current_session.uuid,
             SetStatus.VALID,
         )
+        app_state.current_session.render_valid_message = True
+    else:
+        app_state.current_session.render_valid_message = False
 
 
 def handle_basal_central_right_score(
@@ -444,6 +461,7 @@ def handle_basal_central_right_score(
             app_state.current_session.uuid,
             SetStatus.VALID,
         )
+        app_state.current_session.render_valid_message = True
 
 
 def handle_basal_cortex_left_score(event: CompletedEvent, app_state: LabelingAppState):
@@ -457,6 +475,7 @@ def handle_basal_cortex_left_score(event: CompletedEvent, app_state: LabelingApp
             app_state.current_session.uuid,
             SetStatus.VALID,
         )
+        app_state.current_session.render_valid_message = True
 
 
 def handle_basal_cortex_right_score(event: CompletedEvent, app_state: LabelingAppState):
@@ -470,6 +489,7 @@ def handle_basal_cortex_right_score(event: CompletedEvent, app_state: LabelingAp
             app_state.current_session.uuid,
             SetStatus.VALID,
         )
+        app_state.current_session.render_valid_message = True
 
 
 def handle_corona_left_score(event: CompletedEvent, app_state: LabelingAppState):
@@ -483,6 +503,7 @@ def handle_corona_left_score(event: CompletedEvent, app_state: LabelingAppState)
             app_state.current_session.uuid,
             SetStatus.VALID,
         )
+        app_state.current_session.render_valid_message = True
 
 
 def handle_corona_right_score(event: CompletedEvent, app_state: LabelingAppState):
@@ -496,6 +517,7 @@ def handle_corona_right_score(event: CompletedEvent, app_state: LabelingAppState
             app_state.current_session.uuid,
             SetStatus.VALID,
         )
+        app_state.current_session.render_valid_message = True
 
 
 def handle_notes_changed(event: CompletedEvent, app_state: LabelingAppState):
@@ -531,7 +553,7 @@ def handle_mark_irrelevant(event: CompletedEvent, app_state: LabelingAppState):
             app_state.current_session.uuid,
             SetStatus.INVALID,
         )
-
+    app_state.current_session.render_valid_message = False
     disable_score_fields(app_state)
 
 
@@ -554,6 +576,7 @@ def handle_mark_low_quality(event: CompletedEvent, app_state: LabelingAppState):
             app_state.current_session.uuid,
             SetStatus.INVALID,
         )
+    app_state.current_session.render_valid_message = False
     disable_score_fields(app_state)
 
 
@@ -562,13 +585,15 @@ def handle_logout(event: HalfEvent, app_state: LabelingAppState):
 
 
 def handle_submit(event: HalfEvent, app_state: LabelingAppState):
+    db_session = get_session_factory()()
     for image_set in app_state.labeling_session:
         submit_image_set_results(
-            db_session=app_state.db_session,
+            db_session=db_session,
             doctor_uuid=app_state.doctor_id,
             session_uuid=app_state.login_session,
             result=image_set,
         )
+    db_session.close()
     reset()
 
 

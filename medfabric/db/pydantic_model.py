@@ -1,0 +1,192 @@
+"""Pydantic models for data validation and serialization."""
+
+# pylint: disable=missing-class-docstring, missing-function-docstring, missing-module-docstring
+from datetime import datetime
+from typing import Optional, List, Annotated
+from uuid import UUID
+
+from pydantic import BaseModel, EmailStr, Field, StringConstraints
+from medfabric.db.orm_model import Region, Gender
+
+
+# --- Base class for all schemas ---
+class OrmBase(BaseModel):
+    model_config = {"from_attributes": True}
+
+
+# --- Datasets ---
+class DataSetBase(OrmBase):
+    dataset_uuid: UUID
+    name: Annotated[str, StringConstraints(min_length=1)]
+    description: Optional[str] = None
+
+
+class DataSetCreate(OrmBase):
+    name: Annotated[str, StringConstraints(min_length=1)]
+    description: Optional[str] = None
+    dataset_uuid: Optional[UUID] = None
+
+
+class DataSetRead(DataSetBase):
+    pass
+
+
+# --- Patients ---
+class PatientBase(OrmBase):
+    patient_id: Annotated[str, StringConstraints(min_length=1)]
+    dataset_uuid: UUID
+    category: Optional[str] = None
+    age: Annotated[int, Field(ge=0, le=130)] | None = None
+    gender: Optional[Gender] = None
+
+
+class PatientCreate(PatientBase):
+    patient_uuid: Optional[UUID] = None
+
+
+class PatientRead(PatientBase):
+    patient_uuid: UUID
+
+
+#    image_sets: List["ImageSetRead"] = []  # Forward reference
+
+
+# --- Doctors ---
+
+
+class DoctorBase(OrmBase):
+    uuid: UUID
+    username: Annotated[str, StringConstraints(min_length=3, strip_whitespace=True)]
+    role: Optional[str] = None
+    email: Optional[EmailStr] = None
+
+
+class DoctorLogin(BaseModel):
+    username: str
+    password: str
+
+
+class DoctorCreate(OrmBase):
+    username: Annotated[str, StringConstraints(min_length=3, strip_whitespace=True)]
+    role: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password_hash: Annotated[str, StringConstraints(min_length=8)]
+
+
+class DoctorRead(DoctorBase):
+    pass
+
+
+# --- Sessions ---
+class SessionBase(OrmBase):
+    session_uuid: UUID
+    doctor_uuid: UUID
+    login_time: datetime
+    is_active: bool
+
+
+class SessionCreate(OrmBase):
+    doctor_uuid: UUID
+
+
+class SessionGetter(OrmBase):
+    session_uuid: UUID
+
+
+class SessionRead(SessionBase):
+    pass
+
+
+# --- ImageSets ---
+class ImageSetBase(OrmBase):
+    uuid: UUID
+    dataset_uuid: UUID
+    image_set_name: Annotated[str, StringConstraints(min_length=1)]
+    patient_uuid: UUID
+    num_images: Annotated[int, Field(gt=0)]
+    folder_path: str
+    conflicted: bool
+    description: Optional[str] = None
+
+
+class ImageSetCreate(OrmBase):
+    dataset_uuid: UUID
+    uuid: Optional[UUID] = None
+    image_set_name: Annotated[str, StringConstraints(min_length=1)]
+    patient_uuid: UUID
+    num_images: Annotated[int, Field(gt=0)]
+    folder_path: str
+    description: Optional[str] = None
+
+
+class ImageSetRead(ImageSetBase):
+    index: int
+    images: List["ImageRead"] = []  # Forward reference
+    patient: PatientRead  # Forward reference
+
+
+# --- Images ---
+class ImageBase(OrmBase):
+    uuid: UUID
+    image_name: Annotated[str, StringConstraints(min_length=1)]
+    image_set_uuid: UUID
+    slice_index: Annotated[int, Field(ge=0)]
+
+
+class ImageCreate(OrmBase):
+    uuid: Optional[UUID] = None
+    image_name: Annotated[str, StringConstraints(min_length=1)]
+    image_set_uuid: UUID
+    slice_index: Annotated[int, Field(ge=0)]
+
+
+class ImageRead(ImageBase):
+    #    image_set: ImageSetRead  # Forward reference
+    pass
+
+
+# --- ImageSetEvaluations ---
+class ImageSetEvaluationBase(OrmBase):
+    doctor_uuid: UUID
+    image_set_uuid: UUID
+    session_uuid: UUID
+    is_low_quality: bool
+    is_irrelevant: bool
+
+
+class ImageSetEvaluationCreate(ImageSetEvaluationBase):
+    pass
+
+
+class ImageSetEvaluationRead(ImageSetEvaluationBase):
+    id: int
+
+
+# --- ImageEvaluations ---
+class ImageEvaluationBase(OrmBase):
+    doctor_uuid: UUID
+    image_uuid: UUID
+    session_uuid: UUID
+    region: Region
+
+    basal_score_central_left: Optional[int] = None
+    basal_score_central_right: Optional[int] = None
+    basal_score_cortex_left: Optional[int] = None
+    basal_score_cortex_right: Optional[int] = None
+    corona_score_left: Optional[int] = None
+    corona_score_right: Optional[int] = None
+
+    notes: Annotated[str, StringConstraints(max_length=500)] | None = None
+
+
+class ImageEvaluationCreate(ImageEvaluationBase):
+    pass
+
+
+class ImageEvaluationRead(ImageEvaluationBase):
+    id: int
+
+
+PatientRead.model_rebuild()
+ImageSetRead.model_rebuild()
+ImageRead.model_rebuild()

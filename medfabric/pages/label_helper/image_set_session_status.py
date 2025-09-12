@@ -1,6 +1,6 @@
-import pandas as pd
 import uuid
 from enum import Enum
+import pandas as pd
 
 
 # Enum for status
@@ -19,7 +19,7 @@ def add_row(df: pd.DataFrame, set_uuid: uuid.UUID, status: SetStatus) -> pd.Data
     if not isinstance(set_uuid, uuid.UUID):
         raise TypeError("set_uuid must be a uuid.UUID")
 
-    next_index = 0 if df.empty else df["index"].max() + 1
+    next_index = 1 if df.empty else df["index"].max() + 1
     new_row = {"index": next_index, "set_uuid": str(set_uuid), "status": status.value}
     return pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
 

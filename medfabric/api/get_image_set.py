@@ -2,13 +2,14 @@
 from typing import Optional
 import uuid as uuid_lib
 from sqlalchemy.orm import Session
-from medfabric.db.models import ImageSet
-from medfabric.api.errors import ImageSetNotFoundError, InvalidImageSetPathError
+from medfabric.db.orm_model import ImageSet
+from medfabric.db.pydantic_model import ImageSetRead
+from medfabric.api.errors import ImageSetNotFoundError
 
 
 def get_image_set_with_validation(
     session: Session, image_set_uuid: uuid_lib.UUID
-) -> Optional[ImageSet]:
+) -> Optional[ImageSetRead]:
     """
     Retrieve an image set by its UUID.
 
@@ -19,15 +20,9 @@ def get_image_set_with_validation(
     Returns:
         ImageSet if found, None otherwise
     """
-    image_set = (
-        session.query(ImageSet).filter_by(image_set_uuid=image_set_uuid).one_or_none()
-    )
+    image_set = session.get(ImageSet, image_set_uuid)
     if image_set is None:
         raise ImageSetNotFoundError(
             f"Image set with UUID '{image_set_uuid}' not found."
         )
-    if image_set.folder_path is None:
-        raise InvalidImageSetPathError(
-            f"Image set with UUID '{image_set_uuid}' has an invalid or non-existent folder path."
-        )
-    return image_set
+    return ImageSetRead.model_validate(image_set)

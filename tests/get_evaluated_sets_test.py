@@ -3,7 +3,7 @@
 from typing import List
 import pytest
 from sqlalchemy.orm import Session as db_Session
-from medfabric.db.models import (
+from medfabric.db.orm_model import (
     Doctors,
     Session,
     ImageSet,
@@ -14,6 +14,7 @@ from medfabric.api.sessions import create_session
 from medfabric.api.credentials import register_doctor
 from medfabric.api.image_set_input import add_image_set
 from medfabric.api.image_input import add_image
+from medfabric.api.patients import add_patient
 from medfabric.api.image_set_evaluation_input import add_evaluate_image_set
 from medfabric.api.image_evaluation_input import add_evaluate_image
 from medfabric.api.get_evaluated_sets import get_doctor_image_sets
@@ -39,12 +40,43 @@ def sessions(db_session: db_Session, doctor: List[Doctors]) -> List[Session]:
 
 
 @pytest.fixture
-def image_sets(db_session: db_Session) -> List[ImageSet]:
-    set1 = add_image_set(db_session, "set1", 3)
-    set2 = add_image_set(db_session, "set2", 2)
-    set3 = add_image_set(db_session, "set3", 4)
+def image_sets(db_session: db_Session, dataset_uuid) -> List[ImageSet]:
+    patient = add_patient(
+        db_session,
+        "patient_for_sets",
+        category="oncology",
+        age=50,
+        data_set_uuid=dataset_uuid,
+    )
+    set1 = add_image_set(
+        db_session,
+        "set1",
+        3,
+        folder_path="path/to/set1",
+        dataset_uuid=dataset_uuid,
+        patient_uuid=patient.patient_uuid,
+    )
+    set2 = add_image_set(
+        db_session,
+        "set2",
+        2,
+        folder_path="path/to/set2",
+        dataset_uuid=dataset_uuid,
+        patient_uuid=patient.patient_uuid,
+    )
+    set3 = add_image_set(
+        db_session,
+        "set3",
+        4,
+        folder_path="path/to/set3",
+        dataset_uuid=dataset_uuid,
+        patient_uuid=patient.patient_uuid,
+    )
     print(
-        "Created image sets:", set1.image_set_id, set2.image_set_id, set3.image_set_id
+        "Created image sets:",
+        set1.image_set_name,
+        set2.image_set_name,
+        set3.image_set_name,
     )
     return [set1, set2, set3]
 
@@ -59,14 +91,14 @@ def images(db_session: db_Session, image_sets: List[ImageSet]) -> List[List[Imag
     for image_set in image_sets:
         imgs = []
         for i in range(image_set.num_images):
-            print(f"Adding image {i} to set {image_set.image_set_id}")
+            print(f"Adding image {i} to set {image_set.image_set_name}")
             img = add_image(
                 db_session,
                 image_set_uuid=image_set.uuid,
-                image_id=f"image_{i}_{image_set.uuid}.dcm",
+                image_name=f"image_{i}_{image_set.uuid}.dcm",
                 slice_index=i,
             )
-            print("Added image:", img.image_id, img.uuid)
+            print("Added image:", img.image_name, img.uuid)
             imgs.append(img)
         all_imgs.append(imgs)
     return all_imgs
@@ -83,26 +115,26 @@ def set_evaluations(
     # Doctor 1 evaluate set 0 and 1
     eval1 = add_evaluate_image_set(
         db_session,
-        doctor_id=doctor[0].uuid,
+        doctor_uuid=doctor[0].uuid,
         image_set_uuid=image_sets[0].uuid,
-        session_id=sessions[0].session_id,
+        session_uuid=sessions[0].session_uuid,
         is_low_quality=True,
         is_irrelevant=False,
     )
     eval2 = add_evaluate_image_set(
         db_session,
-        doctor_id=doctor[0].uuid,
+        doctor_uuid=doctor[0].uuid,
         image_set_uuid=image_sets[1].uuid,
-        session_id=sessions[0].session_id,
+        session_uuid=sessions[0].session_uuid,
         is_low_quality=False,
         is_irrelevant=True,
     )
     # Doctor 3 evaluate set 2
     eval3 = add_evaluate_image_set(
         db_session,
-        doctor_id=doctor[2].uuid,
+        doctor_uuid=doctor[2].uuid,
         image_set_uuid=image_sets[1].uuid,
-        session_id=sessions[2].session_id,
+        session_uuid=sessions[2].session_uuid,
         is_low_quality=True,
         is_irrelevant=False,
     )
@@ -122,9 +154,9 @@ def image_evaluations(
     for img in images[0]:  # Doctor 2 evaluate images in set 0 and 1
         eval_ = add_evaluate_image(
             db_session,
-            doctor_id=doctor[1].uuid,
+            doctor_uuid=doctor[1].uuid,
             image_uuid=img.uuid,
-            session_id=sessions[1].session_id,
+            session_uuid=sessions[1].session_uuid,
             region=Region.None_,
             basal_score_cortex_left=None,
             basal_score_cortex_right=None,
@@ -138,9 +170,9 @@ def image_evaluations(
     for img in images[1]:
         eval_ = add_evaluate_image(
             db_session,
-            doctor_id=doctor[1].uuid,
+            doctor_uuid=doctor[1].uuid,
             image_uuid=img.uuid,
-            session_id=sessions[1].session_id,
+            session_uuid=sessions[1].session_uuid,
             region=Region.BasalCentral,
             basal_score_cortex_left=1,
             basal_score_cortex_right=3,
@@ -154,9 +186,9 @@ def image_evaluations(
     for img in images[2]:  # Doctor 3 evaluate images in set 2
         eval_ = add_evaluate_image(
             db_session,
-            doctor_id=doctor[2].uuid,
+            doctor_uuid=doctor[2].uuid,
             image_uuid=img.uuid,
-            session_id=sessions[2].session_id,
+            session_uuid=sessions[2].session_uuid,
             region=Region.CoronaRadiata,
             basal_score_cortex_left=None,
             basal_score_cortex_right=None,

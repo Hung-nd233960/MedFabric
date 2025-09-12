@@ -1,7 +1,7 @@
 import uuid
 from enum import Enum
 import pandas as pd
-from medfabric.db.models import Region
+from medfabric.db.orm_model import Region
 
 
 # Enum for slice status
@@ -16,7 +16,7 @@ def initialize_slice_df() -> pd.DataFrame:
 
 def _reorder_slices(df: pd.DataFrame) -> pd.DataFrame:
     """Sort slices by slice_index but preserve original values."""
-    return df.sort_values("slice_index").reset_index(drop=True)
+    return df.sort_values("slice_index")
 
 
 def add_slice(
@@ -31,7 +31,7 @@ def add_slice(
         raise TypeError("image_uuid must be a uuid.UUID")
 
     new_row = {
-        "slice_index": slice_index,
+        "slice_index": slice_index + 1,
         "image_uuid": str(image_uuid),
         "region": region.value,
         "status": status.value,
@@ -92,6 +92,21 @@ def validate_slices(df: pd.DataFrame) -> bool:
     return bool(has_required_regions(df) and all_completed(df))
 
 
+def consecutive_slices(df: pd.DataFrame) -> bool:
+    """
+    Return True if df is not empty and `slice_index` values are consecutive integers.
+    """
+    if df.empty:
+        return True
+    if "slice_index" not in df.columns:
+        raise ValueError("DataFrame must contain a 'slice_index' column")
+
+    values = df["slice_index"].sort_values().to_numpy()
+    return (values[-1] - values[0] + 1) == len(values) and len(set(values)) == len(
+        values
+    )
+
+
 def clear_all_slices() -> pd.DataFrame:
     """Return an empty DataFrame with the correct columns."""
     return initialize_slice_df()
@@ -118,7 +133,7 @@ def handle_df_region_change(
     else:
         # UUID not found → add new slice (region + initial status)
         new_row = {
-            "slice_index": slice_index,
+            "slice_index": slice_index + 1,
             "image_uuid": str(image_uuid),
             "region": new_region.value,
             "status": status.value,
