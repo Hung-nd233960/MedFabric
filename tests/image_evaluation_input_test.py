@@ -3,7 +3,7 @@
 import uuid as uuid_lib
 import pytest
 from sqlalchemy.orm import Session as db_Session
-from medfabric.db.models import (
+from medfabric.db.orm_model import (
     Region,
     ImageEvaluation,
     Doctors,
@@ -13,6 +13,7 @@ from medfabric.db.models import (
 )
 from medfabric.api.config import BASAL_CENTRAL_MAX, BASAL_CORTEX_MAX, CORONA_MAX
 from medfabric.api.credentials import register_doctor
+from medfabric.api.patients import add_patient
 from medfabric.api.image_input import add_image
 from medfabric.api.image_set_input import add_image_set
 from medfabric.api.image_evaluation_input import (
@@ -280,9 +281,24 @@ def doctor(db_session: db_Session) -> Doctors:
 
 
 @pytest.fixture
-def image_set(db_session: db_Session):
+def image_set(db_session: db_Session, dataset_uuid) -> ImageSet:
     """Create and return a test image set."""
-    return add_image_set(db_session, "set1", 5)
+    patient = add_patient(
+        db_session,
+        "patient_for_evaluation",
+        category="oncology",
+        age=50,
+        data_set_uuid=dataset_uuid,
+    )
+
+    return add_image_set(
+        db_session,
+        "set1",
+        5,
+        folder_path="path/to/set1",
+        dataset_uuid=dataset_uuid,
+        patient_uuid=patient.patient_uuid,
+    )
 
 
 @pytest.fixture
@@ -295,7 +311,7 @@ def session(db_session: db_Session, doctor: Doctors) -> Session:
 def image(db_session: db_Session, image_set: ImageSet) -> Image:
     """Create and return a test image in the given image set."""
     return add_image(
-        db_session, image_id="img1", image_set_uuid=image_set.uuid, slice_index=1
+        db_session, image_name="img1", image_set_uuid=image_set.uuid, slice_index=1
     )
 
 
@@ -306,7 +322,7 @@ def test_add_evaluate_image_success(
         db_session,
         doctor.uuid,
         image.uuid,
-        session.session_id,
+        session.session_uuid,
         region=Region.BasalCentral,
         basal_score_central_left=2,
         basal_score_central_right=3,
@@ -316,9 +332,9 @@ def test_add_evaluate_image_success(
         corona_score_right=None,
         notes="Test evaluation",
     )
-    assert evaluation.doctor_id == doctor.uuid
+    assert evaluation.doctor_uuid == doctor.uuid
     assert evaluation.image_uuid == image.uuid
-    assert evaluation.session_id == session.session_id
+    assert evaluation.session_uuid == session.session_uuid
     assert evaluation.region == Region.BasalCentral
     assert evaluation.basal_score_central_left == 2
     assert evaluation.basal_score_central_right == 3
@@ -332,13 +348,13 @@ def test_add_evaluate_image_success(
 def test_add_evaluate_image_doctor_not_found(
     db_session: db_Session, image: Image, session: Session
 ):
-    fake_doctor_id = uuid_lib.uuid4()
+    fake_doctor_uuid = uuid_lib.uuid4()
     with pytest.raises(UserNotFoundError):
         add_evaluate_image(
             db_session,
-            fake_doctor_id,
+            fake_doctor_uuid,
             image.uuid,
-            session.session_id,
+            session.session_uuid,
             region=Region.BasalCentral,
             basal_score_central_left=2,
             basal_score_central_right=3,
@@ -353,13 +369,13 @@ def test_add_evaluate_image_doctor_not_found(
 def test_add_evaluate_image_image_not_found(
     db_session: db_Session, doctor: Doctors, session: Session
 ):
-    fake_image_id = uuid_lib.uuid4()
+    fake_image_name = uuid_lib.uuid4()
     with pytest.raises(ImageNotFoundError):
         add_evaluate_image(
             db_session,
             doctor.uuid,
-            fake_image_id,
-            session.session_id,
+            fake_image_name,
+            session.session_uuid,
             region=Region.BasalCentral,
             basal_score_central_left=2,
             basal_score_central_right=3,
@@ -374,13 +390,13 @@ def test_add_evaluate_image_image_not_found(
 def test_add_evaluate_image_session_not_found(
     db_session: db_Session, doctor: Doctors, image: Image
 ):
-    fake_session_id = uuid_lib.uuid4()
+    fake_session_uuid = uuid_lib.uuid4()
     with pytest.raises(SessionNotFoundError):
         add_evaluate_image(
             db_session,
             doctor.uuid,
             image.uuid,
-            fake_session_id,
+            fake_session_uuid,
             region=Region.BasalCentral,
             basal_score_central_left=2,
             basal_score_central_right=3,
@@ -404,7 +420,7 @@ def test_add_evaluate_image_session_inactive(
             db_session,
             doctor.uuid,
             image.uuid,
-            sess.session_id,
+            sess.session_uuid,
             region=Region.BasalCentral,
             basal_score_central_left=2,
             basal_score_central_right=3,
@@ -426,7 +442,7 @@ def test_add_evaluate_image_session_mismatch(
             db_session,
             doctor.uuid,
             image.uuid,
-            sess.session_id,
+            sess.session_uuid,
             region=Region.BasalCentral,
             basal_score_central_left=2,
             basal_score_central_right=3,
@@ -446,7 +462,7 @@ def test_add_evaluate_image_invalid_region(
             db_session,
             doctor.uuid,
             image.uuid,
-            session.session_id,
+            session.session_uuid,
             region="InvalidRegion",  # invalid region
             basal_score_central_left=2,
             basal_score_central_right=3,
@@ -466,7 +482,7 @@ def test_add_evaluate_image_invalid_scores(
             db_session,
             doctor.uuid,
             image.uuid,
-            session.session_id,
+            session.session_uuid,
             region=Region.BasalCentral,
             basal_score_central_left=-1,  # Invalid score
             basal_score_central_right=3,
@@ -485,7 +501,7 @@ def test_add_evaluate_image_duplicate_evaluation(
         db_session,
         doctor.uuid,
         image.uuid,
-        session.session_id,
+        session.session_uuid,
         region=Region.BasalCentral,
         basal_score_central_left=2,
         basal_score_central_right=3,
@@ -500,7 +516,7 @@ def test_add_evaluate_image_duplicate_evaluation(
             db_session,
             doctor.uuid,
             image.uuid,
-            session.session_id,
+            session.session_uuid,
             region=Region.BasalCentral,
             basal_score_central_left=1,
             basal_score_central_right=2,
@@ -519,13 +535,13 @@ def test_check_image_evaluation_exists(
         db_session,
         doctor.uuid,
         image.uuid,
-        session.session_id,
+        session.session_uuid,
     )
     add_evaluate_image(
         db_session,
         doctor.uuid,
         image.uuid,
-        session.session_id,
+        session.session_uuid,
         region=Region.BasalCentral,
         basal_score_central_left=2,
         basal_score_central_right=3,
@@ -539,7 +555,7 @@ def test_check_image_evaluation_exists(
         db_session,
         doctor.uuid,
         image.uuid,
-        session.session_id,
+        session.session_uuid,
     )
 
 
@@ -550,7 +566,7 @@ def test_add_evaluate_image_duplicate_does_not_break_existing(
         db_session,
         doctor.uuid,
         image.uuid,
-        session.session_id,
+        session.session_uuid,
         region=Region.BasalCentral,
         basal_score_central_left=2,
         basal_score_central_right=3,
@@ -565,7 +581,7 @@ def test_add_evaluate_image_duplicate_does_not_break_existing(
             db_session,
             doctor.uuid,
             image.uuid,
-            session.session_id,
+            session.session_uuid,
             region=Region.BasalCentral,
             basal_score_central_left=1,
             basal_score_central_right=2,
@@ -579,9 +595,9 @@ def test_add_evaluate_image_duplicate_does_not_break_existing(
     evaluations = (
         db_session.query(ImageEvaluation)
         .filter_by(
-            doctor_id=doctor.uuid,
+            doctor_uuid=doctor.uuid,
             image_uuid=image.uuid,
-            session_id=session.session_id,
+            session_uuid=session.session_uuid,
         )
         .all()
     )

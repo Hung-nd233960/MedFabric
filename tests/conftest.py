@@ -1,7 +1,8 @@
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from medfabric.db.models import Base
+from medfabric.db.orm_model import Base
+from medfabric.db.orm_model import DataSet
 
 
 @pytest.fixture
@@ -27,3 +28,12 @@ def db_session(postgresql):
     finally:
         session.close()
         Base.metadata.drop_all(engine)
+
+
+@pytest.fixture
+def dataset_uuid(db_session):
+    """Create and return a dataset UUID."""
+    dataset = DataSet(name="test_dataset")
+    db_session.add(dataset)
+    db_session.commit()
+    return dataset.dataset_uuid

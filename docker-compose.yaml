@@ -12,7 +12,9 @@ services:
     volumes:
       - ./:/app
       - ./medfabric:/app/medfabric:ro
-      - ./data_sets:/app/data_sets:ro
+#      - ./data_sets:/app/data_sets:ro
+      - ./public_data:/app/public_data:ro
+    
       
   db:
     container_name: medfabric_db

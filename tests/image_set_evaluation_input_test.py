@@ -9,7 +9,8 @@ from medfabric.api.image_set_evaluation_input import (
     add_evaluate_image_set,
     check_set_evaluation_exists,
 )
-from medfabric.db.models import Doctors, ImageSet, Session
+from medfabric.db.orm_model import Doctors, ImageSet, Session
+from medfabric.api.patients import add_patient
 from medfabric.api.image_set_input import add_image_set
 from medfabric.api.sessions import create_session
 from medfabric.api.errors import (
@@ -30,9 +31,23 @@ def doctor(db_session: db_Session) -> Doctors:
 
 
 @pytest.fixture
-def image_set(db_session: db_Session) -> ImageSet:
+def image_set(db_session: db_Session, dataset_uuid) -> ImageSet:
     """Create and return a test image set."""
-    return add_image_set(db_session, "set1", 5)
+    patient = add_patient(
+        db_session,
+        "patient_for_evaluation",
+        category="oncology",
+        age=50,
+        data_set_uuid=dataset_uuid,
+    )
+    return add_image_set(
+        db_session,
+        "set1",
+        5,
+        folder_path="path/to/set1",
+        patient_uuid=patient.patient_uuid,
+        dataset_uuid=dataset_uuid,
+    )
 
 
 @pytest.fixture
@@ -48,13 +63,13 @@ def test_add_evaluate_image_set_success(
         db_session,
         doctor.uuid,
         image_set.uuid,
-        session.session_id,
+        session.session_uuid,
         is_low_quality=True,
         is_irrelevant=False,
     )
-    assert evaluation.doctor_id == doctor.uuid
+    assert evaluation.doctor_uuid == doctor.uuid
     assert evaluation.image_set_uuid == image_set.uuid
-    assert evaluation.session_id == session.session_id
+    assert evaluation.session_uuid == session.session_uuid
     assert evaluation.is_low_quality is True
     assert evaluation.is_irrelevant is False
 
@@ -68,20 +83,20 @@ def test_add_evaluate_image_set_doctor_not_found(
             db_session,
             fake_doctor_id,
             image_set.uuid,
-            session.session_id,
+            session.session_uuid,
         )
 
 
 def test_add_evaluate_image_set_session_not_found(
     db_session: db_Session, doctor: Doctors, image_set: ImageSet
 ):
-    fake_session_id = uuid_lib.uuid4()
+    fake_session_uuid = uuid_lib.uuid4()
     with pytest.raises(SessionNotFoundError):
         add_evaluate_image_set(
             db_session,
             doctor.uuid,
             image_set.uuid,
-            fake_session_id,
+            fake_session_uuid,
         )
 
 
@@ -97,7 +112,7 @@ def test_add_evaluate_image_set_session_inactive(
             db_session,
             doctor.uuid,
             image_set.uuid,
-            sess.session_id,
+            sess.session_uuid,
         )
 
 
@@ -111,7 +126,7 @@ def test_add_evaluate_image_set_session_mismatch(
             db_session,
             doctor.uuid,
             image_set.uuid,
-            sess.session_id,
+            sess.session_uuid,
         )
 
 
@@ -123,7 +138,7 @@ def test_add_evaluate_image_set_image_set_not_found(
             db_session,
             doctor.uuid,
             uuid_lib.uuid4(),
-            session.session_id,
+            session.session_uuid,
         )
 
 
@@ -135,7 +150,7 @@ def test_add_evaluate_image_set_invalid_evaluation(
             db_session,
             doctor.uuid,
             image_set.uuid,
-            session.session_id,
+            session.session_uuid,
             is_low_quality=False,
             is_irrelevant=False,
         )
@@ -148,7 +163,7 @@ def test_add_evaluate_image_set_duplicate_evaluation(
         db_session,
         doctor.uuid,
         image_set.uuid,
-        session.session_id,
+        session.session_uuid,
         is_low_quality=True,
     )
     with pytest.raises(EvaluationAlreadyExistsError):
@@ -156,7 +171,7 @@ def test_add_evaluate_image_set_duplicate_evaluation(
             db_session,
             doctor.uuid,
             image_set.uuid,
-            session.session_id,
+            session.session_uuid,
             is_low_quality=False,
             is_irrelevant=True,
         )
@@ -169,20 +184,20 @@ def test_check_evaluation_exists(
         db_session,
         doctor.uuid,
         image_set.uuid,
-        session.session_id,
+        session.session_uuid,
     )
     add_evaluate_image_set(
         db_session,
         doctor.uuid,
         image_set.uuid,
-        session.session_id,
+        session.session_uuid,
         is_low_quality=True,
     )
     assert check_set_evaluation_exists(
         db_session,
         doctor.uuid,
         image_set.uuid,
-        session.session_id,
+        session.session_uuid,
     )
 
 
@@ -193,7 +208,7 @@ def test_add_evaluate_image_set_duplicate_does_not_break_existing(
         db_session,
         doctor.uuid,
         image_set.uuid,
-        session.session_id,
+        session.session_uuid,
         is_low_quality=True,
     )
     with pytest.raises(EvaluationAlreadyExistsError):
@@ -201,10 +216,10 @@ def test_add_evaluate_image_set_duplicate_does_not_break_existing(
             db_session,
             doctor.uuid,
             image_set.uuid,
-            session.session_id,
+            session.session_uuid,
             is_irrelevant=True,
         )
     # Make sure the first evaluation still exists in DB
     assert check_set_evaluation_exists(
-        db_session, doctor.uuid, image_set.uuid, session.session_id
+        db_session, doctor.uuid, image_set.uuid, session.session_uuid
     )

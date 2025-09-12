@@ -11,9 +11,11 @@ from medfabric.pages.label_helper.state_management import (
 from medfabric.pages.label_helper.session_initialization import (
     initialize_evaluation_session,
 )
-from medfabric.pages.label_helper.image_helper import apply_brightness_contrast
-from medfabric.db.models import Region
+from medfabric.pages.label_helper.image_helper import render_image_to_st
+from medfabric.db.engine import get_session_factory
+from medfabric.db.orm_model import Region
 from medfabric.api.config import BASAL_CENTRAL_MAX, BASAL_CORTEX_MAX, CORONA_MAX
+from medfabric.pages.utils import sudden_close
 from medfabric.pages.label_helper.state_management import LabelingAppState
 from medfabric.pages.label_helper.dispatcher import flag_listener
 from medfabric.pages.label_helper.image_set_session_status import (
@@ -29,8 +31,8 @@ from medfabric.pages.label_helper.column_config import (
 
 def initial_setup():
     """Initialize event flags in Streamlit session state if not already present."""
-    if "flag" not in st.session_state:
-        st.session_state.flag = EventFlags()
+    if "label_flag" not in st.session_state:
+        st.session_state.label_flag = EventFlags()
     if "key_mngr" not in st.session_state:
         st.session_state.key_mngr = EnumKeyManager()
 
@@ -46,7 +48,7 @@ def render_set_column(
             key=prev_key,
             on_click=raise_flag,
             args=(
-                app.flag,
+                app.label_flag,
                 EventType.PREV_SET,
             ),
         )
@@ -56,7 +58,7 @@ def render_set_column(
             key=next_key,
             on_click=raise_flag,
             args=(
-                app.flag,
+                app.label_flag,
                 EventType.NEXT_SET,
             ),
         )
@@ -69,7 +71,7 @@ def render_set_column(
             key=jump_to_key,
             on_change=raise_flag,
             args=(
-                app.flag,
+                app.label_flag,
                 EventType.JUMP_TO_SET,
                 jump_to_key,
             ),
@@ -84,7 +86,7 @@ def render_logout_button(key: str) -> None:
         type="secondary",
         on_click=raise_flag,
         args=(
-            app.flag,
+            app.label_flag,
             EventType.LOGOUT,
         ),
     )
@@ -94,9 +96,9 @@ def render_text(text: str) -> str:
     """Render text in the Streamlit app."""
     if text == "BasalGangliaCortex":
         return "Basal Ganglia (Cortex)"
-    elif text == "BasalGangliaCentral":
+    if text == "BasalGangliaCentral":
         return "Basal Ganglia (Central)"
-    elif text == "CoronaRadiata":
+    if text == "CoronaRadiata":
         return "Corona Radiata"
     return text
 
@@ -116,7 +118,7 @@ def render_image_region_selection(key: str) -> None:
         format_func=render_text,
         on_change=raise_flag,
         args=(
-            app.flag,
+            app.label_flag,
             EventType.REGION_SELECTED,
             key,
         ),
@@ -147,7 +149,7 @@ def render_image_navigation_controls(
                 key=prev_img_key,
                 on_click=raise_flag,
                 args=(
-                    app.flag,
+                    app.label_flag,
                     EventType.PREV_IMAGE,
                 ),
             )
@@ -157,7 +159,7 @@ def render_image_navigation_controls(
                 key=next_img_key,
                 on_click=raise_flag,
                 args=(
-                    app.flag,
+                    app.label_flag,
                     EventType.NEXT_IMAGE,
                 ),
             )
@@ -170,7 +172,7 @@ def render_image_navigation_controls(
                 key=img_slider_key,
                 on_change=raise_flag,
                 args=(
-                    app.flag,
+                    app.label_flag,
                     EventType.JUMP_TO_IMAGE,
                     img_slider_key,
                 ),
@@ -185,7 +187,7 @@ def render_image_navigation_controls(
                 key=brightness_slider_key,
                 on_change=raise_flag,
                 args=(
-                    app.flag,
+                    app.label_flag,
                     EventType.BRIGHTNESS_CHANGED,
                     brightness_slider_key,
                 ),
@@ -195,7 +197,7 @@ def render_image_navigation_controls(
                 key=reset_key,
                 on_click=raise_flag,
                 args=(
-                    app.flag,
+                    app.label_flag,
                     EventType.RESET_ADJUSTMENTS,
                 ),
             )
@@ -208,7 +210,7 @@ def render_image_navigation_controls(
                 key=contrast_slider_key,
                 on_change=raise_flag,
                 args=(
-                    app.flag,
+                    app.label_flag,
                     EventType.CONTRAST_CHANGED,
                     contrast_slider_key,
                 ),
@@ -220,7 +222,7 @@ def render_image_navigation_controls(
                 on_change=raise_flag,
                 disabled=True,
                 args=(
-                    app.flag,
+                    app.label_flag,
                     EventType.FILTER_CHANGED,
                     app.key_mngr.make(
                         UIElementType.SELECTBOX,
@@ -237,14 +239,14 @@ def render_set_labeling_row(low_quality_key: str, irrelevant_key: str):
             "Low Quality",
             key=low_quality_key,
             on_change=raise_flag,
-            args=(app.flag, EventType.MARK_LOW_QUALITY, low_quality_key),
+            args=(app.label_flag, EventType.MARK_LOW_QUALITY, low_quality_key),
         )
     with acol2:
         st.checkbox(
             "Irrelevant Data",
             key=irrelevant_key,
             on_change=raise_flag,
-            args=(app.flag, EventType.MARK_IRRELEVANT, irrelevant_key),
+            args=(app.label_flag, EventType.MARK_IRRELEVANT, irrelevant_key),
         )
 
 
@@ -287,7 +289,7 @@ def render_labeling_column(
                             key=key_basal_cortex_left,
                             on_change=raise_flag,
                             args=(
-                                app.flag,
+                                app.label_flag,
                                 EventType.BASAL_CORTEX_LEFT_SCORE_CHANGED,
                                 key_basal_cortex_left,
                             ),
@@ -305,7 +307,7 @@ def render_labeling_column(
                             key=key_basal_central_left,
                             on_change=raise_flag,
                             args=(
-                                app.flag,
+                                app.label_flag,
                                 EventType.BASAL_CENTRAL_LEFT_SCORE_CHANGED,
                                 key_basal_central_left,
                             ),
@@ -324,7 +326,7 @@ def render_labeling_column(
                             key=key_corona_left,
                             on_change=raise_flag,
                             args=(
-                                app.flag,
+                                app.label_flag,
                                 EventType.CORONA_LEFT_SCORE_CHANGED,
                                 key_corona_left,
                             ),
@@ -344,7 +346,7 @@ def render_labeling_column(
                             key=key_basal_cortex_right,
                             on_change=raise_flag,
                             args=(
-                                app.flag,
+                                app.label_flag,
                                 EventType.BASAL_CORTEX_RIGHT_SCORE_CHANGED,
                                 key_basal_cortex_right,
                             ),
@@ -362,7 +364,7 @@ def render_labeling_column(
                             key=key_basal_central_right,
                             on_change=raise_flag,
                             args=(
-                                app.flag,
+                                app.label_flag,
                                 EventType.BASAL_CENTRAL_RIGHT_SCORE_CHANGED,
                                 key_basal_central_right,
                             ),
@@ -381,7 +383,7 @@ def render_labeling_column(
                             key=key_corona_right,
                             on_change=raise_flag,
                             args=(
-                                app.flag,
+                                app.label_flag,
                                 EventType.CORONA_RIGHT_SCORE_CHANGED,
                                 key_corona_right,
                             ),
@@ -395,58 +397,49 @@ st.set_page_config(
 )
 
 app = st.session_state
-doctor_uuid = app.get("user")
 selected_scans = app.get("selected_scans")
 user_session = app.get("user_session")
-if not doctor_uuid:
-    st.error("You must be logged in to access this page.")
-    st.stop()
+
 if user_session is None:
     st.error("Session information missing. Please log in again.")
-    st.stop()
+    sudden_close()
 elif selected_scans is None:
     st.error("No scans selected for evaluation.")
-    st.stop()
-elif "db_session" not in app or app.db_session is None:
-    st.error("Database session not found. Please restart the application.")
-    st.stop()
+    sudden_close()
 
+doctor_uuid = user_session.doctor_uuid
 if "app_state" not in app:
+    db_session = get_session_factory()()
+    print(f"Selected scans: {selected_scans}")
     app.app_state = LabelingAppState(
         labeling_session=initialize_evaluation_session(
-            db_session=app.db_session,
+            db_session=db_session,
             image_set_uuids=selected_scans,
         ),
         doctor_id=doctor_uuid,
-        login_session=user_session.session_id,
-        db_session=app.db_session,
+        login_session=user_session.session_uuid,
     )
+    db_session.close()
     for sess in app.app_state.labeling_session:
         app.app_state.set_status_df = add_row(
             app.app_state.set_status_df, sess.uuid, SetStatus.INVALID
         )
 initial_setup()
-flag_listener(app.flag, app.app_state)
+flag_listener(app.label_flag, app.app_state)
 
 
 col1, col2, col3 = st.columns([1, 1, 1])
 with col1:
     render_logout_button(key=app.key_mngr.make(UIElementType.BUTTON, EventType.LOGOUT))
-    image = app.app_state.current_session.current_image_session.image_matrix
-    processed_image = apply_brightness_contrast(
-        image,
-        app.app_state.brightness,
-        app.app_state.contrast,
-    )
-    st.image(
-        processed_image,
-        caption=(
-            f"Set {app.app_state.session_index + 1} | "
-            f"Image {app.app_state.current_session.current_index + 1} of "
-            f"{app.app_state.current_session.num_images}"
-        ),
-        width="stretch",
-        clamp=False,
+    #    image = app.app_state.current_session.current_image_session.image_matrix
+    render_image_to_st(
+        path=app.app_state.current_session.current_image_session.image_path,
+        current_image_index=app.app_state.current_session.current_index,
+        num_images=app.app_state.current_session.num_images,
+        current_set_index=app.app_state.session_index,
+        brightness=app.app_state.brightness,
+        contrast=app.app_state.contrast,
+        # filter_type=app.app_state.filter_type,
     )
 with col2:
     render_image_navigation_controls(
@@ -530,8 +523,10 @@ with col3:
             with zcol1:
                 if app.app_state.current_session.patient_id:
                     st.write(f"Patient ID: {app.app_state.current_session.patient_id}")
-                if app.app_state.current_session.image_set_id:
-                    st.write(f"Scan Type: {app.app_state.current_session.image_set_id}")
+                if app.app_state.current_session.image_set_name:
+                    st.write(
+                        f"Scan Type: {app.app_state.current_session.image_set_name}"
+                    )
             with zcol2:
                 st.write(f"Set Index: {app.app_state.current_session.set_index}")
             if len(app.app_state.labeling_session) > 1:
@@ -554,6 +549,14 @@ with col3:
             if not app.app_state.current_session.render_score_box_mode:
                 st.info("This image set is valid for submission.")
             else:
+                if app.app_state.current_session.render_valid_message:
+                    st.success("This image set is valid for submission.")
+                else:
+                    st.warning("This image set is not yet valid for submission.")
+                if not app.app_state.current_session.consecutive_slices:
+                    st.warning(
+                        "The slices in this image set are not consecutive. Please ensure that all slices are consecutive before submission."
+                    )
                 st.dataframe(
                     app.app_state.current_session.slice_status_df,
                     width="stretch",
@@ -584,7 +587,7 @@ with col3:
                 ),
                 on_change=raise_flag,
                 args=(
-                    app.flag,
+                    app.label_flag,
                     EventType.NOTES_CHANGED,
                     app.key_mngr.make(
                         UIElementType.TEXTAREA,
@@ -608,7 +611,7 @@ with col3:
                     type="primary",
                     on_click=raise_flag,
                     args=(
-                        app.flag,
+                        app.label_flag,
                         EventType.SUBMIT,
                     ),
                 )

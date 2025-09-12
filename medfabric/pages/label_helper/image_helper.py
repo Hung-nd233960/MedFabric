@@ -1,12 +1,20 @@
-from typing import Dict, List, Tuple
+from enum import Enum
+from typing import Dict, List, Tuple, Union
 from pathlib import Path
-import cv2
+from PIL import Image
+from PIL import ImageEnhance
 import numpy as np
 import pydicom
 from pydicom.dataset import FileDataset
+import streamlit as st
 
 
-def apply_brightness_contrast(
+class ImageType(Enum):
+    DICOM = "DICOM"
+    JPG_PNG = "JPG/PNG"
+
+
+def apply_brightness_contrast_dcm(
     image: np.ndarray, brightness: int = 0, contrast: float = 1.0
 ) -> np.ndarray:
     """
@@ -26,26 +34,49 @@ def apply_brightness_contrast(
     return img.astype(np.uint8)
 
 
-def apply_filter(image: np.ndarray, filter_type: str) -> np.ndarray:
+def apply_brightness_contrast_jpg(
+    image: Image.Image, brightness: int = 0, contrast: float = 1.0
+) -> Image.Image:
     """
-    Apply an image filter.
+    Apply brightness and contrast adjustment for JPG/PNG images.
 
     Args:
-        image: Grayscale or RGB image as numpy array.
-        filter_type: One of "Gaussian Blur", "Sharpen", "Edge Detection", "Original".
-
+        image: PIL Image.
+        brightness: Value to add after scaling.
+        contrast: Multiplicative factor for scaling.
     Returns:
-        Filtered image as numpy array.
+        Adjusted image as PIL Image.
     """
-    if filter_type == "Gaussian Blur":
-        return cv2.GaussianBlur(image, (5, 5), 0)
-    elif filter_type == "Sharpen":
-        kernel: np.ndarray = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
-        return cv2.filter2D(image, -1, kernel)
-    elif filter_type == "Edge Detection":
-        return cv2.Canny(image, 100, 200)
-    else:
-        return image
+
+    enhancer_contrast = ImageEnhance.Contrast(image)
+    img = enhancer_contrast.enhance(contrast)
+
+    enhancer_brightness = ImageEnhance.Brightness(img)
+    img = enhancer_brightness.enhance(1 + brightness / 100.0)
+
+    return img
+
+
+# def apply_filter(image: np.ndarray, filter_type: str) -> np.ndarray:
+#    """
+#    Apply an image filter.
+#
+#    Args:
+#        image: Grayscale or RGB image as numpy array.
+#        filter_type: One of "Gaussian Blur", "Sharpen", "Edge Detection", "Original".
+#
+#    Returns:
+#        Filtered image as numpy array.
+#    """
+#    if filter_type == "Gaussian Blur":
+#        return cv2.GaussianBlur(image, (5, 5), 0)
+#    elif filter_type == "Sharpen":
+#        kernel: np.ndarray = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+#        return cv2.filter2D(image, -1, kernel)
+#    elif filter_type == "Edge Detection":
+#        return cv2.Canny(image, 100, 200)
+#    else:
+#        return image
 
 
 def get_filter_explanation(filter_type: str) -> str:
@@ -85,24 +116,24 @@ def dicom_to_dict_str(dicom: FileDataset) -> Dict[str, str]:
     return dicom_dict
 
 
-def zoom_image(image: np.ndarray, zoom_factor: float) -> np.ndarray:
-    """
-    Apply zoom by cropping and resizing.
-
-    Args:
-        image: Grayscale image.
-        zoom_factor: Zoom multiplier (>1 means zoom in).
-
-    Returns:
-        Zoomed image as numpy array.
-    """
-    h, w = image.shape
-    new_h, new_w = int(h / zoom_factor), int(w / zoom_factor)
-    top: int = (h - new_h) // 2
-    left: int = (w - new_w) // 2
-    cropped: np.ndarray = image[top : top + new_h, left : left + new_w]
-    zoomed: np.ndarray = cv2.resize(cropped, (w, h), interpolation=cv2.INTER_LINEAR)
-    return zoomed
+# def zoom_image(image: np.ndarray, zoom_factor: float) -> np.ndarray:
+#    """
+#    Apply zoom by cropping and resizing.
+#
+#    Args:
+#        image: Grayscale image.
+#        zoom_factor: Zoom multiplier (>1 means zoom in).
+#
+#    Returns:
+#        Zoomed image as numpy array.
+#    """
+#    h, w = image.shape
+#    new_h, new_w = int(h / zoom_factor), int(w / zoom_factor)
+#    top: int = (h - new_h) // 2
+#    left: int = (w - new_w) // 2
+#    cropped: np.ndarray = image[top : top + new_h, left : left + new_w]
+#    zoomed: np.ndarray = cv2.resize(cropped, (w, h), interpolation=cv2.INTER_LINEAR)
+#    return zoomed
 
 
 def load_multi_dicom(
@@ -147,7 +178,7 @@ def load_multi_dicom(
     return images, dicoms
 
 
-def load_dicom_image(file_path: Path) -> Tuple[np.ndarray, FileDataset]:
+def load_dicom_image(file_path: Path) -> np.ndarray:
     """
     Load a DICOM file from disk and normalize its pixel array to 0-255.
 
@@ -156,7 +187,6 @@ def load_dicom_image(file_path: Path) -> Tuple[np.ndarray, FileDataset]:
 
     Returns:
         image: Normalized image as a uint8 numpy array (2D grayscale).
-        dicom: The full pydicom FileDataset.
     """
     dicom: FileDataset = pydicom.dcmread(file_path)
     image: np.ndarray = dicom.pixel_array.astype(np.float32)
@@ -164,7 +194,89 @@ def load_dicom_image(file_path: Path) -> Tuple[np.ndarray, FileDataset]:
     if np.max(image) != 0:
         image /= np.max(image)
     image *= 255.0
-    return image.astype(np.uint8), dicom
+    return image.astype(np.uint8)
+
+
+def load_jpg_image(file_path: Path) -> Image.Image:
+    """
+    Load a JPG/PNG image from disk.
+
+    Args:
+        file_path (Path): Path to the JPG or PNG file.
+
+    Returns:
+        Image.Image: The loaded image (original mode).
+    """
+    if not file_path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    if file_path.suffix.lower() not in {".jpg", ".jpeg", ".png"}:
+        raise ValueError(f"Unsupported file type: {file_path.suffix}")
+
+    return Image.open(file_path)
+
+
+def load_image(file_path: Path) -> Tuple[ImageType, Union[np.ndarray, Image.Image]]:
+    """
+    Load an image from disk, supporting DICOM and JPG/PNG formats.
+
+    Args:
+        file_path (Path): Path to the image file.
+
+    Returns:
+        Tuple[str, Union[np.ndarray, Image.Image]]: A tuple containing:
+            - The format of the image ("DICOM" or "JPG/PNG").
+            - The loaded image as a numpy array (for DICOM) or PIL Image (for JPG/PNG).
+    """
+    if not file_path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+    image: Union[np.ndarray, Image.Image]
+    if file_path.suffix.lower() in {".dcm", ".dicom"}:
+        image = load_dicom_image(file_path)
+        return ImageType.DICOM, image
+    if file_path.suffix.lower() in {".jpg", ".jpeg", ".png"}:
+        image = load_jpg_image(file_path)
+        return ImageType.JPG_PNG, image
+    raise ValueError(f"Unsupported file type: {file_path.suffix}")
+
+
+def render_image_to_st(
+    path: Path,
+    current_set_index: int,
+    current_image_index: int,
+    num_images: int,
+    brightness: int = 0,
+    contrast: float = 1.0,
+) -> None:
+    """
+    Load and render an image to Streamlit with brightness/contrast adjustments."""
+
+    type_, image = load_image(path)
+    processed_image: Union[np.ndarray, Image.Image]
+    if type_ == ImageType.DICOM and isinstance(image, np.ndarray):
+        processed_image = apply_brightness_contrast_dcm(
+            image,
+            brightness,
+            contrast,
+        )
+    elif type_ == ImageType.JPG_PNG and isinstance(image, Image.Image):
+        processed_image = apply_brightness_contrast_jpg(
+            image,
+            brightness,
+            contrast,
+        )
+    else:
+        raise ValueError("Unsupported image type")
+    st.image(
+        processed_image,
+        caption=(
+            f"Set {current_set_index + 1} | "
+            f"Image {current_image_index + 1} of "
+            f"{num_images}"
+        ),
+        width="stretch",
+        clamp=False,
+    )
 
 
 def extract_searchable_info(dicom: FileDataset) -> Dict[str, str]:

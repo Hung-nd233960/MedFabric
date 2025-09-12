@@ -9,8 +9,8 @@ from medfabric.api.image_input import (
     check_image_exists_by_set_and_index,
 )
 from medfabric.api.image_set_input import add_image_set
-from medfabric.db.models import ImageSet
-
+from medfabric.db.orm_model import ImageSet
+from medfabric.api.patients import add_patient
 
 from medfabric.api.errors import (
     ImageAlreadyExistsError,
@@ -20,17 +20,29 @@ from medfabric.api.errors import (
 
 
 @pytest.fixture
-def image_set(db_session: Session) -> ImageSet:
+def image_set(db_session: Session, dataset_uuid) -> ImageSet:
     """Create an image set with 3 slices."""
+    patient = add_patient(
+        db_session,
+        "patient_for_image_set",
+        category="oncology",
+        age=50,
+        data_set_uuid=dataset_uuid,
+    )
     img_set = add_image_set(
-        db_session, "set1", folder_path="/path/to/set1", num_images=3
+        db_session,
+        "set1",
+        folder_path="path/to/set1",
+        patient_uuid=patient.patient_uuid,
+        num_images=3,
+        dataset_uuid=dataset_uuid,
     )
     return img_set
 
 
 def test_add_image_success(db_session: Session, image_set: ImageSet):
     img = add_image(db_session, "img1", image_set.uuid, 0)
-    assert img.image_id == "img1"
+    assert img.image_name == "img1"
     assert img.slice_index == 0
     assert check_image_exists_by_uuid(db_session, img.uuid)
     assert check_image_exists_by_set_and_index(db_session, image_set.uuid, 0)

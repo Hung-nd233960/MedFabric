@@ -1,11 +1,13 @@
 # pylint: disable=missing-module-docstring
 # medfabric/api/sessions.py
 import logging
-from typing import Union, Optional
+from typing import Optional, List
 import uuid as uuid_lib
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session as db_Session
-from medfabric.db.models import Session, Doctors
+from pydantic import ValidationError
+from medfabric.db.orm_model import Session, Doctors
+from medfabric.db.pydantic_model import SessionCreate, SessionRead, SessionGetter
 from medfabric.api.errors import (
     SessionNotFoundError,
     InvalidUUIDError,
@@ -16,41 +18,32 @@ from medfabric.api.errors import (
 logger = logging.getLogger(__name__)
 
 
-def validate_uuid(u: Union[str, uuid_lib.UUID]) -> Optional[uuid_lib.UUID]:
-    """Return UUID object if valid, else None."""
-    if isinstance(u, uuid_lib.UUID):
-        return u
-    try:
-        return uuid_lib.UUID(str(u))
-    except ValueError:
-        return None
-
-
-def doctor_exists(db_session: db_Session, doctor_id: uuid_lib.UUID) -> bool:
+def doctor_exists(db_session: db_Session, doctor_uuid: uuid_lib.UUID) -> bool:
     """Check if a doctor with this UUID exists."""
-    return db_session.query(Doctors).filter(Doctors.uuid == doctor_id).count() > 0
+    return (
+        db_session.query(Doctors).filter(Doctors.uuid == doctor_uuid).one_or_none()
+        is not None
+    )
 
 
-def create_session(
-    db_session: db_Session, doctor_id: Union[str, uuid_lib.UUID]
-) -> Session:
+def create_session(db_session: db_Session, doctor_uuid: uuid_lib.UUID) -> Session:
     """Create a new login session for a doctor."""
-    doctor_uuid = validate_uuid(doctor_id)
-    if not doctor_uuid:
-        logger.error("Invalid doctor UUID: %s", doctor_id)
-        raise InvalidUUIDError(f"Invalid doctor UUID: {doctor_id}")
-
-    if not doctor_exists(db_session, doctor_uuid):
-        logger.error("Doctor UUID does not exist: %s", doctor_uuid)
-        raise UserNotFoundError(f"Doctor UUID does not exist: {doctor_uuid}")
+    try:
+        new_session_validator = SessionCreate(doctor_uuid=doctor_uuid)
+        doctor_uuid_ = new_session_validator.doctor_uuid
+    except ValidationError as exc:
+        raise InvalidUUIDError(f"Invalid doctor UUID: {exc}") from exc
+    if not doctor_exists(db_session, doctor_uuid_):
+        logger.error("Doctor UUID does not exist: %s", doctor_uuid_)
+        raise UserNotFoundError(f"Doctor UUID does not exist: {doctor_uuid_}")
 
     try:
-        new_sess = Session(doctor_id=doctor_uuid)
+        new_sess = Session(doctor_uuid=doctor_uuid)
         db_session.add(new_sess)
         db_session.commit()
         db_session.refresh(new_sess)
         logger.info(
-            "Created new session %s for doctor %s", new_sess.session_id, doctor_uuid
+            "Created new session %s for doctor %s", new_sess.session_uuid, doctor_uuid
         )
         return new_sess
     except SQLAlchemyError as e:
@@ -62,31 +55,32 @@ def create_session(
 
 
 def get_session(
-    db_session: db_Session, session_id: Union[str, uuid_lib.UUID]
-) -> Optional[Session]:
+    db_session: db_Session, session_uuid: uuid_lib.UUID
+) -> Optional[SessionRead]:
     """Retrieve session info by ID."""
-    sess_uuid = validate_uuid(session_id)
-    if not sess_uuid:
-        logger.warning("Invalid session UUID: %s", session_id)
-        return None
+    try:
+        sess_uuid_validator = SessionGetter(session_uuid=session_uuid)
+        sess_uuid = sess_uuid_validator.session_uuid
+    except ValidationError as exc:
+        raise InvalidUUIDError(f"Invalid session UUID: {exc}") from exc
 
-    sess = db_session.get(Session, sess_uuid)
-    if sess:
+    sess: Optional[Session] = db_session.get(Session, sess_uuid)
+    if sess is not None:
         logger.debug("Retrieved session %s", sess_uuid)
+        sess_ = SessionRead.model_validate(sess)
     else:
+        sess_ = None
         logger.debug("Session %s not found", sess_uuid)
-    return sess
+    return sess_
 
 
-def deactivate_session(
-    db_session: db_Session, session_id: Union[str, uuid_lib.UUID]
-) -> None:
+def deactivate_session(db_session: db_Session, session_uuid: uuid_lib.UUID) -> None:
     """Mark a session as inactive (logout)."""
-    sess_uuid = validate_uuid(session_id)
-    if not sess_uuid:
-        logger.error("Invalid session UUID: %s", session_id)
-        raise InvalidUUIDError(f"Invalid session UUID: {session_id}")
-
+    try:
+        sess_uuid_validator = SessionGetter(session_uuid=session_uuid)
+        sess_uuid = sess_uuid_validator.session_uuid
+    except ValidationError as exc:
+        raise InvalidUUIDError(f"Invalid session UUID: {exc}") from exc
     try:
         sess = db_session.get(Session, sess_uuid)
         if not sess:
@@ -104,31 +98,32 @@ def deactivate_session(
 
 
 def list_active_sessions(
-    db_session: db_Session, doctor_id: Union[str, uuid_lib.UUID]
-) -> list[Session]:
+    db_session: db_Session, doctor_uuid: uuid_lib.UUID
+) -> List[SessionRead]:
     """Return all active sessions for a doctor."""
-    doctor_uuid = validate_uuid(doctor_id)
-    if not doctor_uuid:
-        logger.error("Invalid doctor UUID: %s", doctor_id)
-        raise InvalidUUIDError(f"Invalid doctor UUID: {doctor_id}")
+    try:
+        doctor_id_validator = SessionCreate(doctor_uuid=doctor_uuid)
+        doctor_uuid_ = doctor_id_validator.doctor_uuid
+    except ValidationError as exc:
+        raise InvalidUUIDError(f"Invalid doctor UUID: {exc}") from exc
 
-    if not doctor_exists(db_session, doctor_uuid):
-        logger.error("Doctor UUID does not exist: %s", doctor_uuid)
-        raise UserNotFoundError(f"Doctor UUID {doctor_uuid} does not exist")
+    if not doctor_exists(db_session, doctor_uuid_):
+        logger.error("Doctor UUID does not exist: %s", doctor_uuid_)
+        raise UserNotFoundError(f"Doctor UUID {doctor_uuid_} does not exist")
 
     try:
         active_sessions = (
             db_session.query(Session)
             .filter(
-                Session.doctor_id == doctor_uuid,
+                Session.doctor_uuid == doctor_uuid_,
                 Session.is_active.is_(True),
             )
             .all()
         )
         logger.debug(
-            "Found %d active sessions for doctor %s", len(active_sessions), doctor_uuid
+            "Found %d active sessions for doctor %s", len(active_sessions), doctor_uuid_
         )
-        return active_sessions
+        return [SessionRead.model_validate(sess) for sess in active_sessions]
 
     except SQLAlchemyError as e:
         db_session.rollback()

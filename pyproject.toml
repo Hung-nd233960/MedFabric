@@ -19,6 +19,7 @@ dependencies = [
     "pylibjpeg-openjpeg (>=2.5.0,<3.0.0)",
     "pydicom (>=3.0.1, <4.0.0)",
     "dotenv (>=0.9.9,<0.10.0)",
+    "pydantic[email] (>=2.11.7,<3.0.0)",
 ]
 
 [build-system]

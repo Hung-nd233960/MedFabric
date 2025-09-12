@@ -169,5 +169,6 @@ Obviously, you should feel free to adapt this checklist to your needs.
 - neu tiep tuc thi tiep tuc 3 set con lai
 - co 1 bac si co quyen quyet dinh cuoi cung
 
-- bo anh can co thong tin set id va benh nhan
-- lazy loading anh dicom, khong can load toan bo anh vao ram
+- bo anh can co thong tin set id va benh nhan (done)
+- lazy loading anh dicom, khong can load toan bo anh vao ram (van de, latency khi xu ly anh hien thi)
+- canh bao bac si ve label anh khong lien tuc, vd anh 5 nhay sang 7 can luu y

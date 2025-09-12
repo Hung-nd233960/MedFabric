@@ -2,7 +2,7 @@
 # tests/credential_test.py
 import uuid
 import pytest
-from medfabric.db.models import Doctors
+from medfabric.db.orm_model import Doctors
 from medfabric.api.errors import (
     InvalidCredentialsError,
     UserNotFoundError,

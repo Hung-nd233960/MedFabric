@@ -1,7 +1,7 @@
 import uuid
 from enum import Enum
 import pandas as pd
-from medfabric.db.models import Region
+from medfabric.db.orm_model import Region
 
 
 # Enum for slice status
@@ -90,6 +90,21 @@ def all_completed(df: pd.DataFrame) -> bool:
 def validate_slices(df: pd.DataFrame) -> bool:
     """Return True if df has required regions and all rows completed."""
     return bool(has_required_regions(df) and all_completed(df))
+
+
+def consecutive_slices(df: pd.DataFrame) -> bool:
+    """
+    Return True if df is not empty and `slice_index` values are consecutive integers.
+    """
+    if df.empty:
+        return True
+    if "slice_index" not in df.columns:
+        raise ValueError("DataFrame must contain a 'slice_index' column")
+
+    values = df["slice_index"].sort_values().to_numpy()
+    return (values[-1] - values[0] + 1) == len(values) and len(set(values)) == len(
+        values
+    )
 
 
 def clear_all_slices() -> pd.DataFrame:

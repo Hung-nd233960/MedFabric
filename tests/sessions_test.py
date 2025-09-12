@@ -7,23 +7,14 @@ from medfabric.api.sessions import (
     get_session,
     deactivate_session,
     list_active_sessions,
-    validate_uuid,
 )
 from medfabric.api.credentials import register_doctor, get_uuid_from_username
-from medfabric.db.models import Doctors
+from medfabric.db.orm_model import Doctors
 from medfabric.api.errors import (
     InvalidUUIDError,
     UserNotFoundError,
     SessionNotFoundError,
 )
-
-
-def test_validate_uuid():
-    valid_str = str(uuid_lib.uuid4())
-    invalid_str = "not-a-uuid"
-
-    assert isinstance(validate_uuid(valid_str), uuid_lib.UUID)
-    assert validate_uuid(invalid_str) is None
 
 
 def test_create_session_success(db_session):
@@ -33,11 +24,11 @@ def test_create_session_success(db_session):
     db_session.commit()
 
     new_sess = create_session(db_session, doctor.uuid)
-    assert new_sess.doctor_id == doctor.uuid
+    assert new_sess.doctor_uuid == doctor.uuid
     assert new_sess.is_active is True
 
     # should appear in DB
-    db_sess = db_session.get(type(new_sess), new_sess.session_id)
+    db_sess = db_session.get(type(new_sess), new_sess.session_uuid)
     assert db_sess is not None
 
 
@@ -58,12 +49,13 @@ def test_get_session(db_session):
     db_session.commit()
 
     new_sess = create_session(db_session, doctor.uuid)
-    retrieved = get_session(db_session, new_sess.session_id)
+    retrieved = get_session(db_session, new_sess.session_uuid)
     assert retrieved is not None
-    assert retrieved.session_id == new_sess.session_id
+    assert retrieved.session_uuid == new_sess.session_uuid
 
     # invalid UUID returns None
-    assert get_session(db_session, "bad-uuid") is None
+    with pytest.raises(InvalidUUIDError):
+        get_session(db_session, "bad-uuid")
 
     # non-existing UUID returns None
     assert get_session(db_session, uuid_lib.uuid4()) is None
@@ -75,9 +67,9 @@ def test_deactivate_session(db_session):
     db_session.commit()
 
     new_sess = create_session(db_session, doctor.uuid)
-    deactivate_session(db_session, new_sess.session_id)
+    deactivate_session(db_session, new_sess.session_uuid)
 
-    db_sess = db_session.get(type(new_sess), new_sess.session_id)
+    db_sess = db_session.get(type(new_sess), new_sess.session_uuid)
     assert db_sess.is_active is False
 
     # invalid UUID raises
@@ -106,7 +98,7 @@ def test_list_active_sessions(db_session):
     assert len(active) == 2
 
     # deactivate one
-    deactivate_session(db_session, s1.session_id)
+    deactivate_session(db_session, s1.session_uuid)
     active = list_active_sessions(db_session, uuid)
     assert len(active) == 1
 

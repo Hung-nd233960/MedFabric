@@ -32,7 +32,8 @@ def normalize_folder_path(folder_path: str) -> Optional[str]:
         raise InvalidImageSetError("Folder path must not contain '..' components.")
 
     # Validate allowed characters for each part
-    allowed = re.compile(r"^[A-Za-z0-9._\- ]*$")
+    allowed = re.compile(r"^[A-Za-z0-9._\-\[\] +]*$")
+
     for part in p.parts:
         if part in ("", "."):
             continue
