@@ -565,6 +565,7 @@ with col3:
                     column_order=["slice_index", "region", "status"],
                 )
 
+    with tab2:
         with st.expander("Set Annotations", expanded=True):
             render_set_labeling_row(
                 low_quality_key=app.key_mngr.make(
@@ -595,8 +596,9 @@ with col3:
                         app.app_state.current_session.uuid,
                     ),
                 ),
+                max_chars=500,
             )
-    with tab2:
+
         with st.expander("All image set statuses", expanded=False):
             invalid_indices = get_invalid_indices(app.app_state.set_status_df)
             if invalid_indices:

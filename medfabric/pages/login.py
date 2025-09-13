@@ -61,3 +61,6 @@ with st.form(
 st.write("Don't have an account?")
 if st.button("Register"):
     st.switch_page("pages/register.py")
+st.write("How to use MedFabric?")
+if st.button("User Guide"):
+    st.switch_page("pages/guide.py")

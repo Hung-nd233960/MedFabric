@@ -9,6 +9,7 @@ pg = st.navigation(
         st.Page("pages/register.py"),
         st.Page("pages/dashboard.py"),
         st.Page("pages/label.py"),
+        st.Page("pages/guide.py"),
     ]
 )
 pg.run()

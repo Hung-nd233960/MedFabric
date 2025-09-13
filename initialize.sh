@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ### CONFIG ###
-REPO_URL=""
+REPO_URL="https://github.com/Hung-nd233960/MedFabric.git"
 REPO_DIR="$HOME/your-repo"
 
 echo "[*] Updating system..."
