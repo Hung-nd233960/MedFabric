@@ -5,7 +5,9 @@ from datetime import datetime
 from typing import Optional, List, Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints
+
+# NameEmail
 from medfabric.db.orm_model import Region, Gender
 
 
@@ -58,7 +60,7 @@ class DoctorBase(OrmBase):
     uuid: UUID
     username: Annotated[str, StringConstraints(min_length=3, strip_whitespace=True)]
     role: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
 
 
 class DoctorLogin(BaseModel):
@@ -69,7 +71,7 @@ class DoctorLogin(BaseModel):
 class DoctorCreate(OrmBase):
     username: Annotated[str, StringConstraints(min_length=3, strip_whitespace=True)]
     role: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     password_hash: Annotated[str, StringConstraints(min_length=8)]
 
 
