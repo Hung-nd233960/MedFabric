@@ -71,6 +71,7 @@ def add_evaluate_image(
         corona_score_left_ = image_eval_validate.corona_score_left
         corona_score_right_ = image_eval_validate.corona_score_right
         notes_ = image_eval_validate.notes
+
     except ValidationError as e:
         raise InvalidEvaluationError(f"Invalid evaluation data: {e}") from e
 

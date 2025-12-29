@@ -32,6 +32,7 @@ def add_image_set(
     patient_uuid: uuid_lib.UUID,
     folder_path: str,
     image_set_uuid: Optional[uuid_lib.UUID] = None,
+    icd_code: Optional[str] = None,
     description: Optional[str] = None,
 ) -> ImageSet:
     """
@@ -45,6 +46,7 @@ def add_image_set(
         num_images (int): Number of images in the set.
         folder_path (str, optional): Path to the folder containing the images.
         description (str, optional): Description of the image set.
+        icd_code (str, optional): ICD code associated with the image set.
     Returns:
         ImageSet: The created image set record.
     """
@@ -57,6 +59,7 @@ def add_image_set(
             folder_path=folder_path,
             patient_uuid=patient_uuid,
             description=description,
+            icd_code=icd_code,
         )
         image_set_uuid_ = image_set_validator.uuid
         image_set_name_ = image_set_validator.image_set_name
@@ -65,6 +68,7 @@ def add_image_set(
         num_images_ = image_set_validator.num_images
         patient_uuid_ = image_set_validator.patient_uuid
         description_ = image_set_validator.description
+        icd_code_ = image_set_validator.icd_code
 
     except InvalidImageSetError as exc:
         raise InvalidImageSetError(f"Invalid image set data: {exc}") from exc
@@ -86,6 +90,7 @@ def add_image_set(
         num_images=num_images_,
         folder_path=folder_path_,
         description=description_,
+        icd_code=icd_code_,
     )
     try:
         session.add(image_set)
@@ -116,21 +121,21 @@ def get_image_set(session: Session, uuid: uuid_lib.UUID) -> Optional[ImageSetRea
             raise PatientNotFoundError(
                 f"Patient with UUID '{image_set_orm.patient_uuid}' not found."
             )
-        else:
-            image_set = ImageSetRead(
-                uuid=image_set_orm.uuid,
-                dataset_uuid=image_set_orm.dataset_uuid,
-                image_set_name=image_set_orm.image_set_name,
-                patient_uuid=image_set_orm.patient_uuid,
-                num_images=image_set_orm.num_images,
-                folder_path=image_set_orm.folder_path,
-                conflicted=image_set_orm.conflicted,
-                description=image_set_orm.description,
-                index=image_set_orm.index,
-                images=image_reads,
-                patient=patient,
-            )
-            return image_set
+        image_set = ImageSetRead(
+            uuid=image_set_orm.uuid,
+            dataset_uuid=image_set_orm.dataset_uuid,
+            image_set_name=image_set_orm.image_set_name,
+            patient_uuid=image_set_orm.patient_uuid,
+            num_images=image_set_orm.num_images,
+            folder_path=image_set_orm.folder_path,
+            conflicted=image_set_orm.conflicted,
+            description=image_set_orm.description,
+            icd_code=image_set_orm.icd_code,
+            index=image_set_orm.index,
+            images=image_reads,
+            patient=patient,
+        )
+        return image_set
     return None
 
 

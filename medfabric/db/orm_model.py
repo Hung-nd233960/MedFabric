@@ -43,6 +43,13 @@ class Region(enum.Enum):
     CoronaRadiata = "CoronaRadiata"
 
 
+class ImageSetUsability(enum.Enum):
+    IschemicAssessable = "IschemicAssessable"
+    HemorrhagicPresent = "HemorrhagicPresent"
+    Indeterminate = "Indeterminate"
+    TrueIrrelevant = "TrueIrrelevant"
+
+
 class Gender(enum.Enum):
     Male = "Male"
     Female = "Female"
@@ -139,7 +146,7 @@ class ImageSet(Base):
     folder_path: Mapped[str] = mapped_column(String, nullable=True, unique=True)
     conflicted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-
+    icd_code: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     patient: Mapped["Patient"] = relationship("Patient", back_populates="image_sets")
     images: Mapped[List["Image"]] = relationship(
         "Image",
@@ -219,8 +226,12 @@ class ImageSetEvaluation(Base):
         nullable=False,
     )
 
-    is_low_quality: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    is_irrelevant: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    ischemic_low_quality: Mapped[bool] = mapped_column(
+        Boolean, nullable=False
+    )  # can only True if usability is IschemicAssessable
+    usability: Mapped[ImageSetUsability] = mapped_column(
+        Enum(ImageSetUsability), nullable=False
+    )
 
     __table_args__ = (
         UniqueConstraint(

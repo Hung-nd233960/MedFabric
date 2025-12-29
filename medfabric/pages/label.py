@@ -11,7 +11,7 @@ from medfabric.pages.label_helper.state_management import (
 from medfabric.pages.label_helper.session_initialization import (
     initialize_evaluation_session,
 )
-from medfabric.pages.label_helper.image_helper import render_image_to_st
+from medfabric.pages.label_helper.image_loader import render_image_to_st
 from medfabric.db.engine import get_session_factory
 from medfabric.db.orm_model import Region
 from medfabric.api.config import BASAL_CENTRAL_MAX, BASAL_CORTEX_MAX, CORONA_MAX

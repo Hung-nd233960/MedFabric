@@ -1,5 +1,5 @@
 # pylint: disable: missing-class-docstring, missing-module-docstring, missing-function-docstring
-#  medfabric/pages/label/label_session_initialization.py
+# medfabric/pages/label/label_session_initialization.py
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, List, Dict
@@ -143,39 +143,40 @@ def initialize_image_evaluation(
         slice_index=image.slice_index,
     )
 
-    # def patient_diagnosis_to_df(patient_obj) -> pd.DataFrame:
-    #    if patient_obj is None:
-    #        return pd.DataFrame()
-    #
-    #    # List of all diagnostic attributes
-    #    attrs = [
-    #        "ICH",
-    #        "IPH",
-    #        "IVH",
-    #        "SDH",
-    #        "EDH",
-    #        "SAH",
-    #        "BleedLocation-Left",
-    #        "BleedLocation-Right",
-    #        "ChronicBleed",
-    #        "Fracture",
-    #        "CalvarialFracture",
-    #        "OtherFracture",
-    #        "MassEffect",
-    #        "MidlineShift",
-    #    ]
-    #
-    #    # Prepare a dictionary to hold row-wise data
-    #    data = {attr: [] for attr in attrs}
-    #
-    #    for attr in attrs:
-    #        for r in [1, 2, 3]:
-    #            value = getattr(patient_obj, f"R{r}:{attr}")
-    #            data[attr].append(value)
-    #
-    #    # Build DataFrame: index = attribute, columns = R1, R2, R3
-    #    df = pd.DataFrame(data).T
-    #    df.columns = ["R1", "R2", "R3"]
-    #    df.index.name = "Attribute"
-    #
-    #    return df.reset_index()
+
+# def patient_diagnosis_to_df(patient_obj) -> pd.DataFrame:
+#    if patient_obj is None:
+#        return pd.DataFrame()
+#
+#    # List of all diagnostic attributes
+#    attrs = [
+#        "ICH",
+#        "IPH",
+#        "IVH",
+#        "SDH",
+#        "EDH",
+#        "SAH",
+#        "BleedLocation-Left",
+#        "BleedLocation-Right",
+#        "ChronicBleed",
+#        "Fracture",
+#        "CalvarialFracture",
+#        "OtherFracture",
+#        "MassEffect",
+#        "MidlineShift",
+#    ]
+#
+#    # Prepare a dictionary to hold row-wise data
+#    data = {attr: [] for attr in attrs}
+#
+#    for attr in attrs:
+#        for r in [1, 2, 3]:
+#            value = getattr(patient_obj, f"R{r}:{attr}")
+#            data[attr].append(value)
+#
+#    # Build DataFrame: index = attribute, columns = R1, R2, R3
+#    df = pd.DataFrame(data).T
+#    df.columns = ["R1", "R2", "R3"]
+#    df.index.name = "Attribute"
+#
+#    return df.reset_index()

@@ -14,7 +14,7 @@ services:
       - ./medfabric:/app/medfabric:ro
 #      - ./data_sets:/app/data_sets:ro
       - ./public_data:/app/public_data:ro
-    
+    profiles: ["dev", "prod"]
       
   db:
     container_name: medfabric_db
@@ -30,6 +30,7 @@ services:
       - ./db_backup:/db_backup   
     ports:
       - "5432:5432"
+    profiles: ["dev", "prod"] 
 
   pgadmin:
     image: dpage/pgadmin4
@@ -43,6 +44,8 @@ services:
       - pgadmin_data:/var/lib/pgadmin
     depends_on:
       - db
+    profiles: ["ops"]
+
   
   tailscale:
     image: tailscale/tailscale:latest
@@ -60,6 +63,7 @@ services:
       - net_admin
     restart: unless-stopped
 #    command: tailscale serve 8501
+    profiles: ["prod", "ops"]
 
 volumes:
   db_data:

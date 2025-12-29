@@ -8,7 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, StringConstraints
 
 # NameEmail
-from medfabric.db.orm_model import Region, Gender
+from medfabric.db.orm_model import Region, Gender, ImageSetUsability
 
 
 # --- Base class for all schemas ---
@@ -106,6 +106,7 @@ class ImageSetBase(OrmBase):
     image_set_name: Annotated[str, StringConstraints(min_length=1)]
     patient_uuid: UUID
     num_images: Annotated[int, Field(gt=0)]
+    icd_code: Optional[str] = None
     folder_path: str
     conflicted: bool
     description: Optional[str] = None
@@ -115,6 +116,7 @@ class ImageSetCreate(OrmBase):
     dataset_uuid: UUID
     uuid: Optional[UUID] = None
     image_set_name: Annotated[str, StringConstraints(min_length=1)]
+    icd_code: Optional[str] = None
     patient_uuid: UUID
     num_images: Annotated[int, Field(gt=0)]
     folder_path: str
@@ -152,8 +154,8 @@ class ImageSetEvaluationBase(OrmBase):
     doctor_uuid: UUID
     image_set_uuid: UUID
     session_uuid: UUID
-    is_low_quality: bool
-    is_irrelevant: bool
+    ischemic_low_quality: bool
+    usability: ImageSetUsability
 
 
 class ImageSetEvaluationCreate(ImageSetEvaluationBase):
