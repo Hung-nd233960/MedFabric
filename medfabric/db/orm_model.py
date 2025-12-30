@@ -15,7 +15,6 @@ import uuid as uuid_lib
 from datetime import datetime
 from typing import Optional, List
 from sqlalchemy import UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import (
     String,
     Boolean,
@@ -24,15 +23,43 @@ from sqlalchemy import (
     Enum,
     DateTime,
     text,
-    Identity,
 )
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import (
     validates,
     mapped_column,
     Mapped,
     relationship,
 )
+from sqlalchemy.types import TypeDecorator, CHAR
 from medfabric.db.database import Base
+
+
+class GUID(TypeDecorator):
+    """Platform-independent UUID type.
+
+    Stores UUIDs as native UUID on PostgreSQL and as 36-char strings on SQLite.
+    """
+
+    impl = CHAR
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(PG_UUID(as_uuid=True))
+        return dialect.type_descriptor(CHAR(36))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        if dialect.name == "postgresql":
+            return value
+        return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        return uuid_lib.UUID(value)
 
 
 # --- Enums ---
@@ -67,7 +94,7 @@ class DataSet(Base):
     __tablename__ = "datasets"
 
     dataset_uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        UUID(as_uuid=True), default=uuid_lib.uuid4, nullable=False, primary_key=True
+        GUID(), nullable=False, primary_key=True, default=uuid_lib.uuid4
     )
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
@@ -81,10 +108,10 @@ class Patient(Base):
 
     patient_id: Mapped[str] = mapped_column(String, nullable=False, primary_key=False)
     dataset_uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("datasets.dataset_uuid"), nullable=True
+        GUID(), ForeignKey("datasets.dataset_uuid"), nullable=False
     )
     patient_uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        UUID(as_uuid=True), default=uuid_lib.uuid4, primary_key=True
+        GUID(), primary_key=True, default=uuid_lib.uuid4
     )
     category: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     age: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
@@ -102,7 +129,7 @@ class Doctors(Base):
     __tablename__ = "doctors"
 
     uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid_lib.uuid4
+        GUID(), primary_key=True, default=uuid_lib.uuid4
     )
     username: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     role: Mapped[Optional[str]] = mapped_column(String, nullable=True)
@@ -125,20 +152,21 @@ class ImageSet(Base):
 
     index: Mapped[int] = mapped_column(
         Integer,
-        Identity(start=1, cycle=False),
+        primary_key=True,
+        autoincrement=True,
         nullable=False,
         index=True,
     )
     uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        UUID(as_uuid=True), default=uuid_lib.uuid4, nullable=False, primary_key=True
+        GUID(), nullable=False, unique=True, default=uuid_lib.uuid4
     )
     dataset_uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("datasets.dataset_uuid"), nullable=False
+        GUID(), ForeignKey("datasets.dataset_uuid"), nullable=False
     )
     image_set_name: Mapped[str] = mapped_column(String)
 
     patient_uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey("patients.patient_uuid"),
         nullable=False,
     )
@@ -163,11 +191,11 @@ class ImageSet(Base):
 class Image(Base):
     __tablename__ = "images"
     uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        UUID(as_uuid=True), default=uuid_lib.uuid4, nullable=False, primary_key=True
+        GUID(), nullable=False, primary_key=True, default=uuid_lib.uuid4
     )
     image_name: Mapped[str] = mapped_column(String, nullable=False, primary_key=False)
     image_set_uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("image_sets.uuid"), nullable=False
+        GUID(), ForeignKey("image_sets.uuid"), nullable=False
     )
     slice_index: Mapped[int] = mapped_column(Integer, nullable=False)
 
@@ -191,10 +219,12 @@ class Session(Base):
     __tablename__ = "sessions"
 
     session_uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid_lib.uuid4
+        GUID(),
+        primary_key=True,
+        default=uuid_lib.uuid4,
     )
     doctor_uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("doctors.uuid"), nullable=False
+        GUID(), ForeignKey("doctors.uuid"), nullable=False
     )
     login_time: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -211,17 +241,17 @@ class ImageSetEvaluation(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
     doctor_uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey("doctors.uuid"),
         nullable=False,
     )
     image_set_uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey("image_sets.uuid"),
         nullable=False,
     )
     session_uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey("sessions.session_uuid"),
         nullable=False,
     )
@@ -229,7 +259,7 @@ class ImageSetEvaluation(Base):
     ischemic_low_quality: Mapped[bool] = mapped_column(
         Boolean, nullable=False
     )  # can only True if usability is IschemicAssessable
-    usability: Mapped[ImageSetUsability] = mapped_column(
+    image_set_usability: Mapped[ImageSetUsability] = mapped_column(
         Enum(ImageSetUsability), nullable=False
     )
 
@@ -247,21 +277,21 @@ class ImageEvaluation(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
     doctor_uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey(
             "doctors.uuid",
         ),
         nullable=False,
     )
     image_uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey(
             "images.uuid",
         ),
         nullable=False,
     )
     session_uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("sessions.session_uuid"), nullable=False
+        GUID(), ForeignKey("sessions.session_uuid"), nullable=False
     )
     region: Mapped[Region] = mapped_column(
         Enum(Region), default=Region.None_, nullable=False

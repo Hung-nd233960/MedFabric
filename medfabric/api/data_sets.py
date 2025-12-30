@@ -86,12 +86,16 @@ def add_data_set(
             raise DataSetAlreadyExistsError(
                 f"Data set with ID '{dataset_uuid_}' already exists."
             )
+    if dataset_uuid_ is None:
+        dataset_uuid_ = uuid_lib.uuid4()
     data_set = DataSet(name=name_, description=description_, dataset_uuid=dataset_uuid_)
+
     try:
         session.add(data_set)
         session.commit()
         session.refresh(data_set)
         return data_set
+
     except SQLAlchemyError as exc:
         session.rollback()
         raise DatabaseError(f"Failed to add data set: {exc}") from exc

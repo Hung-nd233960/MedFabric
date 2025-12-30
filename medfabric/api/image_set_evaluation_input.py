@@ -118,7 +118,7 @@ def add_evaluate_image_set(
             image_set_uuid=image_set_uuid_,
             session_uuid=session_uuid_,
             ischemic_low_quality=ischemic_low_quality_,
-            usability=usability_,
+            image_set_usability=usability_,
         )
         session.add(evaluation)
         session.commit()

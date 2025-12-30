@@ -7,7 +7,6 @@ WORKDIR /app
 # Copy the app code
 COPY medfabric/ /app/medfabric/
 COPY requirements.txt /app/
-COPY poetry.lock pyproject.toml /app/
 COPY .streamlit/ /app/.streamlit/
 
 

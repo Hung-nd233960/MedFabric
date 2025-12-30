@@ -16,7 +16,7 @@ from medfabric.api.errors import (
 )
 
 # Set up password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 logger = logging.getLogger(__name__)
 

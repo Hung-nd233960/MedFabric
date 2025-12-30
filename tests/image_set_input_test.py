@@ -30,6 +30,7 @@ def test_add_image_set_success(db_session, dataset_uuid):
         num_images=5,
         description="Test scan",
         dataset_uuid=dataset_uuid,
+        icd_code="C50.9",
     )
 
     assert image_set.image_set_name == "set1"
@@ -37,6 +38,7 @@ def test_add_image_set_success(db_session, dataset_uuid):
     assert image_set.patient_uuid == patient.patient_uuid
     assert image_set.folder_path == "data/patient123/set1"
     assert image_set.description == "Test scan"
+    assert image_set.icd_code == "C50.9"
 
 
 def test_empty_image_set_id(db_session, dataset_uuid):

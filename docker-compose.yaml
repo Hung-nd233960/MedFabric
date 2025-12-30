@@ -5,47 +5,12 @@ services:
       context: .
       dockerfile: ./docker/app.Dockerfile
     network_mode: service:tailscale
-    depends_on:
-      - db
-#        condition: service_healthy
-#        restart: true
     volumes:
       - ./:/app
       - ./medfabric:/app/medfabric:ro
-#      - ./data_sets:/app/data_sets:ro
-      - ./public_data:/app/public_data:ro
+      - ./data_sets:/app/data_sets:ro
     profiles: ["dev", "prod"]
       
-  db:
-    container_name: medfabric_db
-    build:
-      context: .
-      dockerfile: ./docker/db.Dockerfile
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-    volumes:
-      - db_data:/var/lib/postgresql/data
-      - ./db_backup:/db_backup   
-    ports:
-      - "5432:5432"
-    profiles: ["dev", "prod"] 
-
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: medfabric_pgadmin
-    ports:
-      - "8080:80"
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    depends_on:
-      - db
-    profiles: ["ops"]
-
   
   tailscale:
     image: tailscale/tailscale:latest
@@ -66,7 +31,5 @@ services:
     profiles: ["prod", "ops"]
 
 volumes:
-  db_data:
-  pgadmin_data:
   ts-test:
     driver: local

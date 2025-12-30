@@ -9,7 +9,7 @@ from medfabric.api.image_set_evaluation_input import (
     add_evaluate_image_set,
     check_set_evaluation_exists,
 )
-from medfabric.db.orm_model import Doctors, ImageSet, Session
+from medfabric.db.orm_model import Doctors, ImageSet, Session, ImageSetUsability
 from medfabric.api.patients import add_patient
 from medfabric.api.image_set_input import add_image_set
 from medfabric.api.sessions import create_session
@@ -56,22 +56,36 @@ def session(db_session: db_Session, doctor: Doctors) -> Session:
     return create_session(db_session, doctor.uuid)
 
 
+@pytest.mark.parametrize(
+    ("ischemic_low_quality", "image_set_usability"),
+    [
+        (True, ImageSetUsability.IschemicAssessable),
+        (False, ImageSetUsability.HemorrhagicPresent),
+        (False, ImageSetUsability.Indeterminate),
+        (False, ImageSetUsability.TrueIrrelevant),
+    ],
+)
 def test_add_evaluate_image_set_success(
-    db_session: db_Session, doctor: Doctors, image_set: ImageSet, session: Session
+    db_session: db_Session,
+    doctor: Doctors,
+    image_set: ImageSet,
+    session: Session,
+    ischemic_low_quality: bool,
+    image_set_usability: ImageSetUsability,
 ):
     evaluation = add_evaluate_image_set(
         db_session,
         doctor.uuid,
         image_set.uuid,
         session.session_uuid,
-        is_low_quality=True,
-        is_irrelevant=False,
+        image_set_usability=image_set_usability,
+        ischemic_low_quality=ischemic_low_quality,
     )
     assert evaluation.doctor_uuid == doctor.uuid
     assert evaluation.image_set_uuid == image_set.uuid
     assert evaluation.session_uuid == session.session_uuid
-    assert evaluation.is_low_quality is True
-    assert evaluation.is_irrelevant is False
+    assert evaluation.image_set_usability == image_set_usability
+    assert evaluation.ischemic_low_quality == ischemic_low_quality
 
 
 def test_add_evaluate_image_set_doctor_not_found(
@@ -84,6 +98,8 @@ def test_add_evaluate_image_set_doctor_not_found(
             fake_doctor_id,
             image_set.uuid,
             session.session_uuid,
+            image_set_usability=ImageSetUsability.HemorrhagicPresent,
+            ischemic_low_quality=False,
         )
 
 
@@ -97,6 +113,8 @@ def test_add_evaluate_image_set_session_not_found(
             doctor.uuid,
             image_set.uuid,
             fake_session_uuid,
+            image_set_usability=ImageSetUsability.HemorrhagicPresent,
+            ischemic_low_quality=False,
         )
 
 
@@ -113,6 +131,8 @@ def test_add_evaluate_image_set_session_inactive(
             doctor.uuid,
             image_set.uuid,
             sess.session_uuid,
+            image_set_usability=ImageSetUsability.HemorrhagicPresent,
+            ischemic_low_quality=False,
         )
 
 
@@ -127,6 +147,8 @@ def test_add_evaluate_image_set_session_mismatch(
             doctor.uuid,
             image_set.uuid,
             sess.session_uuid,
+            image_set_usability=ImageSetUsability.HemorrhagicPresent,
+            ischemic_low_quality=False,
         )
 
 
@@ -139,6 +161,8 @@ def test_add_evaluate_image_set_image_set_not_found(
             doctor.uuid,
             uuid_lib.uuid4(),
             session.session_uuid,
+            image_set_usability=ImageSetUsability.HemorrhagicPresent,
+            ischemic_low_quality=False,
         )
 
 
@@ -151,8 +175,8 @@ def test_add_evaluate_image_set_invalid_evaluation(
             doctor.uuid,
             image_set.uuid,
             session.session_uuid,
-            is_low_quality=False,
-            is_irrelevant=False,
+            image_set_usability=ImageSetUsability.IschemicAssessable,
+            ischemic_low_quality=False,
         )
 
 
@@ -164,7 +188,8 @@ def test_add_evaluate_image_set_duplicate_evaluation(
         doctor.uuid,
         image_set.uuid,
         session.session_uuid,
-        is_low_quality=True,
+        image_set_usability=ImageSetUsability.HemorrhagicPresent,
+        ischemic_low_quality=False,
     )
     with pytest.raises(EvaluationAlreadyExistsError):
         add_evaluate_image_set(
@@ -172,8 +197,8 @@ def test_add_evaluate_image_set_duplicate_evaluation(
             doctor.uuid,
             image_set.uuid,
             session.session_uuid,
-            is_low_quality=False,
-            is_irrelevant=True,
+            image_set_usability=ImageSetUsability.Indeterminate,
+            ischemic_low_quality=False,
         )
 
 
@@ -191,7 +216,8 @@ def test_check_evaluation_exists(
         doctor.uuid,
         image_set.uuid,
         session.session_uuid,
-        is_low_quality=True,
+        image_set_usability=ImageSetUsability.HemorrhagicPresent,
+        ischemic_low_quality=False,
     )
     assert check_set_evaluation_exists(
         db_session,
@@ -209,7 +235,8 @@ def test_add_evaluate_image_set_duplicate_does_not_break_existing(
         doctor.uuid,
         image_set.uuid,
         session.session_uuid,
-        is_low_quality=True,
+        image_set_usability=ImageSetUsability.HemorrhagicPresent,
+        ischemic_low_quality=False,
     )
     with pytest.raises(EvaluationAlreadyExistsError):
         add_evaluate_image_set(
@@ -217,7 +244,8 @@ def test_add_evaluate_image_set_duplicate_does_not_break_existing(
             doctor.uuid,
             image_set.uuid,
             session.session_uuid,
-            is_irrelevant=True,
+            image_set_usability=ImageSetUsability.Indeterminate,
+            ischemic_low_quality=False,
         )
     # Make sure the first evaluation still exists in DB
     assert check_set_evaluation_exists(

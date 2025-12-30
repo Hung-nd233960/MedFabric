@@ -18,6 +18,7 @@ from medfabric.api.patients import add_patient
 from medfabric.api.image_set_evaluation_input import add_evaluate_image_set
 from medfabric.api.image_evaluation_input import add_evaluate_image
 from medfabric.api.get_evaluated_sets import get_doctor_image_sets
+from medfabric.db.orm_model import ImageSetUsability
 
 
 # Doctor 1 evaluate set 0 and 1
@@ -118,16 +119,16 @@ def set_evaluations(
         doctor_uuid=doctor[0].uuid,
         image_set_uuid=image_sets[0].uuid,
         session_uuid=sessions[0].session_uuid,
-        is_low_quality=True,
-        is_irrelevant=False,
+        image_set_usability=ImageSetUsability.HemorrhagicPresent,
+        ischemic_low_quality=False,
     )
     eval2 = add_evaluate_image_set(
         db_session,
         doctor_uuid=doctor[0].uuid,
         image_set_uuid=image_sets[1].uuid,
         session_uuid=sessions[0].session_uuid,
-        is_low_quality=False,
-        is_irrelevant=True,
+        image_set_usability=ImageSetUsability.Indeterminate,
+        ischemic_low_quality=False,
     )
     # Doctor 3 evaluate set 2
     eval3 = add_evaluate_image_set(
@@ -135,8 +136,8 @@ def set_evaluations(
         doctor_uuid=doctor[2].uuid,
         image_set_uuid=image_sets[1].uuid,
         session_uuid=sessions[2].session_uuid,
-        is_low_quality=True,
-        is_irrelevant=False,
+        image_set_usability=ImageSetUsability.HemorrhagicPresent,
+        ischemic_low_quality=False,
     )
     return [eval1, eval2, eval3]
 

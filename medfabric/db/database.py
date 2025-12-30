@@ -1,9 +1,11 @@
 # pylint: disable=missing-module-docstring, missing-class-docstring, missing-function-docstring
 # /medfabric/db/database.py
 import os
+import sqlite3
+import uuid
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
-from sqlalchemy import URL
+from sqlalchemy import create_engine, event
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase
 
 
@@ -11,19 +13,29 @@ class Base(DeclarativeBase):
     pass
 
 
-# Syntax: postgresql+psycopg://username:password@host:port/dbname
-
 load_dotenv()
 
-URL_OBJECT = URL.create(
-    "postgresql+psycopg",
-    username=os.getenv("POSTGRES_USER"),
-    password=os.getenv("POSTGRES_PASSWORD"),
-    host=os.getenv("POSTGRES_HOST"),
-    port=int(os.getenv("POSTGRES_PORT", "5432")),
-    database=os.getenv("POSTGRES_DB"),
-)
+# Ensure SQLite can bind uuid.UUID objects when TypeDecorators are bypassed
+sqlite3.register_adapter(uuid.UUID, lambda u: str(u))
+
+# Use SQLite - stores in a local file
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./medfabric.db")
+
+
+# This function is called every time a new connection is established
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 
 def return_engine():
-    return create_engine(URL_OBJECT, echo=True)
+    # For SQLite, we can add connect_args for thread safety
+    connect_args = {}
+    if DATABASE_URL.startswith("sqlite"):
+        connect_args = {"check_same_thread": False}
+
+    return create_engine(DATABASE_URL, echo=True, connect_args=connect_args)

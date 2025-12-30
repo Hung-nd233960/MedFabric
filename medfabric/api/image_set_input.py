@@ -82,6 +82,9 @@ def add_image_set(
     if not description_:
         description_ = None
 
+    if image_set_uuid_ is None:
+        image_set_uuid_ = uuid_lib.uuid4()
+
     image_set = ImageSet(
         uuid=image_set_uuid_,
         dataset_uuid=dataset_uuid_,
@@ -112,7 +115,7 @@ def get_image_set(session: Session, uuid: uuid_lib.UUID) -> Optional[ImageSetRea
     Returns:
         ImageSet if found, None otherwise
     """
-    image_set_orm = session.get(ImageSet, uuid)
+    image_set_orm = session.query(ImageSet).filter_by(uuid=uuid).one_or_none()
     if image_set_orm:
         image_reads = [ImageRead.model_validate(img) for img in image_set_orm.images]
 
