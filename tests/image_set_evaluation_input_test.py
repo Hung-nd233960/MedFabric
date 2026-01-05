@@ -88,6 +88,34 @@ def test_add_evaluate_image_set_success(
     assert evaluation.ischemic_low_quality == ischemic_low_quality
 
 
+@pytest.mark.parametrize(
+    ("ischemic_low_quality", "image_set_usability"),
+    [
+        (False, ImageSetUsability.IschemicAssessable),
+        (True, ImageSetUsability.HemorrhagicPresent),
+        (True, ImageSetUsability.Indeterminate),
+        (True, ImageSetUsability.TrueIrrelevant),
+    ],
+)
+def test_add_evaluate_invalid_evaluation(
+    db_session: db_Session,
+    doctor: Doctors,
+    image_set: ImageSet,
+    session: Session,
+    ischemic_low_quality: bool,
+    image_set_usability: ImageSetUsability,
+):
+    with pytest.raises(InvalidEvaluationError):
+        add_evaluate_image_set(
+            db_session,
+            doctor.uuid,
+            image_set.uuid,
+            session.session_uuid,
+            image_set_usability=image_set_usability,
+            ischemic_low_quality=ischemic_low_quality,
+        )
+
+
 def test_add_evaluate_image_set_doctor_not_found(
     db_session: db_Session, image_set: ImageSet, session: Session
 ):

@@ -35,6 +35,12 @@ from sqlalchemy.types import TypeDecorator, CHAR
 from medfabric.db.database import Base
 
 
+class ImageFormat(enum.Enum):
+    DICOM = "DICOM"
+    JPEG = "JPEG"
+    PNG = "PNG"
+
+
 class GUID(TypeDecorator):
     """Platform-independent UUID type.
 
@@ -74,6 +80,7 @@ class ImageSetUsability(enum.Enum):
     IschemicAssessable = "IschemicAssessable"
     HemorrhagicPresent = "HemorrhagicPresent"
     Indeterminate = "Indeterminate"
+    Normal = "Normal"
     TrueIrrelevant = "TrueIrrelevant"
 
 
@@ -170,6 +177,11 @@ class ImageSet(Base):
         ForeignKey("patients.patient_uuid"),
         nullable=False,
     )
+    image_format: Mapped[ImageFormat] = mapped_column(
+        Enum(ImageFormat), nullable=False, default=ImageFormat.DICOM
+    )
+    image_window_level: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    image_window_width: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     num_images: Mapped[int] = mapped_column(Integer, nullable=False)
     folder_path: Mapped[str] = mapped_column(String, nullable=True, unique=True)
     conflicted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -200,7 +212,6 @@ class Image(Base):
     slice_index: Mapped[int] = mapped_column(Integer, nullable=False)
 
     image_set: Mapped["ImageSet"] = relationship("ImageSet", back_populates="images")
-
     __table_args__ = (
         UniqueConstraint(
             "image_name", "image_set_uuid", "slice_index", name="uq_imageset_slice"

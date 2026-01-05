@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session as db_Session
 from medfabric.db.orm_model import (
     ImageEvaluation,
     ImageSetEvaluation,
+    ImageSetUsability,
 )
 from medfabric.pages.label_helper.session_initialization import (
     ImageEvaluationSession,
@@ -74,8 +75,8 @@ def submit_result_image_set_evaluation(
         doctor_uuid=doctor_uuid,
         image_set_uuid=result.uuid,
         session_uuid=session_uuid,
-        is_low_quality=result.low_quality,
-        is_irrelevant=result.irrelevant_data,
+        image_set_usability=result.image_set_usability,
+        ischemic_low_quality=result.low_quality,
     )
     return evaluation if evaluation else None
 
@@ -98,7 +99,10 @@ def submit_image_set_results(
         SubmissionResult object containing either the
         ImageSetEvaluation or a list of ImageEvaluations.
     """
-    if result.low_quality or result.irrelevant_data:
+    if (
+        result.low_quality
+        and result.image_set_usability == ImageSetUsability.IschemicAssessable
+    ) or result.image_set_usability != ImageSetUsability.IschemicAssessable:
         set_eval = submit_result_image_set_evaluation(
             db_session, doctor_uuid, session_uuid, result
         )

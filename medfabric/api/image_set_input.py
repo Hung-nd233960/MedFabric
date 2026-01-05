@@ -6,7 +6,7 @@ import uuid as uuid_lib
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from pydantic import ValidationError
-from medfabric.db.orm_model import ImageSet
+from medfabric.db.orm_model import ImageSet, ImageFormat
 from medfabric.db.pydantic_model import ImageSetRead, ImageSetCreate, ImageRead
 from medfabric.api.errors import (
     PatientNotFoundError,
@@ -28,6 +28,9 @@ def add_image_set(
     session: Session,
     image_set_name: str,
     num_images: int,
+    image_format: ImageFormat,
+    image_window_level: Optional[int],
+    image_window_width: Optional[int],
     dataset_uuid: uuid_lib.UUID,
     patient_uuid: uuid_lib.UUID,
     folder_path: str,
@@ -47,6 +50,9 @@ def add_image_set(
         folder_path (str, optional): Path to the folder containing the images.
         description (str, optional): Description of the image set.
         icd_code (str, optional): ICD code associated with the image set.
+        image_format (ImageFormat): Format of the images in the set.
+        image_window_level (int, optional): Window level for image display.
+        image_window_width (int, optional): Window width for image display.
     Returns:
         ImageSet: The created image set record.
     """
@@ -55,6 +61,9 @@ def add_image_set(
             uuid=image_set_uuid,
             dataset_uuid=dataset_uuid,
             image_set_name=image_set_name,
+            image_format=image_format,
+            image_window_level=image_window_level,
+            image_window_width=image_window_width,
             num_images=num_images,
             folder_path=folder_path,
             patient_uuid=patient_uuid,
@@ -69,6 +78,9 @@ def add_image_set(
         patient_uuid_ = image_set_validator.patient_uuid
         description_ = image_set_validator.description
         icd_code_ = image_set_validator.icd_code
+        image_format_ = image_set_validator.image_format
+        image_window_level_ = image_set_validator.image_window_level
+        image_window_width_ = image_set_validator.image_window_width
 
     except InvalidImageSetError as exc:
         raise InvalidImageSetError(f"Invalid image set data: {exc}") from exc
@@ -78,6 +90,14 @@ def add_image_set(
     if patient_uuid_ is not None:
         if not check_patient_exists_by_uuid(session, patient_uuid_, dataset_uuid_):
             raise PatientNotFoundError(f"Patient with ID '{patient_uuid_}' not found.")
+    if image_format_ == ImageFormat.DICOM:
+        if image_window_level_ is None or image_window_width_ is None:
+            raise InvalidImageSetError(
+                "DICOM image sets must have window level and window width defined."
+            )
+    else:
+        image_window_level_ = None
+        image_window_width_ = None
 
     if not description_:
         description_ = None
@@ -94,6 +114,9 @@ def add_image_set(
         folder_path=folder_path_,
         description=description_,
         icd_code=icd_code_,
+        image_format=image_format_,
+        image_window_level=image_window_level_,
+        image_window_width=image_window_width_,
     )
     try:
         session.add(image_set)
@@ -137,6 +160,9 @@ def get_image_set(session: Session, uuid: uuid_lib.UUID) -> Optional[ImageSetRea
             index=image_set_orm.index,
             images=image_reads,
             patient=patient,
+            image_format=image_set_orm.image_format,
+            image_window_level=image_set_orm.image_window_level,
+            image_window_width=image_set_orm.image_window_width,
         )
         return image_set
     return None

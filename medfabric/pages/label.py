@@ -11,13 +11,25 @@ from medfabric.pages.label_helper.state_management import (
 from medfabric.pages.label_helper.session_initialization import (
     initialize_evaluation_session,
 )
-from medfabric.pages.label_helper.image_loader import render_image_to_st
+
+from medfabric.pages.label_helper.image_loader.jpg_processing import jpg_image
+from medfabric.pages.label_helper.image_loader.dicom_processing import dicom_image
+from medfabric.pages.label_helper.image_loader.image_helper import render_image
 from medfabric.db.engine import get_session_factory
-from medfabric.db.orm_model import Region
-from medfabric.api.config import BASAL_CENTRAL_MAX, BASAL_CORTEX_MAX, CORONA_MAX
+from medfabric.db.orm_model import Region, ImageSetUsability, ImageFormat
+from medfabric.api.config import (
+    BASAL_CENTRAL_MAX,
+    BASAL_CORTEX_MAX,
+    CORONA_MAX,
+    DEFAULT_WINDOW_LEVEL,
+    DEFAULT_WINDOW_WIDTH,
+)
 from medfabric.pages.utils import sudden_close
 from medfabric.pages.label_helper.state_management import LabelingAppState
-from medfabric.pages.label_helper.dispatcher import flag_listener
+from medfabric.pages.label_helper.dispatcher import (
+    flag_listener,
+    image_set_usability_translation_dict,
+)
 from medfabric.pages.label_helper.image_set_session_status import (
     SetStatus,
     add_row,
@@ -132,15 +144,9 @@ def render_image_navigation_controls(
     img_slider_key: str,
     num_images: int,
     current_index: int,
-    brightness: int,
-    contrast: float,
-    brightness_slider_key: str,
-    contrast_slider_key: str,
-    reset_key: str,
-    filter_selectbox_key: str,
 ) -> None:
     """Render navigation controls for image selection."""
-    with st.expander("Image Navigation and Adjustment Controls", expanded=True):
+    with st.expander("Image Navigation", expanded=True):
         st.write(f"Image {current_index + 1} of {num_images}")
         col1, col2, col3 = st.columns([1, 1, 2])
         with col1:
@@ -177,6 +183,67 @@ def render_image_navigation_controls(
                     img_slider_key,
                 ),
             )
+
+
+def render_dicom_windowing_controls(
+    window_width: int,
+    window_level: int,
+    window_width_key: str,
+    window_level_key: str,
+    reset_window_key: str,
+):
+    """Render DICOM windowing adjustment controls."""
+    with st.expander("DICOM Windowing", expanded=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.number_input(
+                "Windowing Width",
+                1,
+                2000,
+                value=window_width,
+                key=window_width_key,
+                on_change=raise_flag,
+                args=(
+                    app.label_flag,
+                    EventType.WINDOWING_WIDTH_CHANGED,
+                    window_width_key,
+                ),
+            )
+        with col2:
+            st.number_input(
+                "Windowing Level",
+                -1000,
+                1000,
+                value=window_level,
+                key=window_level_key,
+                on_change=raise_flag,
+                args=(
+                    app.label_flag,
+                    EventType.WINDOWING_LEVEL_CHANGED,
+                    window_level_key,
+                ),
+            )
+        st.button(
+            "Reset Windowing",
+            key=reset_window_key,
+            on_click=raise_flag,
+            args=(
+                app.label_flag,
+                EventType.RESET_WINDOWING,
+            ),
+        )
+
+
+def render_image_filter_selection(
+    brightness: int,
+    contrast: float,
+    brightness_slider_key: str,
+    contrast_slider_key: str,
+    reset_key: str,
+    filter_selectbox_key: str,
+):
+    """Render image filter adjustment controls."""
+    with st.expander("Image Filters", expanded=True):
         col1, col2 = st.columns(2)
         with col1:
             st.slider(
@@ -232,22 +299,31 @@ def render_image_navigation_controls(
             )
 
 
-def render_set_labeling_row(low_quality_key: str, irrelevant_key: str):
+def render_set_labeling_row(
+    low_quality_key: str, irrelevant_key: str, low_quality_enabled: bool = True
+) -> None:
     acol1, acol2 = st.columns(2)
     with acol1:
-        st.checkbox(
-            "Low Quality",
-            key=low_quality_key,
-            on_change=raise_flag,
-            args=(app.label_flag, EventType.MARK_LOW_QUALITY, low_quality_key),
-        )
-    with acol2:
-        st.checkbox(
-            "Irrelevant Data",
+        st.selectbox(
+            "Image Set Usability",
+            options=image_set_usability_translation_dict.keys(),
             key=irrelevant_key,
             on_change=raise_flag,
-            args=(app.label_flag, EventType.MARK_IRRELEVANT, irrelevant_key),
+            args=(app.label_flag, EventType.MARK_IRRELEVANT_CHANGED, irrelevant_key),
         )
+
+    with acol2:
+        if low_quality_enabled:
+            st.checkbox(
+                "Low Quality",
+                key=low_quality_key,
+                on_change=raise_flag,
+                args=(
+                    app.label_flag,
+                    EventType.MARK_LOW_QUALITY_CHANGED,
+                    low_quality_key,
+                ),
+            )
 
 
 def render_labeling_column(
@@ -430,17 +506,35 @@ flag_listener(app.label_flag, app.app_state)
 
 col1, col2, col3 = st.columns([1, 1, 1])
 with col1:
+    img = None
     render_logout_button(key=app.key_mngr.make(UIElementType.BUTTON, EventType.LOGOUT))
-    #    image = app.app_state.current_session.current_image_session.image_matrix
-    render_image_to_st(
-        path=app.app_state.current_session.current_image_session.image_path,
-        current_image_index=app.app_state.current_session.current_index,
-        num_images=app.app_state.current_session.num_images,
-        current_set_index=app.app_state.session_index,
-        brightness=app.app_state.brightness,
-        contrast=app.app_state.contrast,
-        # filter_type=app.app_state.filter_type,
-    )
+    if app.app_state.current_session.image_set_format == ImageFormat.DICOM:
+        img = dicom_image(
+            app.app_state.current_session.current_image_session.image_path,
+            width=(
+                app.app_state.current_session.window_width_current
+                if app.app_state.current_session.window_width_current is not None
+                else DEFAULT_WINDOW_WIDTH
+            ),
+            center=(
+                app.app_state.current_session.window_level_current
+                if app.app_state.current_session.window_level_current is not None
+                else DEFAULT_WINDOW_LEVEL
+            ),
+        )
+    elif app.app_state.current_session.image_set_format == ImageFormat.JPEG:
+        img = jpg_image(
+            app.app_state.current_session.current_image_session.image_path,
+        )
+    else:
+        st.error("Unsupported image format.")
+    if img is not None:
+        render_image(
+            img,
+            app.app_state.session_index,
+            app.app_state.current_session.current_index,
+            app.app_state.current_session.num_images,
+        )
 with col2:
     render_image_navigation_controls(
         next_img_key=app.key_mngr.make(UIElementType.BUTTON, EventType.NEXT_IMAGE),
@@ -452,27 +546,58 @@ with col2:
         ),
         num_images=app.app_state.current_session.num_images,
         current_index=app.app_state.current_session.current_index,
-        brightness_slider_key=app.key_mngr.make(
-            UIElementType.SLIDER,
-            EventType.BRIGHTNESS_CHANGED,
-            app.app_state.current_session.uuid,
-        ),
-        contrast=app.app_state.contrast,
-        brightness=app.app_state.brightness,
-        contrast_slider_key=app.key_mngr.make(
-            UIElementType.SLIDER,
-            EventType.CONTRAST_CHANGED,
-            app.app_state.current_session.uuid,
-        ),
-        reset_key=app.key_mngr.make(
-            UIElementType.BUTTON,
-            EventType.RESET_ADJUSTMENTS,
-        ),
-        filter_selectbox_key=app.key_mngr.make(
-            UIElementType.SELECTBOX,
-            EventType.FILTER_CHANGED,
-        ),
     )
+    with st.expander("Image Display", expanded=True):
+        if app.app_state.current_session.image_set_format == ImageFormat.DICOM:
+            render_dicom_windowing_controls(
+                window_width=(
+                    app.app_state.current_session.window_width_current
+                    if app.app_state.current_session.window_width_current is not None
+                    else DEFAULT_WINDOW_WIDTH
+                ),
+                window_level=(
+                    app.app_state.current_session.window_level_current
+                    if app.app_state.current_session.window_level_current is not None
+                    else DEFAULT_WINDOW_LEVEL
+                ),
+                window_width_key=app.key_mngr.make(
+                    UIElementType.NUMBER_INPUT,
+                    EventType.WINDOWING_WIDTH_CHANGED,
+                    app.app_state.current_session.uuid,
+                ),
+                window_level_key=app.key_mngr.make(
+                    UIElementType.NUMBER_INPUT,
+                    EventType.WINDOWING_LEVEL_CHANGED,
+                    app.app_state.current_session.uuid,
+                ),
+                reset_window_key=app.key_mngr.make(
+                    UIElementType.BUTTON,
+                    EventType.RESET_WINDOWING,
+                    app.app_state.current_session.uuid,
+                ),
+            )
+        # render_image_filter_selection(
+        #     brightness_slider_key=app.key_mngr.make(
+        #         UIElementType.SLIDER,
+        #         EventType.BRIGHTNESS_CHANGED,
+        #         app.app_state.current_session.uuid,
+        #     ),
+        #     contrast=app.app_state.contrast,
+        #     brightness=app.app_state.brightness,
+        #     contrast_slider_key=app.key_mngr.make(
+        #         UIElementType.SLIDER,
+        #         EventType.CONTRAST_CHANGED,
+        #         app.app_state.current_session.uuid,
+        #     ),
+        #     reset_key=app.key_mngr.make(
+        #         UIElementType.BUTTON,
+        #         EventType.RESET_ADJUSTMENTS,
+        #     ),
+        #     filter_selectbox_key=app.key_mngr.make(
+        #         UIElementType.SELECTBOX,
+        #         EventType.FILTER_CHANGED,
+        #     ),
+        # )
 
     render_labeling_column(
         region_segmented_key=app.key_mngr.make(
@@ -521,13 +646,19 @@ with col3:
             )
             zcol1, zcol2 = st.columns([1, 1])
             with zcol1:
-                if app.app_state.current_session.patient_id:
-                    st.write(f"Patient ID: {app.app_state.current_session.patient_id}")
-                if app.app_state.current_session.image_set_name:
+                if app.app_state.current_session.icd_code:
+                    st.write(f"ICD Code: {app.app_state.current_session.icd_code}")
+                if app.app_state.current_session.description:
                     st.write(
-                        f"Scan Type: {app.app_state.current_session.image_set_name}"
+                        f"Description: {app.app_state.current_session.description}"
                     )
-            with zcol2:
+                #     if app.app_state.current_session.patient_id:
+                #         st.write(f"Patient ID: {app.app_state.current_session.patient_id}")
+                #     if app.app_state.current_session.image_set_name:
+                #         st.write(
+                #             f"Scan Type: {app.app_state.current_session.image_set_name}"
+                #         )
+                # with zcol2:
                 st.write(f"Set Index: {app.app_state.current_session.set_index}")
             if len(app.app_state.labeling_session) > 1:
                 render_set_column(
@@ -570,14 +701,16 @@ with col3:
             render_set_labeling_row(
                 low_quality_key=app.key_mngr.make(
                     UIElementType.CHECKBOX,
-                    EventType.MARK_LOW_QUALITY,
+                    EventType.MARK_LOW_QUALITY_CHANGED,
                     app.app_state.current_session.uuid,
                 ),
                 irrelevant_key=app.key_mngr.make(
-                    UIElementType.CHECKBOX,
-                    EventType.MARK_IRRELEVANT,
+                    UIElementType.SELECTBOX,
+                    EventType.MARK_IRRELEVANT_CHANGED,
                     app.app_state.current_session.uuid,
                 ),
+                low_quality_enabled=app.app_state.current_session.image_set_usability
+                == ImageSetUsability.IschemicAssessable,
             )
             st.text_area(
                 "Notes",

@@ -8,7 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, StringConstraints
 
 # NameEmail
-from medfabric.db.orm_model import Region, Gender, ImageSetUsability
+from medfabric.db.orm_model import Region, Gender, ImageSetUsability, ImageFormat
 
 
 # --- Base class for all schemas ---
@@ -110,6 +110,9 @@ class ImageSetBase(OrmBase):
     folder_path: str
     conflicted: bool
     description: Optional[str] = None
+    image_format: ImageFormat
+    image_window_level: Optional[int] = None
+    image_window_width: Optional[int] = None
 
 
 class ImageSetCreate(OrmBase):
@@ -121,6 +124,9 @@ class ImageSetCreate(OrmBase):
     num_images: Annotated[int, Field(gt=0)]
     folder_path: str
     description: Optional[str] = None
+    image_format: ImageFormat
+    image_window_level: Optional[int] = None
+    image_window_width: Optional[int] = None
 
 
 class ImageSetRead(ImageSetBase):
@@ -180,7 +186,7 @@ class ImageEvaluationBase(OrmBase):
     corona_score_left: Optional[int] = None
     corona_score_right: Optional[int] = None
 
-    notes: Annotated[str, StringConstraints(max_length=500)] | None = None
+    notes: Optional[Annotated[str, StringConstraints(max_length=500)]] = None
 
 
 class ImageEvaluationCreate(ImageEvaluationBase):

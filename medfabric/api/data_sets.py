@@ -25,6 +25,25 @@ def check_data_set_exists_by_name(session: Session, name: str) -> bool:
     return session.query(DataSet).filter_by(name=name).one_or_none() is not None
 
 
+def retrieve_data_set_by_name(session: Session, name: str) -> Optional[DataSetRead]:
+    """
+    Retrieve a data set by its name.
+
+    Args:
+        session (Session): SQLAlchemy DB session
+        name (str): Name of the data set to retrieve
+
+    Returns:
+        DataSetRead if found, None otherwise
+    """
+    data_set = session.query(DataSet).filter_by(name=name).first()
+    if data_set:
+        return DataSetRead.model_validate(
+            data_set
+        )  # validate or not does not matter to be honest since SQLAlchemy output corresponding data
+    return None
+
+
 def check_data_set_exists_by_uuid(
     session: Session, data_set_uuid: uuid_lib.UUID
 ) -> bool:

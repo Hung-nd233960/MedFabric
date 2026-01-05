@@ -44,6 +44,10 @@ class EventType(Enum):
     FILTER_CHANGED = auto()
     RESET_ADJUSTMENTS = auto()
     # Region Selection
+    WINDOWING_LEVEL_CHANGED = auto()
+    WINDOWING_WIDTH_CHANGED = auto()
+    RESET_WINDOWING = auto()
+
     REGION_SELECTED = auto()
     # Scoring Changes
     BASAL_CORTEX_LEFT_SCORE_CHANGED = auto()
@@ -54,8 +58,8 @@ class EventType(Enum):
     CORONA_RIGHT_SCORE_CHANGED = auto()
     NOTES_CHANGED = auto()
     # Set Markings
-    MARK_LOW_QUALITY = auto()
-    MARK_IRRELEVANT = auto()
+    MARK_IRRELEVANT_CHANGED = auto()
+    MARK_LOW_QUALITY_CHANGED = auto()
     # Session Controls
     SAVE = auto()
     CANCEL = auto()

@@ -11,7 +11,7 @@ from medfabric.pages.label_helper.state_management import (
     EventFlags,
     UIElementType,
 )
-from medfabric.db.orm_model import Region
+from medfabric.db.orm_model import Region, ImageSetUsability
 from medfabric.pages.utils import reset
 from medfabric.pages.label_helper.submit_results import submit_image_set_results
 from medfabric.pages.label_helper.unsatisfactory_sessions import (
@@ -303,6 +303,39 @@ def handle_contrast_changed(event: CompletedEvent, app_state: LabelingAppState):
     app_state.contrast = st.session_state[event.payload]
 
 
+def handle_windowing_level_changed(event: CompletedEvent, app_state: LabelingAppState):
+    app_state.current_session.window_level_current = st.session_state[event.payload]
+
+
+def handle_windowing_width_changed(event: CompletedEvent, app_state: LabelingAppState):
+    app_state.current_session.window_width_current = st.session_state[event.payload]
+
+
+def handle_reset_windowing(
+    event: HalfEvent, app_state: LabelingAppState, app=st.session_state
+):
+    app_state.current_session.window_level_current = (
+        app_state.current_session.window_level_default
+    )
+    app_state.current_session.window_width_current = (
+        app_state.current_session.window_width_default
+    )
+    app[
+        app.key_mngr.make(
+            UIElementType.NUMBER_INPUT,
+            EventType.WINDOWING_WIDTH_CHANGED,
+            app.app_state.current_session.uuid,
+        )
+    ] = app_state.current_session.window_width_default
+    app[
+        app.key_mngr.make(
+            UIElementType.NUMBER_INPUT,
+            EventType.WINDOWING_LEVEL_CHANGED,
+            app.app_state.current_session.uuid,
+        )
+    ] = app_state.current_session.window_level_default
+
+
 def handle_reset_adjustments(
     event: HalfEvent, app_state: LabelingAppState, app=st.session_state
 ):
@@ -526,7 +559,8 @@ def handle_notes_changed(event: CompletedEvent, app_state: LabelingAppState):
 
 def disable_score_fields(app_state: LabelingAppState):
     if (
-        app_state.current_session.irrelevant_data
+        app_state.current_session.image_set_usability
+        != ImageSetUsability.IschemicAssessable
         or app_state.current_session.low_quality
     ):
         app_state.current_session.render_score_box_mode = False
@@ -534,9 +568,26 @@ def disable_score_fields(app_state: LabelingAppState):
         app_state.current_session.render_score_box_mode = True
 
 
+image_set_usability_translation_dict = {
+    "Ischemic": ImageSetUsability.IschemicAssessable,
+    "Hemorrhagic": ImageSetUsability.HemorrhagicPresent,
+    "Undertermined": ImageSetUsability.Indeterminate,
+    "Normal": ImageSetUsability.Normal,
+    "True Irrelevant": ImageSetUsability.TrueIrrelevant,
+}
+
+
 def handle_mark_irrelevant(event: CompletedEvent, app_state: LabelingAppState):
-    app_state.current_session.irrelevant_data = st.session_state[event.payload]
-    if app_state.current_session.irrelevant_data:
+
+    raw_value = st.session_state[event.payload]
+    # previous_value = app_state.current_session.image_set_usability
+    app_state.current_session.image_set_usability = (
+        image_set_usability_translation_dict[raw_value]
+    )
+    if (
+        app_state.current_session.image_set_usability
+        != ImageSetUsability.IschemicAssessable
+    ):
         for img in app_state.current_session.images_sessions:
             img.region = Region.None_
             reset_score_fields(app_state, Region.None_)
@@ -554,6 +605,7 @@ def handle_mark_irrelevant(event: CompletedEvent, app_state: LabelingAppState):
             SetStatus.INVALID,
         )
     app_state.current_session.render_valid_message = False
+    app_state.current_session.low_quality = False
     disable_score_fields(app_state)
 
 
@@ -604,6 +656,9 @@ EVENT_DISPATCH: Dict[EventType, Callable] = {
     EventType.BRIGHTNESS_CHANGED: handle_brightness_changed,
     EventType.CONTRAST_CHANGED: handle_contrast_changed,
     EventType.RESET_ADJUSTMENTS: handle_reset_adjustments,
+    EventType.WINDOWING_LEVEL_CHANGED: handle_windowing_level_changed,
+    EventType.WINDOWING_WIDTH_CHANGED: handle_windowing_width_changed,
+    EventType.RESET_WINDOWING: handle_reset_windowing,
     EventType.NEXT_SET: handle_next_set,
     EventType.PREV_SET: handle_prev_set,
     EventType.JUMP_TO_SET: handle_jump_to_set,
@@ -615,8 +670,8 @@ EVENT_DISPATCH: Dict[EventType, Callable] = {
     EventType.CORONA_LEFT_SCORE_CHANGED: handle_corona_left_score,
     EventType.CORONA_RIGHT_SCORE_CHANGED: handle_corona_right_score,
     EventType.NOTES_CHANGED: handle_notes_changed,
-    EventType.MARK_IRRELEVANT: handle_mark_irrelevant,
-    EventType.MARK_LOW_QUALITY: handle_mark_low_quality,
+    EventType.MARK_IRRELEVANT_CHANGED: handle_mark_irrelevant,
+    EventType.MARK_LOW_QUALITY_CHANGED: handle_mark_low_quality,
     EventType.LOGOUT: handle_logout,
     EventType.SUBMIT: handle_submit,
 }
