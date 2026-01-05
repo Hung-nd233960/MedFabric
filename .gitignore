@@ -29,3 +29,4 @@ data_sets/*
 !data_sets/.gitkeep
 public_data/*
 .backup
+medfabric.db
