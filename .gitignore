@@ -30,3 +30,5 @@ data_sets/*
 public_data/*
 .backup
 medfabric.db
+medfabric.db-shm
+medfabric.db-wal
