@@ -1,35 +1,72 @@
 services:
-  app:
-    container_name: medfabric_app
-    build: 
+  # Development service with local volume mapping
+  app-dev:
+    container_name: medfabric_app_dev
+    build:
+      context: .
+      dockerfile: ./docker/app.Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///./medfabric.db}
+    volumes:
+      - ./medfabric:/app/medfabric
+      - ./data_sets:/app/data_sets:ro
+      - ./config.toml:/app/config.toml
+      - ./.streamlit:/app/.streamlit
+    working_dir: /app
+    profiles: ["dev"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Production service with Tailscale networking
+  app-prod:
+    container_name: medfabric_app_prod
+    build:
       context: .
       dockerfile: ./docker/app.Dockerfile
     network_mode: service:tailscale
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///./medfabric.db}
     volumes:
-      - ./:/app
       - ./medfabric:/app/medfabric:ro
       - ./data_sets:/app/data_sets:ro
-    profiles: ["dev", "prod"]
-      
-  
+      - ./config.toml:/app/config.toml:ro
+      - ./.streamlit:/app/.streamlit:ro
+    depends_on:
+      - tailscale
+    profiles: ["prod"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Tailscale VPN service (for secure networking in production)
   tailscale:
     image: tailscale/tailscale:latest
-    container_name: tailscale
+    container_name: tailscale_medfabric
     hostname: medfabric
     environment:
-      - TS_AUTHKEY=${TS_AUTH_KEY}
+      - TS_AUTHKEY=${TS_AUTH_KEY:?Tailscale auth key required}
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_USERSPACE=false
     volumes:
-      - ts-test:/var/lib/tailscale
+      - ts_state:/var/lib/tailscale
     devices:
       - /dev/net/tun:/dev/net/tun
     cap_add:
       - net_admin
     restart: unless-stopped
-#    command: tailscale serve 8501
-    profiles: ["prod", "ops"]
+    profiles: ["prod"]
 
 volumes:
-  ts-test:
+  ts_state:
     driver: local
