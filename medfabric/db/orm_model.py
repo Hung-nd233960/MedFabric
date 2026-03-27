@@ -71,17 +71,21 @@ class GUID(TypeDecorator):
 # --- Enums ---
 class Region(enum.Enum):
     None_ = "None"
-    BasalCentral = "BasalGangliaCentral"
-    BasalCortex = "BasalGangliaCortex"
+    BasalGanglia = "BasalGanglia"
     CoronaRadiata = "CoronaRadiata"
 
 
 class ImageSetUsability(enum.Enum):
     IschemicAssessable = "IschemicAssessable"
     HemorrhagicPresent = "HemorrhagicPresent"
-    Indeterminate = "Indeterminate"
-    Normal = "Normal"
-    TrueIrrelevant = "TrueIrrelevant"
+    Anomaly = "Anomaly"
+
+
+class RegionScore(enum.Enum):
+    Affected = "Affected"
+    Not_Affected = "Not_Affected"
+    Not_In_This_Slice = "Not_In_This_Slice"
+    Not_Applicable = "Not_Applicable"
 
 
 class Gender(enum.Enum):
@@ -307,20 +311,60 @@ class ImageEvaluation(Base):
     region: Mapped[Region] = mapped_column(
         Enum(Region), default=Region.None_, nullable=False
     )
-    basal_score_central_left: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
+    c_left_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
+    c_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
     )
-    basal_score_central_right: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
+    ic_left_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
     )
-    basal_score_cortex_left: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
+    ic_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
     )
-    basal_score_cortex_right: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
+    l_left_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
+    l_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
     )
-    corona_score_left: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    corona_score_right: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    i_left_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
+    i_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m1_left_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m1_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m2_left_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m2_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m3_left_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m3_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m4_left_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m4_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m5_left_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m5_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m6_left_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m6_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
     notes: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     @validates("region")

@@ -13,6 +13,7 @@ from medfabric.api.errors import (
     DatabaseError,
     InvalidImageSetError,
 )
+from medfabric.api.config import DEFAULT_WINDOW_LEVEL, DEFAULT_WINDOW_WIDTH
 
 
 from medfabric.api.patients import (
@@ -28,12 +29,12 @@ def add_image_set(
     session: Session,
     image_set_name: str,
     num_images: int,
-    image_format: ImageFormat,
-    image_window_level: Optional[int],
-    image_window_width: Optional[int],
     dataset_uuid: uuid_lib.UUID,
     patient_uuid: uuid_lib.UUID,
     folder_path: str,
+    image_format: ImageFormat = ImageFormat.DICOM,
+    image_window_level: Optional[int] = DEFAULT_WINDOW_LEVEL,
+    image_window_width: Optional[int] = DEFAULT_WINDOW_WIDTH,
     image_set_uuid: Optional[uuid_lib.UUID] = None,
     icd_code: Optional[str] = None,
     description: Optional[str] = None,

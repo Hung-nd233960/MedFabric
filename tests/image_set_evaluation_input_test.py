@@ -9,7 +9,13 @@ from medfabric.api.image_set_evaluation_input import (
     add_evaluate_image_set,
     check_set_evaluation_exists,
 )
-from medfabric.db.orm_model import Doctors, ImageSet, Session, ImageSetUsability
+from medfabric.db.orm_model import (
+    Doctors,
+    ImageSet,
+    Session,
+    ImageSetUsability,
+    ImageFormat,
+)
 from medfabric.api.patients import add_patient
 from medfabric.api.image_set_input import add_image_set
 from medfabric.api.sessions import create_session
@@ -44,6 +50,9 @@ def image_set(db_session: db_Session, dataset_uuid) -> ImageSet:
         db_session,
         "set1",
         5,
+        image_format=ImageFormat.DICOM,
+        image_window_level=40,
+        image_window_width=80,
         folder_path="path/to/set1",
         patient_uuid=patient.patient_uuid,
         dataset_uuid=dataset_uuid,
@@ -61,8 +70,7 @@ def session(db_session: db_Session, doctor: Doctors) -> Session:
     [
         (True, ImageSetUsability.IschemicAssessable),
         (False, ImageSetUsability.HemorrhagicPresent),
-        (False, ImageSetUsability.Indeterminate),
-        (False, ImageSetUsability.TrueIrrelevant),
+        (False, ImageSetUsability.Anomaly),
     ],
 )
 def test_add_evaluate_image_set_success(
@@ -93,8 +101,7 @@ def test_add_evaluate_image_set_success(
     [
         (False, ImageSetUsability.IschemicAssessable),
         (True, ImageSetUsability.HemorrhagicPresent),
-        (True, ImageSetUsability.Indeterminate),
-        (True, ImageSetUsability.TrueIrrelevant),
+        (True, ImageSetUsability.Anomaly),
     ],
 )
 def test_add_evaluate_invalid_evaluation(
@@ -225,7 +232,7 @@ def test_add_evaluate_image_set_duplicate_evaluation(
             doctor.uuid,
             image_set.uuid,
             session.session_uuid,
-            image_set_usability=ImageSetUsability.Indeterminate,
+            image_set_usability=ImageSetUsability.Anomaly,
             ischemic_low_quality=False,
         )
 
@@ -272,7 +279,7 @@ def test_add_evaluate_image_set_duplicate_does_not_break_existing(
             doctor.uuid,
             image_set.uuid,
             session.session_uuid,
-            image_set_usability=ImageSetUsability.Indeterminate,
+            image_set_usability=ImageSetUsability.Anomaly,
             ischemic_low_quality=False,
         )
     # Make sure the first evaluation still exists in DB

@@ -1,17 +1,19 @@
 # pylint: disable=missing-function-docstring, missing-module-docstring, redefined-outer-name
 # tests/image_evaluation_input_test.py
 import uuid as uuid_lib
+from typing import cast
 import pytest
 from sqlalchemy.orm import Session as db_Session
 from medfabric.db.orm_model import (
     Region,
+    RegionScore,
+    ImageFormat,
     ImageEvaluation,
     Doctors,
     Session,
     Image,
     ImageSet,
 )
-from medfabric.api.config import BASAL_CENTRAL_MAX, BASAL_CORTEX_MAX, CORONA_MAX
 from medfabric.api.credentials import register_doctor
 from medfabric.api.patients import add_patient
 from medfabric.api.image_input import add_image
@@ -34,57 +36,81 @@ from medfabric.api.errors import (
 )
 
 
+ASPECTS_FIELDS = [
+    "c_left_score",
+    "c_right_score",
+    "ic_left_score",
+    "ic_right_score",
+    "l_left_score",
+    "l_right_score",
+    "i_left_score",
+    "i_right_score",
+    "m1_left_score",
+    "m1_right_score",
+    "m2_left_score",
+    "m2_right_score",
+    "m3_left_score",
+    "m3_right_score",
+    "m4_left_score",
+    "m4_right_score",
+    "m5_left_score",
+    "m5_right_score",
+    "m6_left_score",
+    "m6_right_score",
+]
+
+ASPECTS_BASAL_FIELDS = [
+    "c_left_score",
+    "c_right_score",
+    "ic_left_score",
+    "ic_right_score",
+    "l_left_score",
+    "l_right_score",
+    "i_left_score",
+    "i_right_score",
+    "m1_left_score",
+    "m1_right_score",
+    "m2_left_score",
+    "m2_right_score",
+    "m3_left_score",
+    "m3_right_score",
+]
+
+ASPECTS_CORONA_FIELDS = [
+    "m4_left_score",
+    "m4_right_score",
+    "m5_left_score",
+    "m5_right_score",
+    "m6_left_score",
+    "m6_right_score",
+]
+
+
+def scores_none_region():
+    return {name: RegionScore.Not_Applicable for name in ASPECTS_FIELDS}
+
+
+def scores_basal_region():
+    scores = scores_none_region()
+    for name in ASPECTS_BASAL_FIELDS:
+        scores[name] = RegionScore.Not_Affected
+    return scores
+
+
+def scores_corona_region():
+    scores = scores_none_region()
+    for name in ASPECTS_CORONA_FIELDS:
+        scores[name] = RegionScore.Not_Affected
+    return scores
+
+
 @pytest.mark.parametrize(
     "region,scores",
     [
-        # ✅ Success cases
-        (
-            Region.None_,
-            dict.fromkeys(
-                [
-                    "basal_score_central_left",
-                    "basal_score_central_right",
-                    "basal_score_cortex_left",
-                    "basal_score_cortex_right",
-                    "corona_score_left",
-                    "corona_score_right",
-                ],
-                None,
-            ),
-        ),
-        (
-            Region.BasalCentral,
-            {
-                "basal_score_central_left": 1,
-                "basal_score_central_right": 2,
-                "basal_score_cortex_left": 2,
-                "basal_score_cortex_right": 1,
-                "corona_score_left": None,
-                "corona_score_right": None,
-            },
-        ),
-        (
-            Region.BasalCortex,
-            {
-                "basal_score_central_left": None,
-                "basal_score_central_right": None,
-                "basal_score_cortex_left": 1,
-                "basal_score_cortex_right": 2,
-                "corona_score_left": None,
-                "corona_score_right": None,
-            },
-        ),
-        (
-            Region.CoronaRadiata,
-            {
-                "basal_score_central_left": None,
-                "basal_score_central_right": None,
-                "basal_score_cortex_left": None,
-                "basal_score_cortex_right": None,
-                "corona_score_left": 1,
-                "corona_score_right": 2,
-            },
-        ),
+        (Region.None_, scores_none_region()),
+        (Region.BasalGanglia, scores_basal_region()),
+        (Region.BasalGanglia, scores_basal_region()),
+        (Region.CoronaRadiata, scores_corona_region()),
     ],
 )
 def test_success_cases_region_enforcement(region, scores):
@@ -95,88 +121,32 @@ def test_success_cases_region_enforcement(region, scores):
 @pytest.mark.parametrize(
     "region,scores",
     [
-        # ❌ None_: forbidden present
         (
             Region.None_,
             {
-                "basal_score_central_left": 1,  # forbidden
-                "basal_score_central_right": None,
-                "basal_score_cortex_left": None,
-                "basal_score_cortex_right": None,
-                "corona_score_left": None,
-                "corona_score_right": None,
+                **scores_none_region(),
+                "c_left_score": RegionScore.Not_Affected,
             },
         ),
-        # ❌ BasalCentral: missing required
         (
-            Region.BasalCentral,
+            Region.BasalGanglia,
             {
-                "basal_score_central_left": 1,
-                "basal_score_central_right": None,  # missing
-                "basal_score_cortex_left": None,
-                "basal_score_cortex_right": None,
-                "corona_score_left": None,
-                "corona_score_right": None,
+                **scores_basal_region(),
+                "c_left_score": RegionScore.Not_Applicable,
             },
         ),
-        # ❌ BasalCentral: forbidden present
         (
-            Region.BasalCentral,
+            Region.BasalGanglia,
             {
-                "basal_score_central_left": 1,
-                "basal_score_central_right": 2,
-                "basal_score_cortex_left": None,
-                "basal_score_cortex_right": None,
-                "corona_score_left": 9,  # forbidden
-                "corona_score_right": None,
+                **scores_basal_region(),
+                "m4_left_score": RegionScore.Not_Affected,
             },
         ),
-        # ❌ BasalCortex: missing required
-        (
-            Region.BasalCortex,
-            {
-                "basal_score_central_left": None,
-                "basal_score_central_right": None,
-                "basal_score_cortex_left": None,  # missing
-                "basal_score_cortex_right": 2,
-                "corona_score_left": None,
-                "corona_score_right": None,
-            },
-        ),
-        # ❌ BasalCortex: forbidden present
-        (
-            Region.BasalCortex,
-            {
-                "basal_score_central_left": None,
-                "basal_score_central_right": None,
-                "basal_score_cortex_left": 1,
-                "basal_score_cortex_right": 2,
-                "corona_score_left": 9,  # forbidden
-                "corona_score_right": None,
-            },
-        ),
-        # ❌ CoronaRadiata: missing required
         (
             Region.CoronaRadiata,
             {
-                "basal_score_central_left": None,
-                "basal_score_central_right": None,
-                "basal_score_cortex_left": None,
-                "basal_score_cortex_right": None,
-                "corona_score_left": 1,
-                "corona_score_right": None,  # missing
-            },
-        ),
-        # ❌ CoronaRadiata: forbidden present
-        (
-            Region.CoronaRadiata,
-            {
-                "basal_score_central_left": 7,  # forbidden
-                "basal_score_central_right": None,
-                "basal_score_cortex_left": None,
-                "basal_score_cortex_right": None,
-                "corona_score_left": 1,
-                "corona_score_right": 2,
+                **scores_corona_region(),
+                "m4_right_score": None,
             },
         ),
     ],
@@ -189,46 +159,13 @@ def test_failure_cases_region_enforcement(region, scores):
 @pytest.mark.parametrize(
     "scores",
     [
-        # ✅ Success cases
+        scores_none_region(),
+        scores_basal_region(),
+        scores_corona_region(),
         {
-            "basal_score_central_left": 0,
-            "basal_score_central_right": BASAL_CENTRAL_MAX,
-            "basal_score_cortex_left": 0,
-            "basal_score_cortex_right": BASAL_CORTEX_MAX,
-            "corona_score_left": 0,
-            "corona_score_right": CORONA_MAX,
-        },
-        {
-            "basal_score_central_left": None,
-            "basal_score_central_right": None,
-            "basal_score_cortex_left": None,
-            "basal_score_cortex_right": None,
-            "corona_score_left": None,
-            "corona_score_right": None,
-        },
-        {
-            "basal_score_central_left": int(BASAL_CENTRAL_MAX / 2),
-            "basal_score_central_right": int(BASAL_CENTRAL_MAX / 2),
-            "basal_score_cortex_left": int(BASAL_CORTEX_MAX / 2),
-            "basal_score_cortex_right": int(BASAL_CORTEX_MAX / 2),
-            "corona_score_left": int(CORONA_MAX / 2),
-            "corona_score_right": int(CORONA_MAX / 2),
-        },
-        {
-            "basal_score_central_left": 1,
-            "basal_score_central_right": 2,
-            "basal_score_cortex_left": 1,
-            "basal_score_cortex_right": 2,
-            "corona_score_left": 1,
-            "corona_score_right": 2,
-        },
-        {
-            "basal_score_central_left": 0,
-            "basal_score_central_right": BASAL_CENTRAL_MAX - 1,
-            "basal_score_cortex_left": 0,
-            "basal_score_cortex_right": BASAL_CORTEX_MAX - 1,
-            "corona_score_left": 0,
-            "corona_score_right": CORONA_MAX - 1,
+            **scores_basal_region(),
+            "c_left_score": RegionScore.Affected,
+            "m2_right_score": RegionScore.Not_In_This_Slice,
         },
     ],
 )
@@ -240,33 +177,8 @@ def test_success_cases_score_validation(scores):
 @pytest.mark.parametrize(
     "scores",
     [
-        # ❌ Below minimum
-        {
-            "basal_score_central_left": -1,
-            "basal_score_central_right": 2,
-            "basal_score_cortex_left": 1,
-            "basal_score_cortex_right": 1,
-            "corona_score_left": 1,
-            "corona_score_right": 1,
-        },
-        # ❌ Above maximum
-        {
-            "basal_score_central_left": 1,
-            "basal_score_central_right": BASAL_CENTRAL_MAX + 1,
-            "basal_score_cortex_left": 1,
-            "basal_score_cortex_right": 1,
-            "corona_score_left": 1,
-            "corona_score_right": 1,
-        },
-        # ❌ Mixed invalid
-        {
-            "basal_score_central_left": 1,
-            "basal_score_central_right": 2,
-            "basal_score_cortex_left": -3,
-            "basal_score_cortex_right": BASAL_CORTEX_MAX + 2,
-            "corona_score_left": 1,
-            "corona_score_right": 1,
-        },
+        {**scores_basal_region(), "c_left_score": "bad_value"},
+        {**scores_corona_region(), "m6_right_score": 1},
     ],
 )
 def test_failure_cases_score_validation(scores):
@@ -295,6 +207,9 @@ def image_set(db_session: db_Session, dataset_uuid) -> ImageSet:
         db_session,
         "set1",
         5,
+        image_format=ImageFormat.DICOM,
+        image_window_level=40,
+        image_window_width=80,
         folder_path="path/to/set1",
         dataset_uuid=dataset_uuid,
         patient_uuid=patient.patient_uuid,
@@ -318,30 +233,26 @@ def image(db_session: db_Session, image_set: ImageSet) -> Image:
 def test_add_evaluate_image_success(
     db_session: db_Session, doctor: Doctors, image: Image, session: Session
 ):
+    scores = scores_basal_region()
+    scores["c_left_score"] = RegionScore.Affected
+    scores["c_right_score"] = RegionScore.Not_Affected
     evaluation = add_evaluate_image(
         db_session,
         doctor.uuid,
         image.uuid,
         session.session_uuid,
-        region=Region.BasalCentral,
-        basal_score_central_left=2,
-        basal_score_central_right=3,
-        basal_score_cortex_left=2,
-        basal_score_cortex_right=1,
-        corona_score_left=None,
-        corona_score_right=None,
+        region=Region.BasalGanglia,
+        **scores,
         notes="Test evaluation",
     )
     assert evaluation.doctor_uuid == doctor.uuid
     assert evaluation.image_uuid == image.uuid
     assert evaluation.session_uuid == session.session_uuid
-    assert evaluation.region == Region.BasalCentral
-    assert evaluation.basal_score_central_left == 2
-    assert evaluation.basal_score_central_right == 3
-    assert evaluation.basal_score_cortex_left == 2
-    assert evaluation.basal_score_cortex_right == 1
-    assert evaluation.corona_score_left is None
-    assert evaluation.corona_score_right is None
+    assert evaluation.region == Region.BasalGanglia
+    assert evaluation.c_left_score == RegionScore.Affected
+    assert evaluation.c_right_score == RegionScore.Not_Affected
+    assert evaluation.m4_left_score == RegionScore.Not_Applicable
+    assert evaluation.m4_right_score == RegionScore.Not_Applicable
     assert evaluation.notes == "Test evaluation"
 
 
@@ -355,13 +266,8 @@ def test_add_evaluate_image_doctor_not_found(
             fake_doctor_uuid,
             image.uuid,
             session.session_uuid,
-            region=Region.BasalCentral,
-            basal_score_central_left=2,
-            basal_score_central_right=3,
-            basal_score_cortex_left=2,
-            basal_score_cortex_right=1,
-            corona_score_left=None,
-            corona_score_right=None,
+            region=Region.BasalGanglia,
+            **scores_basal_region(),
             notes="Test evaluation",
         )
 
@@ -376,13 +282,8 @@ def test_add_evaluate_image_image_not_found(
             doctor.uuid,
             fake_image_name,
             session.session_uuid,
-            region=Region.BasalCentral,
-            basal_score_central_left=2,
-            basal_score_central_right=3,
-            basal_score_cortex_left=2,
-            basal_score_cortex_right=1,
-            corona_score_left=None,
-            corona_score_right=None,
+            region=Region.BasalGanglia,
+            **scores_basal_region(),
             notes="Test evaluation",
         )
 
@@ -397,13 +298,8 @@ def test_add_evaluate_image_session_not_found(
             doctor.uuid,
             image.uuid,
             fake_session_uuid,
-            region=Region.BasalCentral,
-            basal_score_central_left=2,
-            basal_score_central_right=3,
-            basal_score_cortex_left=1,
-            basal_score_cortex_right=3,
-            corona_score_left=None,
-            corona_score_right=None,
+            region=Region.BasalGanglia,
+            **scores_basal_region(),
             notes="Test evaluation",
         )
 
@@ -416,18 +312,15 @@ def test_add_evaluate_image_session_inactive(
     sess.is_active = False
     db_session.commit()
     with pytest.raises(SessionInactiveError):
+        invalid_scores = scores_none_region()
+        invalid_scores["c_left_score"] = RegionScore.Affected
         add_evaluate_image(
             db_session,
             doctor.uuid,
             image.uuid,
             sess.session_uuid,
-            region=Region.BasalCentral,
-            basal_score_central_left=2,
-            basal_score_central_right=3,
-            basal_score_cortex_left=None,
-            basal_score_cortex_right=None,
-            corona_score_left=None,
-            corona_score_right=None,
+            region=Region.BasalGanglia,
+            **invalid_scores,
             notes="Test evaluation",
         )
 
@@ -443,13 +336,8 @@ def test_add_evaluate_image_session_mismatch(
             doctor.uuid,
             image.uuid,
             sess.session_uuid,
-            region=Region.BasalCentral,
-            basal_score_central_left=2,
-            basal_score_central_right=3,
-            basal_score_cortex_left=3,
-            basal_score_cortex_right=1,
-            corona_score_left=None,
-            corona_score_right=None,
+            region=Region.BasalGanglia,
+            **scores_basal_region(),
             notes="Test evaluation",
         )
 
@@ -463,13 +351,8 @@ def test_add_evaluate_image_invalid_region(
             doctor.uuid,
             image.uuid,
             session.session_uuid,
-            region="InvalidRegion",  # invalid region
-            basal_score_central_left=2,
-            basal_score_central_right=3,
-            basal_score_cortex_left=None,
-            basal_score_cortex_right=None,
-            corona_score_left=None,
-            corona_score_right=None,
+            region=cast(Region, "InvalidRegion"),  # invalid region
+            **scores_basal_region(),
             notes="Test evaluation",
         )
 
@@ -478,18 +361,14 @@ def test_add_evaluate_image_invalid_scores(
     db_session: db_Session, doctor: Doctors, image: Image, session: Session
 ):
     with pytest.raises(InvalidEvaluationError):
+        bad_scores = {**scores_basal_region(), "c_left_score": "invalid"}
         add_evaluate_image(
             db_session,
             doctor.uuid,
             image.uuid,
             session.session_uuid,
-            region=Region.BasalCentral,
-            basal_score_central_left=-1,  # Invalid score
-            basal_score_central_right=3,
-            basal_score_cortex_left=-3,
-            basal_score_cortex_right=2,
-            corona_score_left=None,
-            corona_score_right=None,
+            region=Region.BasalGanglia,
+            **bad_scores,
             notes="Test evaluation",
         )
 
@@ -502,13 +381,8 @@ def test_add_evaluate_image_duplicate_evaluation(
         doctor.uuid,
         image.uuid,
         session.session_uuid,
-        region=Region.BasalCentral,
-        basal_score_central_left=2,
-        basal_score_central_right=3,
-        basal_score_cortex_left=2,
-        basal_score_cortex_right=1,
-        corona_score_left=None,
-        corona_score_right=None,
+        region=Region.BasalGanglia,
+        **scores_basal_region(),
         notes="First evaluation",
     )
     with pytest.raises(EvaluationAlreadyExistsError):
@@ -517,13 +391,8 @@ def test_add_evaluate_image_duplicate_evaluation(
             doctor.uuid,
             image.uuid,
             session.session_uuid,
-            region=Region.BasalCentral,
-            basal_score_central_left=1,
-            basal_score_central_right=2,
-            basal_score_cortex_left=None,
-            basal_score_cortex_right=None,
-            corona_score_left=None,
-            corona_score_right=None,
+            region=Region.BasalGanglia,
+            **scores_basal_region(),
             notes="Duplicate evaluation",
         )
 
@@ -542,13 +411,8 @@ def test_check_image_evaluation_exists(
         doctor.uuid,
         image.uuid,
         session.session_uuid,
-        region=Region.BasalCentral,
-        basal_score_central_left=2,
-        basal_score_central_right=3,
-        basal_score_cortex_left=1,
-        basal_score_cortex_right=2,
-        corona_score_left=None,
-        corona_score_right=None,
+        region=Region.BasalGanglia,
+        **scores_basal_region(),
         notes="Test evaluation",
     )
     assert check_image_evaluation_exists(
@@ -567,13 +431,8 @@ def test_add_evaluate_image_duplicate_does_not_break_existing(
         doctor.uuid,
         image.uuid,
         session.session_uuid,
-        region=Region.BasalCentral,
-        basal_score_central_left=2,
-        basal_score_central_right=3,
-        basal_score_cortex_left=2,
-        basal_score_cortex_right=1,
-        corona_score_left=None,
-        corona_score_right=None,
+        region=Region.BasalGanglia,
+        **scores_basal_region(),
         notes="First evaluation",
     )
     with pytest.raises(EvaluationAlreadyExistsError):
@@ -582,13 +441,8 @@ def test_add_evaluate_image_duplicate_does_not_break_existing(
             doctor.uuid,
             image.uuid,
             session.session_uuid,
-            region=Region.BasalCentral,
-            basal_score_central_left=1,
-            basal_score_central_right=2,
-            basal_score_cortex_left=3,
-            basal_score_cortex_right=1,
-            corona_score_left=None,
-            corona_score_right=None,
+            region=Region.BasalGanglia,
+            **scores_basal_region(),
             notes="Duplicate evaluation",
         )
     # Ensure the original evaluation still exists and is unchanged
@@ -603,6 +457,6 @@ def test_add_evaluate_image_duplicate_does_not_break_existing(
     )
     assert len(evaluations) == 1
     evaluation_ = evaluations[0]
-    assert evaluation_.basal_score_central_left == 2
-    assert evaluation_.basal_score_central_right == 3
+    assert evaluation_.c_left_score == RegionScore.Not_Affected
+    assert evaluation_.c_right_score == RegionScore.Not_Affected
     assert evaluation_.notes == "First evaluation"

@@ -6,7 +6,7 @@ from typing import Optional, List, Dict
 import uuid as uuid_lib
 from sqlalchemy.orm import Session as db_Session
 import pandas as pd
-from medfabric.db.orm_model import Region, ImageSetUsability, ImageFormat
+from medfabric.db.orm_model import Region, RegionScore, ImageSetUsability, ImageFormat
 from medfabric.api.config import PATHS
 from medfabric.db.pydantic_model import ImageRead
 from medfabric.api.image_set_input import get_image_set
@@ -22,12 +22,26 @@ class ImageEvaluationSession:
     image_path: Path
     slice_index: int
     region: Region = Region.None_
-    basal_score_central_left: Optional[int] = None
-    basal_score_central_right: Optional[int] = None
-    basal_score_cortex_left: Optional[int] = None
-    basal_score_cortex_right: Optional[int] = None
-    corona_score_left: Optional[int] = None
-    corona_score_right: Optional[int] = None
+    c_left_score: Optional[RegionScore] = None
+    c_right_score: Optional[RegionScore] = None
+    ic_left_score: Optional[RegionScore] = None
+    ic_right_score: Optional[RegionScore] = None
+    l_left_score: Optional[RegionScore] = None
+    l_right_score: Optional[RegionScore] = None
+    i_left_score: Optional[RegionScore] = None
+    i_right_score: Optional[RegionScore] = None
+    m1_left_score: Optional[RegionScore] = None
+    m1_right_score: Optional[RegionScore] = None
+    m2_left_score: Optional[RegionScore] = None
+    m2_right_score: Optional[RegionScore] = None
+    m3_left_score: Optional[RegionScore] = None
+    m3_right_score: Optional[RegionScore] = None
+    m4_left_score: Optional[RegionScore] = None
+    m4_right_score: Optional[RegionScore] = None
+    m5_left_score: Optional[RegionScore] = None
+    m5_right_score: Optional[RegionScore] = None
+    m6_left_score: Optional[RegionScore] = None
+    m6_right_score: Optional[RegionScore] = None
     notes: Optional[str] = None
     image_metadata: Optional[Dict[str, str]] = None
 

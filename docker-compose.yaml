@@ -14,6 +14,9 @@ services:
       - ./medfabric:/app/medfabric
       - ./data_sets:/app/data_sets:ro
       - ./config.toml:/app/config.toml
+      - ./medfabric.db:/app/medfabric.db
+      - ./medfabric.db-shm:/app/medfabric.db-shm
+      - ./medfabric.db-wal:/app/medfabric.db-wal
       - ./.streamlit:/app/.streamlit
     working_dir: /app
     profiles: ["dev"]
@@ -38,6 +41,9 @@ services:
       - ./medfabric:/app/medfabric:ro
       - ./data_sets:/app/data_sets:ro
       - ./config.toml:/app/config.toml:ro
+      - ./medfabric.db:/app/medfabric.db
+      - ./medfabric.db-shm:/app/medfabric.db-shm
+      - ./medfabric.db-wal:/app/medfabric.db-wal
       - ./.streamlit:/app/.streamlit:ro
     depends_on:
       - tailscale

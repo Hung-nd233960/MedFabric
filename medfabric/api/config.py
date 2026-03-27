@@ -13,11 +13,6 @@ def load_config() -> dict[str, Any]:
         return tomllib.load(f)
 
 
-def get_criterion() -> dict[str, int]:
-    """Return scoring thresholds from [criterion] section."""
-    return load_config().get("criterion", {})
-
-
 def get_paths() -> dict[str, str]:
     """Return paths from [path] section."""
     return load_config().get("path", {})
@@ -28,22 +23,11 @@ def get_image_adjustments() -> dict[str, Any]:
     return load_config().get("image_adjustments", {})
 
 
-CRITERION = get_criterion()
 PATHS = get_paths()
 DEFAULT_IMAGE_ADJUSTMENT = get_image_adjustments()
-BASAL_CENTRAL_MAX = CRITERION.get("BasalCentral", 4)
-BASAL_CORTEX_MAX = CRITERION.get("BasalCortex", 3)
-CORONA_MAX = CRITERION.get("CoronaRadiata", 3)
 DATA_PATH = PATHS.get("data", "/data")
 
-SCORE_LIMITS = {
-    "basal_score_central_left": BASAL_CENTRAL_MAX,
-    "basal_score_central_right": BASAL_CENTRAL_MAX,
-    "basal_score_cortex_left": BASAL_CORTEX_MAX,
-    "basal_score_cortex_right": BASAL_CORTEX_MAX,
-    "corona_score_left": CORONA_MAX,
-    "corona_score_right": CORONA_MAX,
-}
+
 DEFAULT_BRIGHTNESS = DEFAULT_IMAGE_ADJUSTMENT.get("default_brightness", 0)
 DEFAULT_CONTRAST = DEFAULT_IMAGE_ADJUSTMENT.get("default_contrast", 1.0)
 DEFAULT_FILTER = DEFAULT_IMAGE_ADJUSTMENT.get("default_filter", "None")

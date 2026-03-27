@@ -11,8 +11,8 @@ from medfabric.pages.label_helper.state_management import (
     EventFlags,
     UIElementType,
 )
-from medfabric.db.orm_model import Region, ImageSetUsability
-from medfabric.pages.utils import reset
+from medfabric.db.orm_model import Region, RegionScore, ImageSetUsability
+from medfabric.pages.utils import reset, reset_with_new_session
 from medfabric.pages.label_helper.submit_results import submit_image_set_results
 from medfabric.pages.label_helper.unsatisfactory_sessions import (
     score_based_evaluation,
@@ -34,53 +34,99 @@ from medfabric.api.config import DEFAULT_BRIGHTNESS, DEFAULT_CONTRAST, DEFAULT_F
 from medfabric.db.engine import get_session_factory
 
 
+SCORE_EVENT_TO_FIELD: Dict[EventType, str] = {
+    EventType.BASAL_C_LEFT_SCORE_CHANGED: "c_left_score",
+    EventType.BASAL_C_RIGHT_SCORE_CHANGED: "c_right_score",
+    EventType.BASAL_IC_LEFT_SCORE_CHANGED: "ic_left_score",
+    EventType.BASAL_IC_RIGHT_SCORE_CHANGED: "ic_right_score",
+    EventType.BASAL_L_LEFT_SCORE_CHANGED: "l_left_score",
+    EventType.BASAL_L_RIGHT_SCORE_CHANGED: "l_right_score",
+    EventType.BASAL_I_LEFT_SCORE_CHANGED: "i_left_score",
+    EventType.BASAL_I_RIGHT_SCORE_CHANGED: "i_right_score",
+    EventType.BASAL_M1_LEFT_SCORE_CHANGED: "m1_left_score",
+    EventType.BASAL_M1_RIGHT_SCORE_CHANGED: "m1_right_score",
+    EventType.BASAL_M2_LEFT_SCORE_CHANGED: "m2_left_score",
+    EventType.BASAL_M2_RIGHT_SCORE_CHANGED: "m2_right_score",
+    EventType.BASAL_M3_LEFT_SCORE_CHANGED: "m3_left_score",
+    EventType.BASAL_M3_RIGHT_SCORE_CHANGED: "m3_right_score",
+    EventType.CORONA_M4_LEFT_SCORE_CHANGED: "m4_left_score",
+    EventType.CORONA_M4_RIGHT_SCORE_CHANGED: "m4_right_score",
+    EventType.CORONA_M5_LEFT_SCORE_CHANGED: "m5_left_score",
+    EventType.CORONA_M5_RIGHT_SCORE_CHANGED: "m5_right_score",
+    EventType.CORONA_M6_LEFT_SCORE_CHANGED: "m6_left_score",
+    EventType.CORONA_M6_RIGHT_SCORE_CHANGED: "m6_right_score",
+}
+
+BASAL_SCORE_EVENTS = [
+    EventType.BASAL_C_LEFT_SCORE_CHANGED,
+    EventType.BASAL_C_RIGHT_SCORE_CHANGED,
+    EventType.BASAL_IC_LEFT_SCORE_CHANGED,
+    EventType.BASAL_IC_RIGHT_SCORE_CHANGED,
+    EventType.BASAL_L_LEFT_SCORE_CHANGED,
+    EventType.BASAL_L_RIGHT_SCORE_CHANGED,
+    EventType.BASAL_I_LEFT_SCORE_CHANGED,
+    EventType.BASAL_I_RIGHT_SCORE_CHANGED,
+    EventType.BASAL_M1_LEFT_SCORE_CHANGED,
+    EventType.BASAL_M1_RIGHT_SCORE_CHANGED,
+    EventType.BASAL_M2_LEFT_SCORE_CHANGED,
+    EventType.BASAL_M2_RIGHT_SCORE_CHANGED,
+    EventType.BASAL_M3_LEFT_SCORE_CHANGED,
+    EventType.BASAL_M3_RIGHT_SCORE_CHANGED,
+]
+
+CORONA_SCORE_EVENTS = [
+    EventType.CORONA_M4_LEFT_SCORE_CHANGED,
+    EventType.CORONA_M4_RIGHT_SCORE_CHANGED,
+    EventType.CORONA_M5_LEFT_SCORE_CHANGED,
+    EventType.CORONA_M5_RIGHT_SCORE_CHANGED,
+    EventType.CORONA_M6_LEFT_SCORE_CHANGED,
+    EventType.CORONA_M6_RIGHT_SCORE_CHANGED,
+]
+
+ALL_SCORE_EVENTS = BASAL_SCORE_EVENTS + CORONA_SCORE_EVENTS
+
+BASAL_SCORE_FIELDS = [SCORE_EVENT_TO_FIELD[event] for event in BASAL_SCORE_EVENTS]
+CORONA_SCORE_FIELDS = [SCORE_EVENT_TO_FIELD[event] for event in CORONA_SCORE_EVENTS]
+ALL_SCORE_FIELDS = BASAL_SCORE_FIELDS + CORONA_SCORE_FIELDS
+
+
+def ui_value_to_region_score(value) -> Optional[RegionScore]:
+    if isinstance(value, RegionScore):
+        return value
+    if value is None:
+        return None
+    if value == "Not Visible":
+        return RegionScore.Not_In_This_Slice
+    if value in ("0", "0 Score", 0):
+        return RegionScore.Affected
+    if value in ("1", "1 Score", 1):
+        return RegionScore.Not_Affected
+    return None
+
+
+def region_score_to_ui_value(value: Optional[RegionScore]) -> Optional[str]:
+    if value == RegionScore.Not_In_This_Slice:
+        return "Not Visible"
+    if value == RegionScore.Affected:
+        return "0 Score"
+    if value == RegionScore.Not_Affected:
+        return "1 Score"
+    return None
+
+
 def reimplement_score_fields_in_session(
     app_state: LabelingAppState, app=st.session_state
 ):
     """Reimplement score fields for the current image session."""
     img_session = app_state.current_session.current_image_session
-    app[
-        app.key_mngr.make(
-            UIElementType.NUMBER_INPUT,
-            EventType.BASAL_CENTRAL_LEFT_SCORE_CHANGED,
-            app_state.current_session.uuid,
-        )
-    ] = img_session.basal_score_central_left
-    app[
-        app.key_mngr.make(
-            UIElementType.NUMBER_INPUT,
-            EventType.BASAL_CENTRAL_RIGHT_SCORE_CHANGED,
-            app_state.current_session.uuid,
-        )
-    ] = img_session.basal_score_central_right
-    app[
-        app.key_mngr.make(
-            UIElementType.NUMBER_INPUT,
-            EventType.BASAL_CORTEX_LEFT_SCORE_CHANGED,
-            app_state.current_session.uuid,
-        )
-    ] = img_session.basal_score_cortex_left
-    app[
-        app.key_mngr.make(
-            UIElementType.NUMBER_INPUT,
-            EventType.BASAL_CORTEX_RIGHT_SCORE_CHANGED,
-            app_state.current_session.uuid,
-        )
-    ] = img_session.basal_score_cortex_right
-    app[
-        app.key_mngr.make(
-            UIElementType.NUMBER_INPUT,
-            EventType.CORONA_LEFT_SCORE_CHANGED,
-            app_state.current_session.uuid,
-        )
-    ] = img_session.corona_score_left
-    app[
-        app.key_mngr.make(
-            UIElementType.NUMBER_INPUT,
-            EventType.CORONA_RIGHT_SCORE_CHANGED,
-            app_state.current_session.uuid,
-        )
-    ] = img_session.corona_score_right
+    for event_type, field_name in SCORE_EVENT_TO_FIELD.items():
+        app[
+            app.key_mngr.make(
+                UIElementType.SEGMENTED_CONTROL,
+                event_type,
+                img_session.image_uuid,
+            )
+        ] = region_score_to_ui_value(getattr(img_session, field_name))
 
 
 def reset_score_fields_in_session(
@@ -88,120 +134,21 @@ def reset_score_fields_in_session(
     app=st.session_state,
 ):
     """Reset score fields for the current image session."""
-    if mode == Region.BasalCentral:
-        app[
-            app.key_mngr.make(
-                UIElementType.NUMBER_INPUT,
-                EventType.CORONA_LEFT_SCORE_CHANGED,
-                app.app_state.current_session.uuid,
-            )
-        ] = None
-        app[
-            app.key_mngr.make(
-                UIElementType.NUMBER_INPUT,
-                EventType.CORONA_RIGHT_SCORE_CHANGED,
-                app.app_state.current_session.uuid,
-            )
-        ] = None
+    image_uuid = app.app_state.current_session.current_image_session.image_uuid
+
+    if mode == Region.BasalGanglia:
+        events_to_reset = BASAL_SCORE_EVENTS + CORONA_SCORE_EVENTS
     elif mode == Region.CoronaRadiata:
+        events_to_reset = BASAL_SCORE_EVENTS + CORONA_SCORE_EVENTS
+    else:
+        events_to_reset = ALL_SCORE_EVENTS
+
+    for event_type in events_to_reset:
         app[
             app.key_mngr.make(
-                UIElementType.NUMBER_INPUT,
-                EventType.BASAL_CENTRAL_LEFT_SCORE_CHANGED,
-                app.app_state.current_session.uuid,
-            )
-        ] = None
-        app[
-            app.key_mngr.make(
-                UIElementType.NUMBER_INPUT,
-                EventType.BASAL_CENTRAL_RIGHT_SCORE_CHANGED,
-                app.app_state.current_session.uuid,
-            )
-        ] = None
-        app[
-            app.key_mngr.make(
-                UIElementType.NUMBER_INPUT,
-                EventType.BASAL_CORTEX_LEFT_SCORE_CHANGED,
-                app.app_state.current_session.uuid,
-            )
-        ] = None
-        app[
-            app.key_mngr.make(
-                UIElementType.NUMBER_INPUT,
-                EventType.BASAL_CORTEX_RIGHT_SCORE_CHANGED,
-                app.app_state.current_session.uuid,
-            )
-        ] = None
-    elif mode == Region.BasalCortex:
-        app[
-            app.key_mngr.make(
-                UIElementType.NUMBER_INPUT,
-                EventType.BASAL_CENTRAL_LEFT_SCORE_CHANGED,
-                app.app_state.current_session.uuid,
-            )
-        ] = None
-        app[
-            app.key_mngr.make(
-                UIElementType.NUMBER_INPUT,
-                EventType.BASAL_CENTRAL_RIGHT_SCORE_CHANGED,
-                app.app_state.current_session.uuid,
-            )
-        ] = None
-        app[
-            app.key_mngr.make(
-                UIElementType.NUMBER_INPUT,
-                EventType.CORONA_LEFT_SCORE_CHANGED,
-                app.app_state.current_session.uuid,
-            )
-        ] = None
-        app[
-            app.key_mngr.make(
-                UIElementType.NUMBER_INPUT,
-                EventType.CORONA_RIGHT_SCORE_CHANGED,
-                app.app_state.current_session.uuid,
-            )
-        ] = None
-    elif mode == Region.None_:
-        app[
-            app.key_mngr.make(
-                UIElementType.NUMBER_INPUT,
-                EventType.BASAL_CENTRAL_LEFT_SCORE_CHANGED,
-                app.app_state.current_session.uuid,
-            )
-        ] = None
-        app[
-            app.key_mngr.make(
-                UIElementType.NUMBER_INPUT,
-                EventType.BASAL_CENTRAL_RIGHT_SCORE_CHANGED,
-                app.app_state.current_session.uuid,
-            )
-        ] = None
-        app[
-            app.key_mngr.make(
-                UIElementType.NUMBER_INPUT,
-                EventType.CORONA_LEFT_SCORE_CHANGED,
-                app.app_state.current_session.uuid,
-            )
-        ] = None
-        app[
-            app.key_mngr.make(
-                UIElementType.NUMBER_INPUT,
-                EventType.CORONA_RIGHT_SCORE_CHANGED,
-                app.app_state.current_session.uuid,
-            )
-        ] = None
-        app[
-            app.key_mngr.make(
-                UIElementType.NUMBER_INPUT,
-                EventType.BASAL_CORTEX_LEFT_SCORE_CHANGED,
-                app.app_state.current_session.uuid,
-            )
-        ] = None
-        app[
-            app.key_mngr.make(
-                UIElementType.NUMBER_INPUT,
-                EventType.BASAL_CORTEX_RIGHT_SCORE_CHANGED,
-                app.app_state.current_session.uuid,
+                UIElementType.SEGMENTED_CONTROL,
+                event_type,
+                image_uuid,
             )
         ] = None
 
@@ -211,48 +158,32 @@ def reset_score_fields(app_state: LabelingAppState, mode: Region):
     img_session = app_state.current_session.images_sessions[
         app_state.current_session.current_index
     ]
-    if mode == Region.BasalCentral:
-        img_session.corona_score_left = None
-        img_session.corona_score_right = None
+    if mode == Region.BasalGanglia:
+        for field in BASAL_SCORE_FIELDS:
+            setattr(img_session, field, None)
+        for field in CORONA_SCORE_FIELDS:
+            setattr(img_session, field, RegionScore.Not_Applicable)
     elif mode == Region.CoronaRadiata:
-        img_session.basal_score_central_left = None
-        img_session.basal_score_central_right = None
-        img_session.basal_score_cortex_left = None
-        img_session.basal_score_cortex_right = None
-    elif mode == Region.BasalCortex:
-        img_session.corona_score_left = None
-        img_session.corona_score_right = None
-        img_session.basal_score_central_left = None
-        img_session.basal_score_central_right = None
+        for field in BASAL_SCORE_FIELDS:
+            setattr(img_session, field, RegionScore.Not_Applicable)
+        for field in CORONA_SCORE_FIELDS:
+            setattr(img_session, field, None)
     elif mode == Region.None_:
-        img_session.corona_score_left = None
-        img_session.corona_score_right = None
-        img_session.basal_score_central_left = None
-        img_session.basal_score_central_right = None
-        img_session.basal_score_cortex_left = None
-        img_session.basal_score_cortex_right = None
+        for field in ALL_SCORE_FIELDS:
+            setattr(img_session, field, RegionScore.Not_Applicable)
 
 
 def update_region_value(app_state: LabelingAppState, app=st.session_state):
     """Update the region value in the session state."""
     region = app_state.current_session.current_image_session.region
-    if region == Region.BasalCortex:
+    if region == Region.BasalGanglia:
         app[
             app.key_mngr.make(
                 UIElementType.SEGMENTED_CONTROL,
                 EventType.REGION_SELECTED,
                 app_state.current_session.current_image_session.image_uuid,
             )
-        ] = "BasalGangliaCortex"
-
-    elif region == Region.BasalCentral:
-        app[
-            app.key_mngr.make(
-                UIElementType.SEGMENTED_CONTROL,
-                EventType.REGION_SELECTED,
-                app_state.current_session.current_image_session.image_uuid,
-            )
-        ] = "BasalGangliaCentral"
+        ] = "BasalGanglia"
     elif region == Region.CoronaRadiata:
         app[
             app.key_mngr.make(
@@ -275,6 +206,12 @@ def handle_next_image(event: HalfEvent, app_state: LabelingAppState):
     app_state.current_session.current_index = (
         app_state.current_session.current_index + 1
     ) % app_state.current_session.num_images
+    slider_key = st.session_state.key_mngr.make(
+        UIElementType.SLIDER,
+        EventType.JUMP_TO_IMAGE,
+        app_state.current_session.uuid,
+    )
+    st.session_state[slider_key] = app_state.current_session.current_index + 1
     update_region_value(app_state)
     reimplement_score_fields_in_session(app_state)
 
@@ -283,6 +220,12 @@ def handle_prev_image(event: HalfEvent, app_state: LabelingAppState):
     app_state.current_session.current_index = (
         app_state.current_session.current_index - 1
     ) % app_state.current_session.num_images
+    slider_key = st.session_state.key_mngr.make(
+        UIElementType.SLIDER,
+        EventType.JUMP_TO_IMAGE,
+        app_state.current_session.uuid,
+    )
+    st.session_state[slider_key] = app_state.current_session.current_index + 1
     update_region_value(app_state)
     reimplement_score_fields_in_session(app_state)
 
@@ -320,6 +263,7 @@ def handle_reset_windowing(
     app_state.current_session.window_width_current = (
         app_state.current_session.window_width_default
     )
+
     app[
         app.key_mngr.make(
             UIElementType.NUMBER_INPUT,
@@ -397,41 +341,16 @@ def handle_region_selected(event: CompletedEvent, app_state: LabelingAppState):
         else:
             app_state.current_session.render_valid_message = False
 
-    elif payload_content == "BasalGangliaCentral":
-        img_session.region = Region.BasalCentral
-        reset_score_fields(app_state, Region.BasalCentral)
-        reset_score_fields_in_session(Region.BasalCentral)
+    elif payload_content == "BasalGanglia":
+        img_session.region = Region.BasalGanglia
+        reset_score_fields(app_state, Region.BasalGanglia)
+        reset_score_fields_in_session(Region.BasalGanglia)
         app_state.current_session.slice_status_df = handle_df_region_change(
             app_state.current_session.slice_status_df,
             app_state.current_session.current_index,
             img_session.image_uuid,
-            Region.BasalCentral,
+            Region.BasalGanglia,
         )
-    elif payload_content == "BasalGangliaCortex":
-        img_session.region = Region.BasalCortex
-        reset_score_fields(app_state, Region.BasalCortex)
-        reset_score_fields_in_session(Region.BasalCortex)
-        app_state.current_session.slice_status_df = handle_df_region_change(
-            app_state.current_session.slice_status_df,
-            app_state.current_session.current_index,
-            img_session.image_uuid,
-            Region.BasalCortex,
-        )
-        if score_based_evaluation(img_session):
-            app_state.current_session.slice_status_df = modify_status(
-                app_state.current_session.slice_status_df,
-                img_session.image_uuid,
-                SliceStatus.COMPLETED,
-            )
-        if validate_slices(app_state.current_session.slice_status_df):
-            app_state.set_status_df = mark_status(
-                app_state.set_status_df,
-                app_state.current_session.uuid,
-                SetStatus.VALID,
-            )
-            app_state.current_session.render_valid_message = True
-        else:
-            app_state.current_session.render_valid_message = False
 
     elif payload_content == "CoronaRadiata":
         img_session.region = Region.CoronaRadiata
@@ -465,11 +384,7 @@ def evaluate_score_and_update_status(app_state: LabelingAppState):
         )
 
 
-def handle_basal_central_left_score(event: CompletedEvent, app_state: LabelingAppState):
-    app_state.current_session.images_sessions[
-        app_state.current_session.current_index
-    ].basal_score_central_left = st.session_state[event.payload]
-    evaluate_score_and_update_status(app_state)
+def refresh_validity_state(app_state: LabelingAppState):
     if validate_slices(app_state.current_session.slice_status_df):
         app_state.set_status_df = mark_status(
             app_state.set_status_df,
@@ -481,76 +396,22 @@ def handle_basal_central_left_score(event: CompletedEvent, app_state: LabelingAp
         app_state.current_session.render_valid_message = False
 
 
-def handle_basal_central_right_score(
-    event: CompletedEvent, app_state: LabelingAppState
+def handle_score_changed(
+    event: CompletedEvent, app_state: LabelingAppState, field_name: str
 ):
-    app_state.current_session.images_sessions[
-        app_state.current_session.current_index
-    ].basal_score_central_right = st.session_state[event.payload]
+    setattr(
+        app_state.current_session.images_sessions[
+            app_state.current_session.current_index
+        ],
+        field_name,
+        ui_value_to_region_score(st.session_state[event.payload]),
+    )
     evaluate_score_and_update_status(app_state)
-    if validate_slices(app_state.current_session.slice_status_df):
-        app_state.set_status_df = mark_status(
-            app_state.set_status_df,
-            app_state.current_session.uuid,
-            SetStatus.VALID,
-        )
-        app_state.current_session.render_valid_message = True
+    refresh_validity_state(app_state)
 
 
-def handle_basal_cortex_left_score(event: CompletedEvent, app_state: LabelingAppState):
-    app_state.current_session.images_sessions[
-        app_state.current_session.current_index
-    ].basal_score_cortex_left = st.session_state[event.payload]
-    evaluate_score_and_update_status(app_state)
-    if validate_slices(app_state.current_session.slice_status_df):
-        app_state.set_status_df = mark_status(
-            app_state.set_status_df,
-            app_state.current_session.uuid,
-            SetStatus.VALID,
-        )
-        app_state.current_session.render_valid_message = True
-
-
-def handle_basal_cortex_right_score(event: CompletedEvent, app_state: LabelingAppState):
-    app_state.current_session.images_sessions[
-        app_state.current_session.current_index
-    ].basal_score_cortex_right = st.session_state[event.payload]
-    evaluate_score_and_update_status(app_state)
-    if validate_slices(app_state.current_session.slice_status_df):
-        app_state.set_status_df = mark_status(
-            app_state.set_status_df,
-            app_state.current_session.uuid,
-            SetStatus.VALID,
-        )
-        app_state.current_session.render_valid_message = True
-
-
-def handle_corona_left_score(event: CompletedEvent, app_state: LabelingAppState):
-    app_state.current_session.images_sessions[
-        app_state.current_session.current_index
-    ].corona_score_left = st.session_state[event.payload]
-    evaluate_score_and_update_status(app_state)
-    if validate_slices(app_state.current_session.slice_status_df):
-        app_state.set_status_df = mark_status(
-            app_state.set_status_df,
-            app_state.current_session.uuid,
-            SetStatus.VALID,
-        )
-        app_state.current_session.render_valid_message = True
-
-
-def handle_corona_right_score(event: CompletedEvent, app_state: LabelingAppState):
-    app_state.current_session.images_sessions[
-        app_state.current_session.current_index
-    ].corona_score_right = st.session_state[event.payload]
-    evaluate_score_and_update_status(app_state)
-    if validate_slices(app_state.current_session.slice_status_df):
-        app_state.set_status_df = mark_status(
-            app_state.set_status_df,
-            app_state.current_session.uuid,
-            SetStatus.VALID,
-        )
-        app_state.current_session.render_valid_message = True
+def handle_user_guide(event: HalfEvent, app_state: LabelingAppState):
+    pass
 
 
 def handle_notes_changed(event: CompletedEvent, app_state: LabelingAppState):
@@ -571,9 +432,7 @@ def disable_score_fields(app_state: LabelingAppState):
 image_set_usability_translation_dict = {
     "Ischemic": ImageSetUsability.IschemicAssessable,
     "Hemorrhagic": ImageSetUsability.HemorrhagicPresent,
-    "Undertermined": ImageSetUsability.Indeterminate,
-    "Normal": ImageSetUsability.Normal,
-    "True Irrelevant": ImageSetUsability.TrueIrrelevant,
+    "Anomaly": ImageSetUsability.Anomaly,
 }
 
 
@@ -646,7 +505,11 @@ def handle_submit(event: HalfEvent, app_state: LabelingAppState):
             result=image_set,
         )
     db_session.close()
-    reset()
+    reset_with_new_session(app_state.doctor_id)
+
+
+def handle_back_to_dashboard(event: HalfEvent, app_state: LabelingAppState):
+    reset_with_new_session(app_state.doctor_id)
 
 
 EVENT_DISPATCH: Dict[EventType, Callable] = {
@@ -663,18 +526,21 @@ EVENT_DISPATCH: Dict[EventType, Callable] = {
     EventType.PREV_SET: handle_prev_set,
     EventType.JUMP_TO_SET: handle_jump_to_set,
     EventType.REGION_SELECTED: handle_region_selected,
-    EventType.BASAL_CENTRAL_LEFT_SCORE_CHANGED: handle_basal_central_left_score,
-    EventType.BASAL_CENTRAL_RIGHT_SCORE_CHANGED: handle_basal_central_right_score,
-    EventType.BASAL_CORTEX_LEFT_SCORE_CHANGED: handle_basal_cortex_left_score,
-    EventType.BASAL_CORTEX_RIGHT_SCORE_CHANGED: handle_basal_cortex_right_score,
-    EventType.CORONA_LEFT_SCORE_CHANGED: handle_corona_left_score,
-    EventType.CORONA_RIGHT_SCORE_CHANGED: handle_corona_right_score,
     EventType.NOTES_CHANGED: handle_notes_changed,
     EventType.MARK_IRRELEVANT_CHANGED: handle_mark_irrelevant,
     EventType.MARK_LOW_QUALITY_CHANGED: handle_mark_low_quality,
     EventType.LOGOUT: handle_logout,
+    EventType.BACK_TO_DASHBOARD: handle_back_to_dashboard,
     EventType.SUBMIT: handle_submit,
+    EventType.USER_GUIDE: handle_user_guide,
 }
+
+for score_event, field_name in SCORE_EVENT_TO_FIELD.items():
+    EVENT_DISPATCH[score_event] = (
+        lambda event, app_state, field_name=field_name: handle_score_changed(
+            event, app_state, field_name
+        )
+    )
 
 
 def flag_listener(flag: EventFlags, app_state: LabelingAppState):

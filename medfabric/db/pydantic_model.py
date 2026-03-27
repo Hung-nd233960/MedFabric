@@ -8,7 +8,13 @@ from uuid import UUID
 from pydantic import BaseModel, Field, StringConstraints
 
 # NameEmail
-from medfabric.db.orm_model import Region, Gender, ImageSetUsability, ImageFormat
+from medfabric.db.orm_model import (
+    Region,
+    RegionScore,
+    Gender,
+    ImageSetUsability,
+    ImageFormat,
+)
 
 
 # --- Base class for all schemas ---
@@ -179,12 +185,26 @@ class ImageEvaluationBase(OrmBase):
     session_uuid: UUID
     region: Region
 
-    basal_score_central_left: Optional[int] = None
-    basal_score_central_right: Optional[int] = None
-    basal_score_cortex_left: Optional[int] = None
-    basal_score_cortex_right: Optional[int] = None
-    corona_score_left: Optional[int] = None
-    corona_score_right: Optional[int] = None
+    c_left_score: RegionScore
+    c_right_score: RegionScore
+    ic_left_score: RegionScore
+    ic_right_score: RegionScore
+    l_left_score: RegionScore
+    l_right_score: RegionScore
+    i_left_score: RegionScore
+    i_right_score: RegionScore
+    m1_left_score: RegionScore
+    m1_right_score: RegionScore
+    m2_left_score: RegionScore
+    m2_right_score: RegionScore
+    m3_left_score: RegionScore
+    m3_right_score: RegionScore
+    m4_left_score: RegionScore
+    m4_right_score: RegionScore
+    m5_left_score: RegionScore
+    m5_right_score: RegionScore
+    m6_left_score: RegionScore
+    m6_right_score: RegionScore
 
     notes: Optional[Annotated[str, StringConstraints(max_length=500)]] = None
 

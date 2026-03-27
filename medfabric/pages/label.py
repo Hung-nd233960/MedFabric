@@ -1,5 +1,11 @@
 # pylint: disable=missing-module-docstring, missing-class-docstring, missing-function-docstring
 # medfabric/pages/label.py
+"""Label page for image evaluation and annotation.
+
+This module provides the main labeling interface for doctors to evaluate medical images.
+It orchestrates the UI components for image display, region selection, and scoring.
+"""
+
 import streamlit as st
 from medfabric.pages.label_helper.state_management import (
     EventType,
@@ -16,11 +22,8 @@ from medfabric.pages.label_helper.image_loader.jpg_processing import jpg_image
 from medfabric.pages.label_helper.image_loader.dicom_processing import dicom_image
 from medfabric.pages.label_helper.image_loader.image_helper import render_image
 from medfabric.db.engine import get_session_factory
-from medfabric.db.orm_model import Region, ImageSetUsability, ImageFormat
+from medfabric.db.orm_model import ImageSetUsability, ImageFormat
 from medfabric.api.config import (
-    BASAL_CENTRAL_MAX,
-    BASAL_CORTEX_MAX,
-    CORONA_MAX,
     DEFAULT_WINDOW_LEVEL,
     DEFAULT_WINDOW_WIDTH,
 )
@@ -28,7 +31,6 @@ from medfabric.pages.utils import sudden_close
 from medfabric.pages.label_helper.state_management import LabelingAppState
 from medfabric.pages.label_helper.dispatcher import (
     flag_listener,
-    image_set_usability_translation_dict,
 )
 from medfabric.pages.label_helper.image_set_session_status import (
     SetStatus,
@@ -40,430 +42,28 @@ from medfabric.pages.label_helper.column_config import (
     config_set_eval,
 )
 
+# Import UI components from separate modules
+from medfabric.pages.label_helper.ui_buttons import (
+    render_set_column,
+    render_logout_button,
+    render_back_to_dashboard_button,
+)
+from medfabric.pages.label_helper.ui_image_controls import (
+    render_image_navigation_controls,
+    render_dicom_windowing_controls,
+)
+from medfabric.pages.label_helper.ui_annotations import (
+    render_set_labeling_row,
+    render_labeling_column,
+)
 
-def initial_setup():
-    """Initialize event flags in Streamlit session state if not already present."""
+
+def _initialize_session_state():
+    """Initialize event flags and key manager in Streamlit session state."""
     if "label_flag" not in st.session_state:
         st.session_state.label_flag = EventFlags()
     if "key_mngr" not in st.session_state:
         st.session_state.key_mngr = EnumKeyManager()
-
-
-def render_set_column(
-    prev_key: str, next_key: str, jump_to_key: str, current_index, num_sets
-) -> None:
-    """Render a column with set navigation controls."""
-    col1, col2, col3 = st.columns([1, 1, 2])
-    with col1:
-        st.button(
-            "Previous Set",
-            key=prev_key,
-            on_click=raise_flag,
-            args=(
-                app.label_flag,
-                EventType.PREV_SET,
-            ),
-        )
-    with col2:
-        st.button(
-            "Next Set",
-            key=next_key,
-            on_click=raise_flag,
-            args=(
-                app.label_flag,
-                EventType.NEXT_SET,
-            ),
-        )
-    with col3:
-        st.slider(
-            "Jump to set",
-            1,
-            num_sets,
-            current_index + 1,
-            key=jump_to_key,
-            on_change=raise_flag,
-            args=(
-                app.label_flag,
-                EventType.JUMP_TO_SET,
-                jump_to_key,
-            ),
-        )
-
-
-def render_logout_button(key: str) -> None:
-    """Render a logout button."""
-    st.button(
-        "Logout",
-        key=key,
-        type="secondary",
-        on_click=raise_flag,
-        args=(
-            app.label_flag,
-            EventType.LOGOUT,
-        ),
-    )
-
-
-def render_text(text: str) -> str:
-    """Render text in the Streamlit app."""
-    if text == "BasalGangliaCortex":
-        return "Basal Ganglia (Cortex)"
-    if text == "BasalGangliaCentral":
-        return "Basal Ganglia (Central)"
-    if text == "CoronaRadiata":
-        return "Corona Radiata"
-    return text
-
-
-def render_image_region_selection(key: str) -> None:
-    """Render a segmented control for region selection."""
-    options = [
-        "BasalGangliaCortex",
-        "BasalGangliaCentral",
-        "CoronaRadiata",
-    ]
-    st.pills(
-        "Region",
-        options=options,
-        key=key,
-        default=None,
-        format_func=render_text,
-        on_change=raise_flag,
-        args=(
-            app.label_flag,
-            EventType.REGION_SELECTED,
-            key,
-        ),
-    )
-    # print(app[key])
-
-
-def render_image_navigation_controls(
-    next_img_key: str,
-    prev_img_key: str,
-    img_slider_key: str,
-    num_images: int,
-    current_index: int,
-) -> None:
-    """Render navigation controls for image selection."""
-    with st.expander("Image Navigation", expanded=True):
-        st.write(f"Image {current_index + 1} of {num_images}")
-        col1, col2, col3 = st.columns([1, 1, 2])
-        with col1:
-            st.button(
-                "Prev Image",
-                key=prev_img_key,
-                on_click=raise_flag,
-                args=(
-                    app.label_flag,
-                    EventType.PREV_IMAGE,
-                ),
-            )
-        with col2:
-            st.button(
-                "Next Image",
-                key=next_img_key,
-                on_click=raise_flag,
-                args=(
-                    app.label_flag,
-                    EventType.NEXT_IMAGE,
-                ),
-            )
-        with col3:
-            st.slider(
-                "Jump to image",
-                1,
-                num_images,
-                current_index + 1,
-                key=img_slider_key,
-                on_change=raise_flag,
-                args=(
-                    app.label_flag,
-                    EventType.JUMP_TO_IMAGE,
-                    img_slider_key,
-                ),
-            )
-
-
-def render_dicom_windowing_controls(
-    window_width: int,
-    window_level: int,
-    window_width_key: str,
-    window_level_key: str,
-    reset_window_key: str,
-):
-    """Render DICOM windowing adjustment controls."""
-    with st.expander("DICOM Windowing", expanded=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            st.number_input(
-                "Windowing Width",
-                1,
-                2000,
-                value=window_width,
-                key=window_width_key,
-                on_change=raise_flag,
-                args=(
-                    app.label_flag,
-                    EventType.WINDOWING_WIDTH_CHANGED,
-                    window_width_key,
-                ),
-            )
-        with col2:
-            st.number_input(
-                "Windowing Level",
-                -1000,
-                1000,
-                value=window_level,
-                key=window_level_key,
-                on_change=raise_flag,
-                args=(
-                    app.label_flag,
-                    EventType.WINDOWING_LEVEL_CHANGED,
-                    window_level_key,
-                ),
-            )
-        st.button(
-            "Reset Windowing",
-            key=reset_window_key,
-            on_click=raise_flag,
-            args=(
-                app.label_flag,
-                EventType.RESET_WINDOWING,
-            ),
-        )
-
-
-def render_image_filter_selection(
-    brightness: int,
-    contrast: float,
-    brightness_slider_key: str,
-    contrast_slider_key: str,
-    reset_key: str,
-    filter_selectbox_key: str,
-):
-    """Render image filter adjustment controls."""
-    with st.expander("Image Filters", expanded=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            st.slider(
-                "Brightness",
-                -100,
-                100,
-                brightness,
-                key=brightness_slider_key,
-                on_change=raise_flag,
-                args=(
-                    app.label_flag,
-                    EventType.BRIGHTNESS_CHANGED,
-                    brightness_slider_key,
-                ),
-            )
-            st.button(
-                "Reset Adjustments",
-                key=reset_key,
-                on_click=raise_flag,
-                args=(
-                    app.label_flag,
-                    EventType.RESET_ADJUSTMENTS,
-                ),
-            )
-        with col2:
-            st.slider(
-                "Contrast",
-                0.1,
-                3.0,
-                contrast,
-                key=contrast_slider_key,
-                on_change=raise_flag,
-                args=(
-                    app.label_flag,
-                    EventType.CONTRAST_CHANGED,
-                    contrast_slider_key,
-                ),
-            )
-            st.selectbox(
-                "Filter",
-                ["In Development"],
-                key=filter_selectbox_key,
-                on_change=raise_flag,
-                disabled=True,
-                args=(
-                    app.label_flag,
-                    EventType.FILTER_CHANGED,
-                    app.key_mngr.make(
-                        UIElementType.SELECTBOX,
-                        EventType.FILTER_CHANGED,
-                    ),
-                ),
-            )
-
-
-def render_set_labeling_row(
-    low_quality_key: str, irrelevant_key: str, low_quality_enabled: bool = True
-) -> None:
-    acol1, acol2 = st.columns(2)
-    with acol1:
-        st.selectbox(
-            "Image Set Usability",
-            options=image_set_usability_translation_dict.keys(),
-            key=irrelevant_key,
-            on_change=raise_flag,
-            args=(app.label_flag, EventType.MARK_IRRELEVANT_CHANGED, irrelevant_key),
-        )
-
-    with acol2:
-        if low_quality_enabled:
-            st.checkbox(
-                "Low Quality",
-                key=low_quality_key,
-                on_change=raise_flag,
-                args=(
-                    app.label_flag,
-                    EventType.MARK_LOW_QUALITY_CHANGED,
-                    low_quality_key,
-                ),
-            )
-
-
-def render_labeling_column(
-    region_segmented_key: str,
-    key_basal_cortex_left: str,
-    key_basal_cortex_right: str,
-    key_basal_central_left: str,
-    key_basal_central_right: str,
-    key_corona_left: str,
-    key_corona_right: str,
-) -> None:
-    """Render the labeling column with region selection and score inputs."""
-    with st.expander("Image Annotation", expanded=True):
-        if not app.app_state.current_session.render_score_box_mode:
-            st.warning(
-                "Score inputs are disabled due to the image being marked as low quality or irrelevant."
-            )
-        else:
-            render_image_region_selection(key=region_segmented_key)
-            if (
-                app.app_state.current_session.current_image_session.region
-                == Region.None_
-            ):
-                st.info("None region selected, no scores to display.")
-            else:
-                acol1, acol2 = st.columns([1, 1])
-                with acol1:
-                    if app.app_state.current_session.current_image_session.region in [
-                        Region.BasalCortex,
-                        Region.BasalCentral,
-                    ]:
-                        st.write("Left:")
-                        st.number_input(
-                            "Basal Cortex Score",
-                            min_value=0,
-                            max_value=BASAL_CORTEX_MAX,
-                            value=None,
-                            step=1,
-                            key=key_basal_cortex_left,
-                            on_change=raise_flag,
-                            args=(
-                                app.label_flag,
-                                EventType.BASAL_CORTEX_LEFT_SCORE_CHANGED,
-                                key_basal_cortex_left,
-                            ),
-                        )
-                    if (
-                        app.app_state.current_session.current_image_session.region
-                        == Region.BasalCentral
-                    ):
-                        st.number_input(
-                            "Basal Central Score",
-                            min_value=0,
-                            max_value=BASAL_CENTRAL_MAX,
-                            value=None,
-                            step=1,
-                            key=key_basal_central_left,
-                            on_change=raise_flag,
-                            args=(
-                                app.label_flag,
-                                EventType.BASAL_CENTRAL_LEFT_SCORE_CHANGED,
-                                key_basal_central_left,
-                            ),
-                        )
-                    if (
-                        app.app_state.current_session.current_image_session.region
-                        == Region.CoronaRadiata
-                    ):
-                        st.write("Left:")
-                        st.number_input(
-                            "Corona Radiata Score",
-                            min_value=0,
-                            max_value=CORONA_MAX,
-                            value=None,
-                            step=1,
-                            key=key_corona_left,
-                            on_change=raise_flag,
-                            args=(
-                                app.label_flag,
-                                EventType.CORONA_LEFT_SCORE_CHANGED,
-                                key_corona_left,
-                            ),
-                        )
-                with acol2:
-                    if app.app_state.current_session.current_image_session.region in [
-                        Region.BasalCortex,
-                        Region.BasalCentral,
-                    ]:
-                        st.write("Right:")
-                        st.number_input(
-                            "Basal Cortex Score",
-                            min_value=0,
-                            max_value=BASAL_CORTEX_MAX,
-                            value=None,
-                            step=1,
-                            key=key_basal_cortex_right,
-                            on_change=raise_flag,
-                            args=(
-                                app.label_flag,
-                                EventType.BASAL_CORTEX_RIGHT_SCORE_CHANGED,
-                                key_basal_cortex_right,
-                            ),
-                        )
-                    if (
-                        app.app_state.current_session.current_image_session.region
-                        == Region.BasalCentral
-                    ):
-                        st.number_input(
-                            "Basal Central Score",
-                            min_value=0,
-                            max_value=BASAL_CENTRAL_MAX,
-                            value=None,
-                            step=1,
-                            key=key_basal_central_right,
-                            on_change=raise_flag,
-                            args=(
-                                app.label_flag,
-                                EventType.BASAL_CENTRAL_RIGHT_SCORE_CHANGED,
-                                key_basal_central_right,
-                            ),
-                        )
-                    if (
-                        app.app_state.current_session.current_image_session.region
-                        == Region.CoronaRadiata
-                    ):
-                        st.write("Right:")
-                        st.number_input(
-                            "Corona Radiata Score",
-                            min_value=0,
-                            max_value=CORONA_MAX,
-                            value=None,
-                            step=1,
-                            key=key_corona_right,
-                            on_change=raise_flag,
-                            args=(
-                                app.label_flag,
-                                EventType.CORONA_RIGHT_SCORE_CHANGED,
-                                key_corona_right,
-                            ),
-                        )
 
 
 st.set_page_config(
@@ -500,14 +100,29 @@ if "app_state" not in app:
         app.app_state.set_status_df = add_row(
             app.app_state.set_status_df, sess.uuid, SetStatus.INVALID
         )
-initial_setup()
+_initialize_session_state()
 flag_listener(app.label_flag, app.app_state)
 
 
 col1, col2, col3 = st.columns([1, 1, 1])
 with col1:
     img = None
-    render_logout_button(key=app.key_mngr.make(UIElementType.BUTTON, EventType.LOGOUT))
+    acol1, acol2, acol3 = st.columns(3)
+    with acol1:
+        render_back_to_dashboard_button(
+            key=app.key_mngr.make(UIElementType.BUTTON, EventType.BACK_TO_DASHBOARD)
+        )
+
+    with acol2:
+        render_logout_button(
+            key=app.key_mngr.make(UIElementType.BUTTON, EventType.LOGOUT)
+        )
+
+    with acol3:
+        # render_user_guide_button(
+        #    key=app.key_mngr.make(UIElementType.BUTTON, EventType.USER_GUIDE)
+        # )
+        pass
     if app.app_state.current_session.image_set_format == ImageFormat.DICOM:
         img = dicom_image(
             app.app_state.current_session.current_image_session.image_path,
@@ -535,7 +150,6 @@ with col1:
             app.app_state.current_session.current_index,
             app.app_state.current_session.num_images,
         )
-with col2:
     render_image_navigation_controls(
         next_img_key=app.key_mngr.make(UIElementType.BUTTON, EventType.NEXT_IMAGE),
         prev_img_key=app.key_mngr.make(UIElementType.BUTTON, EventType.PREV_IMAGE),
@@ -547,6 +161,7 @@ with col2:
         num_images=app.app_state.current_session.num_images,
         current_index=app.app_state.current_session.current_index,
     )
+with col2:
     with st.expander("Image Display", expanded=True):
         if app.app_state.current_session.image_set_format == ImageFormat.DICOM:
             render_dicom_windowing_controls(
@@ -576,28 +191,6 @@ with col2:
                     app.app_state.current_session.uuid,
                 ),
             )
-        # render_image_filter_selection(
-        #     brightness_slider_key=app.key_mngr.make(
-        #         UIElementType.SLIDER,
-        #         EventType.BRIGHTNESS_CHANGED,
-        #         app.app_state.current_session.uuid,
-        #     ),
-        #     contrast=app.app_state.contrast,
-        #     brightness=app.app_state.brightness,
-        #     contrast_slider_key=app.key_mngr.make(
-        #         UIElementType.SLIDER,
-        #         EventType.CONTRAST_CHANGED,
-        #         app.app_state.current_session.uuid,
-        #     ),
-        #     reset_key=app.key_mngr.make(
-        #         UIElementType.BUTTON,
-        #         EventType.RESET_ADJUSTMENTS,
-        #     ),
-        #     filter_selectbox_key=app.key_mngr.make(
-        #         UIElementType.SELECTBOX,
-        #         EventType.FILTER_CHANGED,
-        #     ),
-        # )
 
     render_labeling_column(
         region_segmented_key=app.key_mngr.make(
@@ -605,35 +198,105 @@ with col2:
             EventType.REGION_SELECTED,
             app.app_state.current_session.current_image_session.image_uuid,
         ),
-        key_basal_cortex_left=app.key_mngr.make(
-            UIElementType.NUMBER_INPUT,
-            EventType.BASAL_CORTEX_LEFT_SCORE_CHANGED,
-            app.app_state.current_session.uuid,
+        key_basal_c_left=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.BASAL_C_LEFT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
         ),
-        key_basal_cortex_right=app.key_mngr.make(
-            UIElementType.NUMBER_INPUT,
-            EventType.BASAL_CORTEX_RIGHT_SCORE_CHANGED,
-            app.app_state.current_session.uuid,
+        key_basal_c_right=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.BASAL_C_RIGHT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
         ),
-        key_basal_central_left=app.key_mngr.make(
-            UIElementType.NUMBER_INPUT,
-            EventType.BASAL_CENTRAL_LEFT_SCORE_CHANGED,
-            app.app_state.current_session.uuid,
+        key_basal_ic_left=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.BASAL_IC_LEFT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
         ),
-        key_basal_central_right=app.key_mngr.make(
-            UIElementType.NUMBER_INPUT,
-            EventType.BASAL_CENTRAL_RIGHT_SCORE_CHANGED,
-            app.app_state.current_session.uuid,
+        key_basal_ic_right=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.BASAL_IC_RIGHT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
         ),
-        key_corona_left=app.key_mngr.make(
-            UIElementType.NUMBER_INPUT,
-            EventType.CORONA_LEFT_SCORE_CHANGED,
-            app.app_state.current_session.uuid,
+        key_basal_l_left=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.BASAL_L_LEFT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
         ),
-        key_corona_right=app.key_mngr.make(
-            UIElementType.NUMBER_INPUT,
-            EventType.CORONA_RIGHT_SCORE_CHANGED,
-            app.app_state.current_session.uuid,
+        key_basal_l_right=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.BASAL_L_RIGHT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
+        ),
+        key_basal_i_left=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.BASAL_I_LEFT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
+        ),
+        key_basal_i_right=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.BASAL_I_RIGHT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
+        ),
+        key_basal_m1_left=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.BASAL_M1_LEFT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
+        ),
+        key_basal_m1_right=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.BASAL_M1_RIGHT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
+        ),
+        key_basal_m2_left=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.BASAL_M2_LEFT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
+        ),
+        key_basal_m2_right=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.BASAL_M2_RIGHT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
+        ),
+        key_basal_m3_left=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.BASAL_M3_LEFT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
+        ),
+        key_basal_m3_right=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.BASAL_M3_RIGHT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
+        ),
+        key_corona_m4_left=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.CORONA_M4_LEFT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
+        ),
+        key_corona_m4_right=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.CORONA_M4_RIGHT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
+        ),
+        key_corona_m5_left=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.CORONA_M5_LEFT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
+        ),
+        key_corona_m5_right=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.CORONA_M5_RIGHT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
+        ),
+        key_corona_m6_left=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.CORONA_M6_LEFT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
+        ),
+        key_corona_m6_right=app.key_mngr.make(
+            UIElementType.SEGMENTED_CONTROL,
+            EventType.CORONA_M6_RIGHT_SCORE_CHANGED,
+            app.app_state.current_session.current_image_session.image_uuid,
         ),
     )
 
@@ -648,18 +311,12 @@ with col3:
             with zcol1:
                 if app.app_state.current_session.icd_code:
                     st.write(f"ICD Code: {app.app_state.current_session.icd_code}")
+                st.write(f"Set Index: {app.app_state.current_session.set_index}")
+            with zcol2:
                 if app.app_state.current_session.description:
                     st.write(
                         f"Description: {app.app_state.current_session.description}"
                     )
-                #     if app.app_state.current_session.patient_id:
-                #         st.write(f"Patient ID: {app.app_state.current_session.patient_id}")
-                #     if app.app_state.current_session.image_set_name:
-                #         st.write(
-                #             f"Scan Type: {app.app_state.current_session.image_set_name}"
-                #         )
-                # with zcol2:
-                st.write(f"Set Index: {app.app_state.current_session.set_index}")
             if len(app.app_state.labeling_session) > 1:
                 render_set_column(
                     prev_key=app.key_mngr.make(

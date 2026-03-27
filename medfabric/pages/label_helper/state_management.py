@@ -50,12 +50,26 @@ class EventType(Enum):
 
     REGION_SELECTED = auto()
     # Scoring Changes
-    BASAL_CORTEX_LEFT_SCORE_CHANGED = auto()
-    BASAL_CORTEX_RIGHT_SCORE_CHANGED = auto()
-    BASAL_CENTRAL_LEFT_SCORE_CHANGED = auto()
-    BASAL_CENTRAL_RIGHT_SCORE_CHANGED = auto()
-    CORONA_LEFT_SCORE_CHANGED = auto()
-    CORONA_RIGHT_SCORE_CHANGED = auto()
+    BASAL_C_LEFT_SCORE_CHANGED = auto()
+    BASAL_C_RIGHT_SCORE_CHANGED = auto()
+    BASAL_IC_LEFT_SCORE_CHANGED = auto()
+    BASAL_IC_RIGHT_SCORE_CHANGED = auto()
+    BASAL_L_LEFT_SCORE_CHANGED = auto()
+    BASAL_L_RIGHT_SCORE_CHANGED = auto()
+    BASAL_I_RIGHT_SCORE_CHANGED = auto()
+    BASAL_I_LEFT_SCORE_CHANGED = auto()
+    BASAL_M1_LEFT_SCORE_CHANGED = auto()
+    BASAL_M1_RIGHT_SCORE_CHANGED = auto()
+    BASAL_M2_LEFT_SCORE_CHANGED = auto()
+    BASAL_M2_RIGHT_SCORE_CHANGED = auto()
+    BASAL_M3_LEFT_SCORE_CHANGED = auto()
+    BASAL_M3_RIGHT_SCORE_CHANGED = auto()
+    CORONA_M4_LEFT_SCORE_CHANGED = auto()
+    CORONA_M4_RIGHT_SCORE_CHANGED = auto()
+    CORONA_M5_LEFT_SCORE_CHANGED = auto()
+    CORONA_M5_RIGHT_SCORE_CHANGED = auto()
+    CORONA_M6_LEFT_SCORE_CHANGED = auto()
+    CORONA_M6_RIGHT_SCORE_CHANGED = auto()
     NOTES_CHANGED = auto()
     # Set Markings
     MARK_IRRELEVANT_CHANGED = auto()
@@ -65,6 +79,8 @@ class EventType(Enum):
     CANCEL = auto()
     SUBMIT = auto()
     LOGOUT = auto()
+    BACK_TO_DASHBOARD = auto()
+    USER_GUIDE = auto()
 
 
 class FilterType(Enum):
