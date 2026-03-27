@@ -1,0 +1,16 @@
+services:
+	app:
+		build:
+			context: ..
+			dockerfile: docker/Dockerfile
+		image: medfabric:local
+		working_dir: /app
+		ports:
+			- "8501:8501"
+		environment:
+			- PYTHONUNBUFFERED=1
+			- DATABASE_URL=${DATABASE_URL:-sqlite:///./db/medfabric.db}
+		volumes:
+			- ../data_sets:/app/data_sets:ro
+			- ../db:/app/db
+			- ../config.toml:/app/config.toml:ro

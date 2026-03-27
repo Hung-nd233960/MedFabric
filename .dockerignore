@@ -48,7 +48,6 @@ Thumbs.db
 .LSOverride
 
 # Docker
-Dockerfile
 docker-compose.yaml
 docker-compose.yml
 .dockerignore

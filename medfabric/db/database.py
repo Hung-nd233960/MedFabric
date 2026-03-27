@@ -21,8 +21,8 @@ load_dotenv()
 # Ensure SQLite can bind uuid.UUID objects when TypeDecorators are bypassed
 sqlite3.register_adapter(uuid.UUID, lambda u: str(u))
 
-# Use SQLite - stores in a local file
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./medfabric.db")
+# Use SQLite - stores in db/medfabric.db by default
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./db/medfabric.db")
 
 
 def _sqlite_db_path(database_url: str) -> Path | None:
@@ -42,9 +42,7 @@ def _cleanup_sqlite_sidecar_dirs(database_url: str) -> None:
     for suffix in ("-wal", "-shm"):
         sidecar = Path(f"{db_path}{suffix}")
         if sidecar.is_dir():
-            logging.warning(
-                "Removing malformed SQLite sidecar directory: %s", sidecar
-            )
+            logging.warning("Removing malformed SQLite sidecar directory: %s", sidecar)
             shutil.rmtree(sidecar, ignore_errors=True)
 
 
@@ -59,7 +57,9 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
         try:
             cursor.execute("PRAGMA foreign_keys=ON")
         except sqlite3.OperationalError:
-            logging.warning("Could not enable SQLite foreign keys pragma.", exc_info=True)
+            logging.warning(
+                "Could not enable SQLite foreign keys pragma.", exc_info=True
+            )
 
         try:
             cursor.execute("PRAGMA journal_mode=WAL")
