@@ -20,7 +20,7 @@ def get_image_set_with_validation(
     Returns:
         ImageSet if found, None otherwise
     """
-    image_set = session.get(ImageSet, image_set_uuid)
+    image_set = session.query(ImageSet).filter_by(uuid=image_set_uuid).one_or_none()
     if image_set is None:
         raise ImageSetNotFoundError(
             f"Image set with UUID '{image_set_uuid}' not found."

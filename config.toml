@@ -1,10 +1,5 @@
-[criterion]
-BasalCentral = 4
-BasalCortex = 3
-CoronaRadiata = 3
-
 [path]
-data = "/data_set"
+dataset = "./data_sets"
 
 [image_adjustments]
 default_brightness = 0

@@ -74,8 +74,7 @@ def modify_region(
 def has_required_regions(df: pd.DataFrame) -> bool:
     """Check if all required regions (except None_) are present in df."""
     required_regions = {
-        Region.BasalCentral.value,
-        Region.BasalCortex.value,
+        Region.BasalGanglia.value,
         Region.CoronaRadiata.value,
     }
     regions_present = set(df["region"].unique())
@@ -151,16 +150,18 @@ if __name__ == "__main__":
     slices_df = initialize_slice_df()
     # Add slices
     slices_df = add_slice(
-        slices_df, 0, img1, Region.BasalCentral, SliceStatus.INCOMPLETED
+        slices_df, 0, img1, Region.BasalGanglia, SliceStatus.INCOMPLETED
     )
-    slices_df = add_slice(slices_df, 1, img2, Region.BasalCortex, SliceStatus.COMPLETED)
+    slices_df = add_slice(
+        slices_df, 1, img2, Region.BasalGanglia, SliceStatus.COMPLETED
+    )
     slices_df = add_slice(
         slices_df, 2, img3, Region.CoronaRadiata, SliceStatus.INCOMPLETED
     )
 
     # Modify
     slices_df = modify_status(slices_df, img1, SliceStatus.COMPLETED)
-    slices_df = modify_region(slices_df, img3, Region.BasalCentral)
+    slices_df = modify_region(slices_df, img3, Region.BasalGanglia)
 
     # Delete
     slices_df = delete_slice(slices_df, img2)
@@ -172,13 +173,13 @@ if __name__ == "__main__":
             {
                 "slice_index": 0,
                 "image_uuid": str(uuid.uuid4()),
-                "region": Region.BasalCentral.value,
+                "region": Region.BasalGanglia.value,
                 "status": SliceStatus.COMPLETED.value,
             },
             {
                 "slice_index": 1,
                 "image_uuid": str(uuid.uuid4()),
-                "region": Region.BasalCortex.value,
+                "region": Region.BasalGanglia.value,
                 "status": SliceStatus.COMPLETED.value,
             },
             {

@@ -134,6 +134,10 @@ def add_image(
         raise ImageAlreadyExistsError(
             f"Image with name '{image_name_}' already exists in image set '{image_set_uuid_}'."
         )
+
+    if image_uuid_ is None:
+        image_uuid_ = uuid_lib.uuid4()
+
     image = Image(
         image_name=image_name_,
         image_set_uuid=image_set_uuid_,

@@ -112,6 +112,8 @@ def add_patient(
             raise PatientAlreadyExistsError(
                 f"Patient with UUID {patient_uuid_} already exists."
             )
+    if patient_uuid_ is None:
+        patient_uuid_ = uuid_lib.uuid4()
 
     patient = Patient(
         patient_id=patient_id_,

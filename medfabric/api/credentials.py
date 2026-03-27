@@ -3,6 +3,7 @@ from typing import Optional
 from uuid import UUID, uuid4
 import logging
 from passlib.context import CryptContext
+from passlib.hash import argon2
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 from pydantic import ValidationError
@@ -15,10 +16,22 @@ from medfabric.api.errors import (
     DuplicateEntryError,
 )
 
-# Set up password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 logger = logging.getLogger(__name__)
+
+
+def _build_password_context() -> CryptContext:
+    """Prefer Argon2 when backend is available; otherwise use bcrypt."""
+    if argon2.has_backend():
+        return CryptContext(schemes=["argon2", "bcrypt"], deprecated="auto")
+
+    logger.warning(
+        "Argon2 backend is not available. Falling back to bcrypt for password hashing."
+    )
+    return CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+# Set up password hashing
+pwd_context = _build_password_context()
 
 
 def hash_password(password: str) -> str:

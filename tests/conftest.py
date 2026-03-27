@@ -6,16 +6,10 @@ from medfabric.db.orm_model import DataSet
 
 
 @pytest.fixture
-def db_session(postgresql):
+def db_session():
     """Create a fresh DB and session per test."""
     # Build SQLAlchemy URL from the fixture info
-    user = postgresql.info.user
-    password = postgresql.info.password or ""
-    host = postgresql.info.host
-    port = postgresql.info.port
-    dbname = postgresql.info.dbname
-
-    url = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{dbname}"
+    url = "sqlite:///:memory:"
     engine = create_engine(url, echo=False)
 
     Base.metadata.create_all(engine)  # create tables
@@ -28,6 +22,7 @@ def db_session(postgresql):
     finally:
         session.close()
         Base.metadata.drop_all(engine)
+        engine.dispose()
 
 
 @pytest.fixture

@@ -25,6 +25,25 @@ def check_data_set_exists_by_name(session: Session, name: str) -> bool:
     return session.query(DataSet).filter_by(name=name).one_or_none() is not None
 
 
+def retrieve_data_set_by_name(session: Session, name: str) -> Optional[DataSetRead]:
+    """
+    Retrieve a data set by its name.
+
+    Args:
+        session (Session): SQLAlchemy DB session
+        name (str): Name of the data set to retrieve
+
+    Returns:
+        DataSetRead if found, None otherwise
+    """
+    data_set = session.query(DataSet).filter_by(name=name).first()
+    if data_set:
+        return DataSetRead.model_validate(
+            data_set
+        )  # validate or not does not matter to be honest since SQLAlchemy output corresponding data
+    return None
+
+
 def check_data_set_exists_by_uuid(
     session: Session, data_set_uuid: uuid_lib.UUID
 ) -> bool:
@@ -86,12 +105,16 @@ def add_data_set(
             raise DataSetAlreadyExistsError(
                 f"Data set with ID '{dataset_uuid_}' already exists."
             )
+    if dataset_uuid_ is None:
+        dataset_uuid_ = uuid_lib.uuid4()
     data_set = DataSet(name=name_, description=description_, dataset_uuid=dataset_uuid_)
+
     try:
         session.add(data_set)
         session.commit()
         session.refresh(data_set)
         return data_set
+
     except SQLAlchemyError as exc:
         session.rollback()
         raise DatabaseError(f"Failed to add data set: {exc}") from exc

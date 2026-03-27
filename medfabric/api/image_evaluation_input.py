@@ -6,7 +6,7 @@ from enum import Enum
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from pydantic import ValidationError
-from medfabric.db.orm_model import ImageEvaluation, Region
+from medfabric.db.orm_model import ImageEvaluation, Region, RegionScore
 from medfabric.db.pydantic_model import ImageEvaluationCreate
 from medfabric.api.errors import (
     UserNotFoundError,
@@ -26,7 +26,56 @@ from medfabric.api.image_input import (
 from medfabric.api.image_set_evaluation_input import (
     check_set_evaluation_exists,
 )
-from medfabric.api.config import SCORE_LIMITS
+
+
+ASPECTS_SCORE_FIELDS = [
+    "c_left_score",
+    "c_right_score",
+    "ic_left_score",
+    "ic_right_score",
+    "l_left_score",
+    "l_right_score",
+    "i_left_score",
+    "i_right_score",
+    "m1_left_score",
+    "m1_right_score",
+    "m2_left_score",
+    "m2_right_score",
+    "m3_left_score",
+    "m3_right_score",
+    "m4_left_score",
+    "m4_right_score",
+    "m5_left_score",
+    "m5_right_score",
+    "m6_left_score",
+    "m6_right_score",
+]
+
+ASPECTS_BASAL_FIELDS = [
+    "c_left_score",
+    "c_right_score",
+    "ic_left_score",
+    "ic_right_score",
+    "l_left_score",
+    "l_right_score",
+    "i_left_score",
+    "i_right_score",
+    "m1_left_score",
+    "m1_right_score",
+    "m2_left_score",
+    "m2_right_score",
+    "m3_left_score",
+    "m3_right_score",
+]
+
+ASPECTS_CORONA_FIELDS = [
+    "m4_left_score",
+    "m4_right_score",
+    "m5_left_score",
+    "m5_right_score",
+    "m6_left_score",
+    "m6_right_score",
+]
 
 
 def add_evaluate_image(
@@ -34,13 +83,27 @@ def add_evaluate_image(
     doctor_uuid: uuid_lib.UUID,
     image_uuid: uuid_lib.UUID,
     session_uuid: uuid_lib.UUID,
-    region: Region = Region.None_,
-    basal_score_central_left: Optional[int] = None,
-    basal_score_central_right: Optional[int] = None,
-    basal_score_cortex_left: Optional[int] = None,
-    basal_score_cortex_right: Optional[int] = None,
-    corona_score_left: Optional[int] = None,
-    corona_score_right: Optional[int] = None,
+    region: Region,
+    c_left_score: RegionScore,
+    c_right_score: RegionScore,
+    ic_left_score: RegionScore,
+    ic_right_score: RegionScore,
+    l_left_score: RegionScore,
+    l_right_score: RegionScore,
+    i_left_score: RegionScore,
+    i_right_score: RegionScore,
+    m1_left_score: RegionScore,
+    m1_right_score: RegionScore,
+    m2_left_score: RegionScore,
+    m2_right_score: RegionScore,
+    m3_left_score: RegionScore,
+    m3_right_score: RegionScore,
+    m4_left_score: RegionScore,
+    m4_right_score: RegionScore,
+    m5_left_score: RegionScore,
+    m5_right_score: RegionScore,
+    m6_left_score: RegionScore,
+    m6_right_score: RegionScore,
     notes: Optional[str] = None,
 ) -> ImageEvaluation:
     """
@@ -52,25 +115,37 @@ def add_evaluate_image(
             image_uuid=image_uuid,
             session_uuid=session_uuid,
             region=region,
-            basal_score_central_left=basal_score_central_left,
-            basal_score_central_right=basal_score_central_right,
-            basal_score_cortex_left=basal_score_cortex_left,
-            basal_score_cortex_right=basal_score_cortex_right,
-            corona_score_left=corona_score_left,
-            corona_score_right=corona_score_right,
+            c_left_score=c_left_score,
+            c_right_score=c_right_score,
+            ic_left_score=ic_left_score,
+            ic_right_score=ic_right_score,
+            l_left_score=l_left_score,
+            l_right_score=l_right_score,
+            i_left_score=i_left_score,
+            i_right_score=i_right_score,
+            m1_left_score=m1_left_score,
+            m1_right_score=m1_right_score,
+            m2_left_score=m2_left_score,
+            m2_right_score=m2_right_score,
+            m3_left_score=m3_left_score,
+            m3_right_score=m3_right_score,
+            m4_left_score=m4_left_score,
+            m4_right_score=m4_right_score,
+            m5_left_score=m5_left_score,
+            m5_right_score=m5_right_score,
+            m6_left_score=m6_left_score,
+            m6_right_score=m6_right_score,
             notes=notes,
         )
         doctor_uuid_ = image_eval_validate.doctor_uuid
         image_uuid_ = image_eval_validate.image_uuid
         session_uuid_ = image_eval_validate.session_uuid
         region_ = image_eval_validate.region
-        basal_score_central_left_ = image_eval_validate.basal_score_central_left
-        basal_score_central_right_ = image_eval_validate.basal_score_central_right
-        basal_score_cortex_left_ = image_eval_validate.basal_score_cortex_left
-        basal_score_cortex_right_ = image_eval_validate.basal_score_cortex_right
-        corona_score_left_ = image_eval_validate.corona_score_left
-        corona_score_right_ = image_eval_validate.corona_score_right
         notes_ = image_eval_validate.notes
+        scores_ = {
+            field: getattr(image_eval_validate, field) for field in ASPECTS_SCORE_FIELDS
+        }
+
     except ValidationError as e:
         raise InvalidEvaluationError(f"Invalid evaluation data: {e}") from e
 
@@ -109,23 +184,10 @@ def add_evaluate_image(
     # --- Validate region and score consistency ---
     region_score_requirements(
         region_,
-        basal_score_central_left_,
-        basal_score_central_right_,
-        basal_score_cortex_left_,
-        basal_score_cortex_right_,
-        corona_score_left_,
-        corona_score_right_,
+        **scores_,
     )
 
-    # Check score ranges
-    validate_evaluation_scores(
-        basal_score_central_left=basal_score_central_left_,
-        basal_score_central_right=basal_score_central_right_,
-        basal_score_cortex_left=basal_score_cortex_left_,
-        basal_score_cortex_right=basal_score_cortex_right_,
-        corona_score_left=corona_score_left_,
-        corona_score_right=corona_score_right_,
-    )
+    validate_evaluation_scores(**scores_)
 
     # --- Create evaluation ---
     evaluation = ImageEvaluation(
@@ -133,12 +195,7 @@ def add_evaluate_image(
         image_uuid=image_uuid_,
         session_uuid=session_uuid_,
         region=region_,
-        basal_score_central_left=basal_score_central_left_,
-        basal_score_central_right=basal_score_central_right_,
-        basal_score_cortex_left=basal_score_cortex_left_,
-        basal_score_cortex_right=basal_score_cortex_right_,
-        corona_score_left=corona_score_left_,
-        corona_score_right=corona_score_right_,
+        **scores_,
         notes=notes_,
     )
 
@@ -186,7 +243,7 @@ class VerificationMode(Enum):
 
 def validate_evaluation_scores(mode=VerificationMode.STRICT, **kwargs) -> bool:
     """
-    Validates that the provided scores are within acceptable ranges.
+    Validates that provided scores are RegionScore values.
 
     Returns:
         True if all scores valid.
@@ -194,12 +251,12 @@ def validate_evaluation_scores(mode=VerificationMode.STRICT, **kwargs) -> bool:
     Raises:
         InvalidEvaluationError in STRICT mode when validation fails.
     """
-    for name, max_val in SCORE_LIMITS.items():
+    for name in ASPECTS_SCORE_FIELDS:
         value = kwargs.get(name)
-        if value is not None and not 0 <= value <= max_val:
+        if not isinstance(value, RegionScore):
             if mode is VerificationMode.STRICT:
                 raise InvalidEvaluationError(
-                    f"{name} must be between 0 and {max_val}, got {value}."
+                    f"{name} must be a RegionScore value, got {value}."
                 )
             return False
     return True
@@ -207,13 +264,8 @@ def validate_evaluation_scores(mode=VerificationMode.STRICT, **kwargs) -> bool:
 
 def region_score_requirements(
     region: Region,
-    basal_score_central_left: Optional[int],
-    basal_score_central_right: Optional[int],
-    basal_score_cortex_left: Optional[int],
-    basal_score_cortex_right: Optional[int],
-    corona_score_left: Optional[int],
-    corona_score_right: Optional[int],
     mode=VerificationMode.STRICT,
+    **kwargs,
 ) -> bool:
     """Validates that the provided scores align with the specified region.
 
@@ -223,60 +275,46 @@ def region_score_requirements(
     Raises:
         InvalidEvaluationError in STRICT mode when validation fails.
     """
-    scores = {
-        "basal_score_central_left": basal_score_central_left,
-        "basal_score_central_right": basal_score_central_right,
-        "basal_score_cortex_left": basal_score_cortex_left,
-        "basal_score_cortex_right": basal_score_cortex_right,
-        "corona_score_left": corona_score_left,
-        "corona_score_right": corona_score_right,
-    }
-    region_score_requirements = {
-        Region.None_: {
-            "required": [],
-            "forbidden": list(scores.keys()),
-        },
-        Region.BasalCentral: {
-            "required": [
-                "basal_score_central_left",
-                "basal_score_central_right",
-                "basal_score_cortex_left",
-                "basal_score_cortex_right",
-            ],
-            "forbidden": ["corona_score_left", "corona_score_right"],
-        },
-        Region.BasalCortex: {
-            "required": ["basal_score_cortex_left", "basal_score_cortex_right"],
-            "forbidden": ["corona_score_left", "corona_score_right"],
-        },
-        Region.CoronaRadiata: {
-            "required": ["corona_score_left", "corona_score_right"],
-            "forbidden": [
-                "basal_score_central_left",
-                "basal_score_central_right",
-                "basal_score_cortex_left",
-                "basal_score_cortex_right",
-            ],
-        },
-    }
-    reqs = region_score_requirements[region]
+    scores = {field: kwargs.get(field) for field in ASPECTS_SCORE_FIELDS}
 
-    # Check required fields
-    for field in reqs["required"]:
-        if scores[field] is None:
-            if mode is VerificationMode.STRICT:
-                raise InvalidEvaluationError(
-                    f"{field} must be provided for region '{region.name}'."
-                )
-            return False
+    def _fail(message: str) -> bool:
+        if mode is VerificationMode.STRICT:
+            raise InvalidEvaluationError(message)
+        return False
 
-    # Check forbidden fields
-    for field in reqs["forbidden"]:
-        if scores[field] is not None:
-            if mode is VerificationMode.STRICT:
-                raise InvalidEvaluationError(
-                    f"{field} must not be provided for region '{region.name}'."
+    if region == Region.None_:
+        for field_name, value in scores.items():
+            if value != RegionScore.Not_Applicable:
+                return _fail(
+                    f"{field_name} must be RegionScore.Not_Applicable for region '{region.name}'."
                 )
-            return False
+        return True
+
+    if region == Region.BasalGanglia:
+        required_fields = ASPECTS_BASAL_FIELDS
+        not_applicable_fields = ASPECTS_CORONA_FIELDS
+    elif region == Region.CoronaRadiata:
+        required_fields = ASPECTS_CORONA_FIELDS
+        not_applicable_fields = ASPECTS_BASAL_FIELDS
+    else:
+        return _fail(f"Unsupported region '{region}'.")
+
+    for field_name in required_fields:
+        value = scores[field_name]
+        if value is None:
+            return _fail(
+                f"{field_name} must be provided for region '{region.name}'."
+            )
+        if value == RegionScore.Not_Applicable:
+            return _fail(
+                f"{field_name} cannot be RegionScore.Not_Applicable for region '{region.name}'."
+            )
+
+    for field_name in not_applicable_fields:
+        value = scores[field_name]
+        if value != RegionScore.Not_Applicable:
+            return _fail(
+                f"{field_name} must be RegionScore.Not_Applicable for region '{region.name}'."
+            )
 
     return True

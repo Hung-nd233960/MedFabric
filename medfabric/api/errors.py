@@ -154,3 +154,7 @@ class ImageAlreadyExistsError(ImageError):
 # --- Runtime domain ---
 class EmptyDatasetError(MedFabricError):
     """Raised when a dataset is empty or contains no valid entries."""
+
+
+class InvalidDicomFileError(MedFabricError):
+    """Raised when a DICOM file is invalid or cannot be processed."""

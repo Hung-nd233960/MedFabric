@@ -19,6 +19,7 @@ from medfabric.api.errors import (
 )
 from medfabric.api.sessions import doctor_exists, get_session
 from medfabric.api.image_set_input import check_image_set_exists
+from medfabric.db.orm_model import ImageSetUsability
 
 
 def check_set_evaluation_exists(
@@ -56,8 +57,8 @@ def add_evaluate_image_set(
     doctor_uuid: uuid_lib.UUID,
     image_set_uuid: uuid_lib.UUID,
     session_uuid: uuid_lib.UUID,
-    is_low_quality: bool = False,
-    is_irrelevant: bool = False,
+    image_set_usability: ImageSetUsability,
+    ischemic_low_quality: bool = False,
 ) -> ImageSetEvaluation:
     """
     Evaluates an image set by a doctor.
@@ -67,8 +68,8 @@ def add_evaluate_image_set(
         doctor_uuid (uuid.UUID): ID of the doctor evaluating the image set.
         image_set_uuid (uuid.UUID): ID of the image set being evaluated.
         session_uuid (uuid.UUID): ID of the session during which the evaluation is made.
-        is_low_quality (bool): Indicates if the image set is of low quality.
-        is_irrelevant (bool): Indicates if the image set is irrelevant.
+        image_set_usability (ImageSetUsability): Usability assessment of the image set.
+        ischemic_low_quality (bool): Indicates if the image set is truly ischemic but is of low quality.
 
     Returns:
         ImageSetEvaluation: The created evaluation record.
@@ -79,14 +80,15 @@ def add_evaluate_image_set(
             doctor_uuid=doctor_uuid,
             image_set_uuid=image_set_uuid,
             session_uuid=session_uuid,
-            is_low_quality=is_low_quality,
-            is_irrelevant=is_irrelevant,
+            ischemic_low_quality=ischemic_low_quality,
+            usability=image_set_usability,
         )
         doctor_uuid_ = eval_data.doctor_uuid
         image_set_uuid_ = eval_data.image_set_uuid
         session_uuid_ = eval_data.session_uuid
-        is_low_quality_ = eval_data.is_low_quality
-        is_irrelevant_ = eval_data.is_irrelevant
+        ischemic_low_quality_ = eval_data.ischemic_low_quality
+        usability_ = eval_data.usability
+
     except ValidationError as ve:
         raise InvalidEvaluationError(f"Invalid evaluation data: {ve}") from ve
 
@@ -102,17 +104,21 @@ def add_evaluate_image_set(
         raise SessionMismatchError("Session does not belong to the specified doctor.")
     if not session_result.is_active:
         raise SessionInactiveError("Session is not active.")
-    if not (is_low_quality_ or is_irrelevant_):
+    if usability_ == ImageSetUsability.IschemicAssessable and not ischemic_low_quality_:
         raise InvalidEvaluationError(
-            "At least one of is_low_quality or is_irrelevant must be True."
+            "For 'IschemicAssessable' usability, 'ischemic_low_quality' must be True."
+        )
+    if usability_ != ImageSetUsability.IschemicAssessable and ischemic_low_quality_:
+        raise InvalidEvaluationError(
+            "'ischemic_low_quality' can only be True if usability is 'IschemicAssessable'."
         )
     try:
         evaluation = ImageSetEvaluation(
             doctor_uuid=doctor_uuid_,
             image_set_uuid=image_set_uuid_,
             session_uuid=session_uuid_,
-            is_low_quality=is_low_quality_,
-            is_irrelevant=is_irrelevant_,
+            ischemic_low_quality=ischemic_low_quality_,
+            image_set_usability=usability_,
         )
         session.add(evaluation)
         session.commit()

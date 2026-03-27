@@ -28,3 +28,7 @@ testing_env/
 data_sets/*
 !data_sets/.gitkeep
 public_data/*
+.backup
+medfabric.db
+medfabric.db-shm
+medfabric.db-wal

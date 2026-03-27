@@ -5,8 +5,16 @@ from datetime import datetime
 from typing import Optional, List, Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, StringConstraints
-from medfabric.db.orm_model import Region, Gender
+from pydantic import BaseModel, Field, StringConstraints
+
+# NameEmail
+from medfabric.db.orm_model import (
+    Region,
+    RegionScore,
+    Gender,
+    ImageSetUsability,
+    ImageFormat,
+)
 
 
 # --- Base class for all schemas ---
@@ -58,7 +66,7 @@ class DoctorBase(OrmBase):
     uuid: UUID
     username: Annotated[str, StringConstraints(min_length=3, strip_whitespace=True)]
     role: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
 
 
 class DoctorLogin(BaseModel):
@@ -69,7 +77,7 @@ class DoctorLogin(BaseModel):
 class DoctorCreate(OrmBase):
     username: Annotated[str, StringConstraints(min_length=3, strip_whitespace=True)]
     role: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     password_hash: Annotated[str, StringConstraints(min_length=8)]
 
 
@@ -104,19 +112,27 @@ class ImageSetBase(OrmBase):
     image_set_name: Annotated[str, StringConstraints(min_length=1)]
     patient_uuid: UUID
     num_images: Annotated[int, Field(gt=0)]
+    icd_code: Optional[str] = None
     folder_path: str
     conflicted: bool
     description: Optional[str] = None
+    image_format: ImageFormat
+    image_window_level: Optional[int] = None
+    image_window_width: Optional[int] = None
 
 
 class ImageSetCreate(OrmBase):
     dataset_uuid: UUID
     uuid: Optional[UUID] = None
     image_set_name: Annotated[str, StringConstraints(min_length=1)]
+    icd_code: Optional[str] = None
     patient_uuid: UUID
     num_images: Annotated[int, Field(gt=0)]
     folder_path: str
     description: Optional[str] = None
+    image_format: ImageFormat
+    image_window_level: Optional[int] = None
+    image_window_width: Optional[int] = None
 
 
 class ImageSetRead(ImageSetBase):
@@ -150,8 +166,8 @@ class ImageSetEvaluationBase(OrmBase):
     doctor_uuid: UUID
     image_set_uuid: UUID
     session_uuid: UUID
-    is_low_quality: bool
-    is_irrelevant: bool
+    ischemic_low_quality: bool
+    usability: ImageSetUsability
 
 
 class ImageSetEvaluationCreate(ImageSetEvaluationBase):
@@ -169,14 +185,28 @@ class ImageEvaluationBase(OrmBase):
     session_uuid: UUID
     region: Region
 
-    basal_score_central_left: Optional[int] = None
-    basal_score_central_right: Optional[int] = None
-    basal_score_cortex_left: Optional[int] = None
-    basal_score_cortex_right: Optional[int] = None
-    corona_score_left: Optional[int] = None
-    corona_score_right: Optional[int] = None
+    c_left_score: RegionScore
+    c_right_score: RegionScore
+    ic_left_score: RegionScore
+    ic_right_score: RegionScore
+    l_left_score: RegionScore
+    l_right_score: RegionScore
+    i_left_score: RegionScore
+    i_right_score: RegionScore
+    m1_left_score: RegionScore
+    m1_right_score: RegionScore
+    m2_left_score: RegionScore
+    m2_right_score: RegionScore
+    m3_left_score: RegionScore
+    m3_right_score: RegionScore
+    m4_left_score: RegionScore
+    m4_right_score: RegionScore
+    m5_left_score: RegionScore
+    m5_right_score: RegionScore
+    m6_left_score: RegionScore
+    m6_right_score: RegionScore
 
-    notes: Annotated[str, StringConstraints(max_length=500)] | None = None
+    notes: Optional[Annotated[str, StringConstraints(max_length=500)]] = None
 
 
 class ImageEvaluationCreate(ImageEvaluationBase):

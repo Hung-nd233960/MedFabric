@@ -1,6 +1,5 @@
 from typing import Tuple
 import uuid as uuid_lib
-import time
 import streamlit as st
 import pandas as pd
 from sqlalchemy.orm import Session
@@ -14,8 +13,16 @@ from medfabric.pages.dashboard_helper.dashboard_config import (
     config_self,
     config_chosen,
 )
+from medfabric.pages.dashboard_helper.state_management import (
+    DashboardAppState,
+    EventFlags,
+    EnumKeyManager,
+    EventType,
+    UIElementType,
+    raise_flag,
+)
+from medfabric.pages.dashboard_helper.dispatcher import flag_listener
 from medfabric.api.data_sets import get_all_data_sets
-from medfabric.pages.utils import reset
 from medfabric.db.engine import get_session_factory
 from medfabric.pages.utils import sudden_close
 from medfabric.api.patients import get_patient_by_uuid
@@ -25,6 +32,13 @@ def format_string(s: bool) -> str:
     if s:
         return "✅ Evaluated"
     return "❌ Not Evaluated"
+
+
+def initial_setup() -> None:
+    if "dashboard_flag" not in st.session_state:
+        st.session_state.dashboard_flag = EventFlags()
+    if "dashboard_key_mngr" not in st.session_state:
+        st.session_state.dashboard_key_mngr = EnumKeyManager()
 
 
 @st.cache_data
@@ -89,106 +103,128 @@ def get_image_sets_with_evaluation_status(
     return df, evluated_count, total_count, percent
 
 
-# Column configuration for displaying self-labeled data
-sess = st.session_state
-doctor_session = st.session_state.get("user_session")
 st.set_page_config(
     page_title="Dashboard",
     page_icon=":bar_chart:",
     layout="wide",
 )
-if "dashboard_initialized" not in st.session_state:
+
+app = st.session_state
+doctor_session = app.get("user_session")
+
+if doctor_session is None:
+    st.error("User session not found. Please log in again.")
+    sudden_close()
+
+if "dashboard_app_state" not in app:
     db_session = get_session_factory()()
-    if doctor_session is None:
-        st.error("User session not found. Please log in again.")
-        sudden_close(db_session)
-    elif not exist_any_image_set(db_session):
+    if not exist_any_image_set(db_session):
         st.error("Error retrieving image sets. Please contact the maintainer.")
         sudden_close(db_session)
-    else:
-        all_datasets = get_all_data_sets(db_session)
-        current_dataset = all_datasets[0]
-        df, evaluated_count, total_count, progress = (
-            get_image_sets_with_evaluation_status(
-                db_session, doctor_session.doctor_uuid, current_dataset.dataset_uuid
-            )
-        )
-        db_session.close()
-        st.session_state.all_sets_df = df
-        st.session_state.evaluated_count = evaluated_count
-        st.session_state.total_count = total_count
-        st.session_state.progress = progress
-        st.session_state.db_session = db_session
-        st.session_state.dashboard_initialized = True
-
-
-if st.session_state.get("dashboard_initialized", True):
-    st.progress(
-        value=sess.progress,
-        text=(
-            f"Patients Labeled: {sess.evaluated_count} / {sess.total_count} "
-            f"({sess.progress * 100:.2f}%)"
-        ),
+    all_datasets = get_all_data_sets(db_session)
+    current_dataset = all_datasets[0]
+    df, evaluated_count, total_count, progress = get_image_sets_with_evaluation_status(
+        db_session, doctor_session.doctor_uuid, current_dataset.dataset_uuid
     )
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("Choose scans to evaluate")
-        edited_data = st.data_editor(
-            data=sess.all_sets_df,
+    db_session.close()
+
+    app.dashboard_app_state = DashboardAppState(
+        doctor_uuid=doctor_session.doctor_uuid,
+        all_sets_df=df,
+        evaluated_count=evaluated_count,
+        total_count=total_count,
+        progress=progress,
+    )
+
+initial_setup()
+flag_listener(app.dashboard_flag, app.dashboard_app_state)
+
+dashboard_state = app.dashboard_app_state
+
+st.progress(
+    value=dashboard_state.progress,
+    text=(
+        f"Patients Labeled: {dashboard_state.evaluated_count} / {dashboard_state.total_count} "
+        f"({dashboard_state.progress * 100:.2f}%)"
+    ),
+)
+
+col1, col2 = st.columns(2)
+editor_key = app.dashboard_key_mngr.make(
+    UIElementType.DATA_EDITOR,
+    EventType.EDIT_SELECTION,
+)
+
+with col1:
+    st.subheader("Choose scans to evaluate")
+    edited_data = st.data_editor(
+        data=dashboard_state.all_sets_df,
+        width="stretch",
+        column_config=config_self,
+        disabled=[
+            "index",
+            "scan_id",
+            "patient_id",
+            "num_images",
+            "evaluated",
+        ],
+        column_order=[
+            "index",
+            "scan_id",
+            "patient_id",
+            "num_images",
+            "evaluated",
+            "edit",
+        ],
+        hide_index=True,
+        key=editor_key,
+    )
+    # Persist edits so checkbox state survives reruns.
+
+with col2:
+    selected_scans = edited_data[edited_data["edit"]]
+    dashboard_state.selected_scan_uuids = selected_scans["uuid"].tolist()
+
+    if not selected_scans.empty:
+        st.subheader("Selected Scans for Evaluation")
+        st.dataframe(
+            selected_scans.drop(columns=["edit"]),
             width="stretch",
-            column_config=config_self,
-            disabled=[
-                "index",
-                "scan_id",
-                "patient_id",
-                "num_images",
-                "evaluated",
-            ],
+            hide_index=True,
+            column_config=config_chosen,
             column_order=[
                 "index",
                 "scan_id",
                 "patient_id",
                 "num_images",
                 "evaluated",
-                "edit",
             ],
-            hide_index=True,
-            key="evaluated_image_sets",
+            key="selected_image_sets",
         )
-    with col2:
-        selected_scans = edited_data[edited_data["edit"]]
-        if not selected_scans.empty:
-            st.subheader("Selected Scans for Evaluation")
-            st.dataframe(
-                selected_scans.drop(columns=["edit"]),
-                width="stretch",
-                hide_index=True,
-                column_config=config_chosen,
-                column_order=[
-                    "index",
-                    "scan_id",
-                    "patient_id",
-                    "num_images",
-                    "evaluated",
-                ],
-                key="selected_image_sets",
-            )
-            st.write(f"You have chosen {len(selected_scans)} scans for evaluation.")
+        st.write(f"You have chosen {len(selected_scans)} scans for evaluation.")
 
-            if st.button("Evaluate Selected Scans"):
-                # Store selected scans in session state for further processing
-                st.session_state.selected_scans = selected_scans["uuid"].tolist()
-                st.success(
-                    f"Selected {len(st.session_state.selected_scans)} scans for evaluation."
-                )
-                print(
-                    f"Selected scans for evaluation: {st.session_state.selected_scans}"
-                )
-                time.sleep(1)
-                st.switch_page("pages/label.py")
-        else:
-            st.subheader("No Scans Selected")
-            st.write("Please select scans to evaluate by checking the 'Evaluate' box.")
+        st.button(
+            "Evaluate Selected Scans",
+            key=app.dashboard_key_mngr.make(
+                UIElementType.BUTTON,
+                EventType.EVALUATE_SELECTED_SCANS,
+            ),
+            on_click=raise_flag,
+            args=(
+                app.dashboard_flag,
+                EventType.EVALUATE_SELECTED_SCANS,
+            ),
+        )
+    else:
+        st.subheader("No Scans Selected")
+        st.write("Please select scans to evaluate by checking the 'Evaluate' box.")
 
-if st.button("Logout"):
-    reset()
+st.button(
+    "Logout",
+    key=app.dashboard_key_mngr.make(UIElementType.BUTTON, EventType.LOGOUT),
+    on_click=raise_flag,
+    args=(
+        app.dashboard_flag,
+        EventType.LOGOUT,
+    ),
+)

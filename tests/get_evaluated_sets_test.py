@@ -9,6 +9,8 @@ from medfabric.db.orm_model import (
     ImageSet,
     Image,
     Region,
+    RegionScore,
+    ImageFormat,
 )
 from medfabric.api.sessions import create_session
 from medfabric.api.credentials import register_doctor
@@ -18,6 +20,49 @@ from medfabric.api.patients import add_patient
 from medfabric.api.image_set_evaluation_input import add_evaluate_image_set
 from medfabric.api.image_evaluation_input import add_evaluate_image
 from medfabric.api.get_evaluated_sets import get_doctor_image_sets
+from medfabric.db.orm_model import ImageSetUsability
+
+
+ASPECTS_FIELDS = [
+    "c_left_score",
+    "c_right_score",
+    "ic_left_score",
+    "ic_right_score",
+    "l_left_score",
+    "l_right_score",
+    "i_left_score",
+    "i_right_score",
+    "m1_left_score",
+    "m1_right_score",
+    "m2_left_score",
+    "m2_right_score",
+    "m3_left_score",
+    "m3_right_score",
+    "m4_left_score",
+    "m4_right_score",
+    "m5_left_score",
+    "m5_right_score",
+    "m6_left_score",
+    "m6_right_score",
+]
+
+
+def scores_none_region():
+    return {name: RegionScore.Not_Applicable for name in ASPECTS_FIELDS}
+
+
+def scores_basal_region():
+    scores = scores_none_region()
+    for name in ASPECTS_FIELDS[:14]:
+        scores[name] = RegionScore.Not_Affected
+    return scores
+
+
+def scores_corona_region():
+    scores = scores_none_region()
+    for name in ASPECTS_FIELDS[14:]:
+        scores[name] = RegionScore.Not_Affected
+    return scores
 
 
 # Doctor 1 evaluate set 0 and 1
@@ -52,6 +97,9 @@ def image_sets(db_session: db_Session, dataset_uuid) -> List[ImageSet]:
         db_session,
         "set1",
         3,
+        image_format=ImageFormat.DICOM,
+        image_window_level=40,
+        image_window_width=80,
         folder_path="path/to/set1",
         dataset_uuid=dataset_uuid,
         patient_uuid=patient.patient_uuid,
@@ -60,6 +108,9 @@ def image_sets(db_session: db_Session, dataset_uuid) -> List[ImageSet]:
         db_session,
         "set2",
         2,
+        image_format=ImageFormat.DICOM,
+        image_window_level=40,
+        image_window_width=80,
         folder_path="path/to/set2",
         dataset_uuid=dataset_uuid,
         patient_uuid=patient.patient_uuid,
@@ -68,6 +119,9 @@ def image_sets(db_session: db_Session, dataset_uuid) -> List[ImageSet]:
         db_session,
         "set3",
         4,
+        image_format=ImageFormat.DICOM,
+        image_window_level=40,
+        image_window_width=80,
         folder_path="path/to/set3",
         dataset_uuid=dataset_uuid,
         patient_uuid=patient.patient_uuid,
@@ -118,16 +172,16 @@ def set_evaluations(
         doctor_uuid=doctor[0].uuid,
         image_set_uuid=image_sets[0].uuid,
         session_uuid=sessions[0].session_uuid,
-        is_low_quality=True,
-        is_irrelevant=False,
+        image_set_usability=ImageSetUsability.HemorrhagicPresent,
+        ischemic_low_quality=False,
     )
     eval2 = add_evaluate_image_set(
         db_session,
         doctor_uuid=doctor[0].uuid,
         image_set_uuid=image_sets[1].uuid,
         session_uuid=sessions[0].session_uuid,
-        is_low_quality=False,
-        is_irrelevant=True,
+        image_set_usability=ImageSetUsability.Anomaly,
+        ischemic_low_quality=False,
     )
     # Doctor 3 evaluate set 2
     eval3 = add_evaluate_image_set(
@@ -135,8 +189,8 @@ def set_evaluations(
         doctor_uuid=doctor[2].uuid,
         image_set_uuid=image_sets[1].uuid,
         session_uuid=sessions[2].session_uuid,
-        is_low_quality=True,
-        is_irrelevant=False,
+        image_set_usability=ImageSetUsability.HemorrhagicPresent,
+        ischemic_low_quality=False,
     )
     return [eval1, eval2, eval3]
 
@@ -158,12 +212,7 @@ def image_evaluations(
             image_uuid=img.uuid,
             session_uuid=sessions[1].session_uuid,
             region=Region.None_,
-            basal_score_cortex_left=None,
-            basal_score_cortex_right=None,
-            basal_score_central_left=None,
-            basal_score_central_right=None,
-            corona_score_left=None,
-            corona_score_right=None,
+            **scores_none_region(),
             notes=None,
         )
         eval1.append(eval_)
@@ -173,13 +222,8 @@ def image_evaluations(
             doctor_uuid=doctor[1].uuid,
             image_uuid=img.uuid,
             session_uuid=sessions[1].session_uuid,
-            region=Region.BasalCentral,
-            basal_score_cortex_left=1,
-            basal_score_cortex_right=3,
-            basal_score_central_left=2,
-            basal_score_central_right=2,
-            corona_score_left=None,
-            corona_score_right=None,
+            region=Region.BasalGanglia,
+            **scores_basal_region(),
             notes=None,
         )
         eval2.append(eval_)
@@ -190,12 +234,7 @@ def image_evaluations(
             image_uuid=img.uuid,
             session_uuid=sessions[2].session_uuid,
             region=Region.CoronaRadiata,
-            basal_score_cortex_left=None,
-            basal_score_cortex_right=None,
-            basal_score_central_left=None,
-            basal_score_central_right=None,
-            corona_score_left=2,
-            corona_score_right=3,
+            **scores_corona_region(),
             notes=None,
         )
         eval3.append(eval_)
