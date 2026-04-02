@@ -8,7 +8,10 @@ from medfabric.api.image_set_input import (
     get_all_image_sets_in_a_data_set,
     exist_any_image_set,
 )
-from medfabric.api.get_evaluated_sets import get_doctor_image_sets
+from medfabric.api.get_evaluated_sets import (
+    get_dataset_evaluation_status,
+    get_doctor_image_sets,
+)
 from medfabric.pages.dashboard_helper.dashboard_config import (
     config_self,
     config_chosen,
@@ -123,6 +126,11 @@ if "dashboard_app_state" not in app:
         sudden_close(db_session)
     all_datasets = get_all_data_sets(db_session)
     current_dataset = all_datasets[0]
+    (
+        dataset_evaluated_count,
+        dataset_total_count,
+        dataset_progress,
+    ) = get_dataset_evaluation_status(db_session, current_dataset.dataset_uuid)
     df, evaluated_count, total_count, progress = get_image_sets_with_evaluation_status(
         db_session, doctor_session.doctor_uuid, current_dataset.dataset_uuid
     )
@@ -131,6 +139,9 @@ if "dashboard_app_state" not in app:
     app.dashboard_app_state = DashboardAppState(
         doctor_uuid=doctor_session.doctor_uuid,
         all_sets_df=df,
+        dataset_evaluated_count=dataset_evaluated_count,
+        dataset_total_count=dataset_total_count,
+        dataset_progress=dataset_progress,
         evaluated_count=evaluated_count,
         total_count=total_count,
         progress=progress,
@@ -142,9 +153,18 @@ flag_listener(app.dashboard_flag, app.dashboard_app_state)
 dashboard_state = app.dashboard_app_state
 
 st.progress(
+    value=dashboard_state.dataset_progress,
+    text=(
+        f"Dataset Progress: {dashboard_state.dataset_evaluated_count} / "
+        f"{dashboard_state.dataset_total_count} "
+        f"({dashboard_state.dataset_progress * 100:.2f}%)"
+    ),
+)
+
+st.progress(
     value=dashboard_state.progress,
     text=(
-        f"Patients Labeled: {dashboard_state.evaluated_count} / {dashboard_state.total_count} "
+        f"Your Progress: {dashboard_state.evaluated_count} / {dashboard_state.total_count} "
         f"({dashboard_state.progress * 100:.2f}%)"
     ),
 )

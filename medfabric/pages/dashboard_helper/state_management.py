@@ -28,6 +28,9 @@ class ParsedKey:
 class DashboardAppState:
     doctor_uuid: uuid_lib.UUID
     all_sets_df: pd.DataFrame
+    dataset_evaluated_count: int
+    dataset_total_count: int
+    dataset_progress: float
     evaluated_count: int
     total_count: int
     progress: float
