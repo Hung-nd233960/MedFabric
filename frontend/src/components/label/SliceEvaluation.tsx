@@ -1,0 +1,72 @@
+/**
+ * Per-slice evaluation: region selector + zone score grid + slice notes.
+ * Only rendered when ASPECTS scoring is enabled at set level.
+ */
+import type { Region } from "@/lib/types";
+import { useLabelStore } from "@/store/labelStore";
+import ZoneScoreGrid from "./ZoneScoreGrid";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+
+const REGIONS: Region[] = ["None", "BasalGanglia", "CoronaRadiata"];
+
+const REGION_LABELS: Record<Region, string> = {
+  None: "Skip (None)",
+  BasalGanglia: "Basal Ganglia",
+  CoronaRadiata: "Corona Radiata",
+};
+
+const REGION_COLORS: Record<Region, string> = {
+  None: "border-muted-foreground/50 bg-muted/50 text-muted-foreground",
+  BasalGanglia: "border-purple-500 bg-purple-500/10 text-purple-400",
+  CoronaRadiata: "border-cyan-500 bg-cyan-500/10 text-cyan-400",
+};
+
+interface SliceEvaluationProps {
+  imageUuid: string;
+}
+
+export default function SliceEvaluation({ imageUuid }: SliceEvaluationProps) {
+  const { slices, setRegion, setSliceNotes } = useLabelStore();
+  const slice = slices[imageUuid];
+  const region = slice?.region ?? "None";
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Region</Label>
+        <div className="flex gap-2">
+          {REGIONS.map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setRegion(imageUuid, r)}
+              className={cn(
+                "flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-all",
+                region === r
+                  ? REGION_COLORS[r]
+                  : "border-border text-muted-foreground hover:bg-muted"
+              )}
+            >
+              {REGION_LABELS[r]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {region !== "None" && <ZoneScoreGrid imageUuid={imageUuid} />}
+
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Slice notes (optional)</Label>
+        <Textarea
+          rows={2}
+          placeholder="Notes for this slice…"
+          value={slice?.notes ?? ""}
+          onChange={(e) => setSliceNotes(imageUuid, e.target.value)}
+          className="text-xs resize-none"
+        />
+      </div>
+    </div>
+  );
+}
