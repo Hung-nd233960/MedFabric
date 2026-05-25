@@ -12,11 +12,13 @@ function StatCard({
   icon: Icon,
   label,
   value,
+  pct,
   sub,
 }: {
   icon: React.ElementType;
   label: string;
   value: number;
+  pct?: number;
   sub?: string;
 }) {
   return (
@@ -26,7 +28,12 @@ function StatCard({
         <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className="flex items-baseline gap-2">
+          <div className="text-2xl font-bold">{value}</div>
+          {pct !== undefined && (
+            <div className="text-sm font-medium text-muted-foreground">{pct}%</div>
+          )}
+        </div>
         {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
       </CardContent>
     </Card>
@@ -130,8 +137,20 @@ export default function DashboardPage() {
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard icon={Layers} label="Total Image Sets" value={stats.total_image_sets} />
-          <StatCard icon={Stethoscope} label="My Progress" value={stats.my_progress} sub="sets evaluated by you" />
-          <StatCard icon={Globe} label="Global Progress" value={stats.global_progress} sub="unique sets with ≥1 evaluation" />
+          <StatCard
+            icon={Stethoscope}
+            label="My Progress"
+            value={stats.my_progress}
+            pct={stats.total_image_sets > 0 ? Math.round(stats.my_progress / stats.total_image_sets * 100) : 0}
+            sub="sets evaluated by you"
+          />
+          <StatCard
+            icon={Globe}
+            label="Global Progress"
+            value={stats.global_progress}
+            pct={stats.total_image_sets > 0 ? Math.round(stats.global_progress / stats.total_image_sets * 100) : 0}
+            sub="unique sets with ≥1 evaluation"
+          />
           <StatCard icon={CheckCircle2} label="Remaining" value={Math.max(0, stats.total_image_sets - stats.my_progress)} sub="sets you haven't evaluated" />
         </div>
       )}
