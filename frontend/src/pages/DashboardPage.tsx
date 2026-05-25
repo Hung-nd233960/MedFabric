@@ -160,14 +160,14 @@ export default function DashboardPage() {
             icon={Stethoscope}
             label="My Progress"
             value={stats.my_progress}
-            pct={stats.total_image_sets > 0 ? Math.round(stats.my_progress / stats.total_image_sets * 100) : 0}
+            pct={stats.total_image_sets > 0 ? parseFloat((stats.my_progress / stats.total_image_sets * 100).toFixed(2)) : 0}
             sub="sets evaluated by you"
           />
           <StatCard
             icon={Globe}
             label="Global Progress"
             value={stats.global_progress}
-            pct={stats.total_image_sets > 0 ? Math.round(stats.global_progress / stats.total_image_sets * 100) : 0}
+            pct={stats.total_image_sets > 0 ? parseFloat((stats.global_progress / stats.total_image_sets * 100).toFixed(2)) : 0}
             sub="unique sets with ≥1 evaluation"
           />
           <StatCard icon={CheckCircle2} label="Remaining" value={Math.max(0, stats.total_image_sets - stats.my_progress)} sub="sets you haven't evaluated" />
