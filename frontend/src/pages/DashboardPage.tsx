@@ -114,7 +114,8 @@ export default function DashboardPage() {
     try {
       const res = await annotationSessionsApi.open(target.uuid);
       const queue = selectedSets.map((s) => s.uuid).join(",");
-      navigate(`/label/${target.uuid}?session=${res.data.annotation_session_uuid}&queue=${queue}`);
+      const indices = selectedSets.map((s) => s.dataset_index).join(",");
+      navigate(`/label/${target.uuid}?session=${res.data.annotation_session_uuid}&queue=${queue}&indices=${indices}`);
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??

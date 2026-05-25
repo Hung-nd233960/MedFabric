@@ -1,17 +1,11 @@
 /**
  * Annotation state machine for the LabelPage.
  *
+ * Multi-set support: setRegistry persists per-set annotations when switching
+ * between sets in a queue, so A→B→A restores A's work.
+ *
  * Gating rule:
  *   ASPECTS scoring enabled ⟺ usability === "IschemicAssessable" && !lowQuality
- *
- * Validity rules:
- *   A slice is valid if:
- *     - region === "None" (skipped), OR
- *     - region !== "None" AND all relevant zone scores are filled
- *
- *   The set is submittable if:
- *     - (ASPECTS disabled) → always submittable as soon as usability is set, OR
- *     - (ASPECTS enabled) → ≥1 BasalGanglia slice + ≥1 CoronaRadiata slice + all non-None slices valid
  */
 
 import { create } from "zustand";
@@ -50,8 +44,19 @@ function isSliceValid(state: SliceEvalState): boolean {
   return keys.every((k) => state.scores[k] !== null);
 }
 
+interface SetSnapshot {
+  usability: ImageSetUsability | null;
+  lowQuality: boolean;
+  setNotes: string;
+  slices: Record<string, SliceEvalState>;
+  currentIndex: number;
+}
+
 interface LabelStore {
-  // Loaded data
+  // Per-set registry — persists annotations across set switches
+  setRegistry: Record<string, SetSnapshot>;
+
+  // Current set data
   imageSet: ImageSet | null;
   images: ImageRecord[];
   annotationSessionUuid: string | null;
@@ -68,6 +73,8 @@ interface LabelStore {
   currentIndex: number;
   windowLevel: number;
   windowWidth: number;
+  defaultWindowLevel: number;
+  defaultWindowWidth: number;
 
   // Actions — load
   loadImageSet: (imageSet: ImageSet, images: ImageRecord[], sessionUuid: string) => void;
@@ -84,8 +91,9 @@ interface LabelStore {
   setScore: (imageUuid: string, field: string, score: RegionScore) => void;
   setSliceNotes: (imageUuid: string, notes: string) => void;
   setWindow: (wl: number, ww: number) => void;
+  resetWindow: () => void;
 
-  // Derived (computed inline)
+  // Derived
   aspectsEnabled: () => boolean;
   currentImage: () => ImageRecord | null;
   currentSlice: () => SliceEvalState;
@@ -96,6 +104,7 @@ interface LabelStore {
 }
 
 export const useLabelStore = create<LabelStore>((set, get) => ({
+  setRegistry: {},
   imageSet: null,
   images: [],
   annotationSessionUuid: null,
@@ -106,28 +115,50 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
   currentIndex: 0,
   windowLevel: 35,
   windowWidth: 100,
+  defaultWindowLevel: 35,
+  defaultWindowWidth: 100,
 
   loadImageSet: (imageSet, images, sessionUuid) => {
+    const s = get();
+    // Save current set to registry before switching
+    const registry = { ...s.setRegistry };
+    if (s.imageSet) {
+      registry[String(s.imageSet.uuid)] = {
+        usability: s.usability,
+        lowQuality: s.lowQuality,
+        setNotes: s.setNotes,
+        slices: { ...s.slices },
+        currentIndex: s.currentIndex,
+      };
+    }
+    // Restore saved state for the new set, or start fresh
+    const saved = registry[String(imageSet.uuid)];
     const slices: Record<string, SliceEvalState> = {};
     for (const img of images) {
-      slices[img.uuid] = emptySlice();
+      slices[img.uuid] = saved?.slices[img.uuid] ?? emptySlice();
     }
+    const defaultWL = imageSet.image_window_level ?? 35;
+    const defaultWW = imageSet.image_window_width ?? 100;
     set({
+      setRegistry: registry,
       imageSet,
       images,
       annotationSessionUuid: sessionUuid,
       slices,
-      currentIndex: 0,
-      windowLevel: imageSet.image_window_level ?? 35,
-      windowWidth: imageSet.image_window_width ?? 100,
-      usability: null,
-      lowQuality: false,
-      setNotes: "",
+      currentIndex: saved?.currentIndex ?? 0,
+      windowLevel: defaultWL,
+      windowWidth: defaultWW,
+      defaultWindowLevel: defaultWL,
+      defaultWindowWidth: defaultWW,
+      usability: saved?.usability ?? null,
+      lowQuality: saved?.lowQuality ?? false,
+      setNotes: saved?.setNotes ?? "",
     });
   },
 
   reset: () =>
     set({
+      setRegistry: {},
       imageSet: null,
       images: [],
       annotationSessionUuid: null,
@@ -136,6 +167,10 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
       setNotes: "",
       slices: {},
       currentIndex: 0,
+      windowLevel: 35,
+      windowWidth: 100,
+      defaultWindowLevel: 35,
+      defaultWindowWidth: 100,
     }),
 
   setUsability: (u) => set({ usability: u }),
@@ -144,15 +179,16 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
   setCurrentIndex: (i) => set({ currentIndex: i }),
   setWindow: (wl, ww) => set({ windowLevel: wl, windowWidth: ww }),
 
+  resetWindow: () => {
+    const { defaultWindowLevel, defaultWindowWidth } = get();
+    set({ windowLevel: defaultWindowLevel, windowWidth: defaultWindowWidth });
+  },
+
   setRegion: (imageUuid, region) =>
     set((s) => ({
       slices: {
         ...s.slices,
-        [imageUuid]: {
-          ...s.slices[imageUuid],
-          region,
-          scores: emptyScores(), // clear scores on region change
-        },
+        [imageUuid]: { ...s.slices[imageUuid], region, scores: emptyScores() },
       },
     })),
 
@@ -202,7 +238,6 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
     const { usability, slices } = get();
     if (!usability) return false;
     if (!get().aspectsEnabled()) return true;
-
     const sliceList = Object.values(slices);
     const hasBasal = sliceList.some((s) => s.region === "BasalGanglia");
     const hasCorona = sliceList.some((s) => s.region === "CoronaRadiata");
@@ -214,31 +249,19 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
     const { usability } = get();
     if (!usability) return "Select a usability classification first.";
     if (!get().aspectsEnabled()) return "Ready to submit.";
-
     const sliceList = Object.values(get().slices);
     const hasBasal = sliceList.some((s) => s.region === "BasalGanglia");
     const hasCorona = sliceList.some((s) => s.region === "CoronaRadiata");
     const invalidCount = sliceList.filter((s) => !isSliceValid(s)).length;
-
-    if (!hasBasal && !hasCorona)
-      return "Classify at least one BasalGanglia and one CoronaRadiata slice.";
+    if (!hasBasal && !hasCorona) return "Classify at least one BasalGanglia and one CoronaRadiata slice.";
     if (!hasBasal) return "Need at least one BasalGanglia slice.";
     if (!hasCorona) return "Need at least one CoronaRadiata slice.";
-    if (invalidCount > 0)
-      return `${invalidCount} slice(s) have incomplete zone scores.`;
+    if (invalidCount > 0) return `${invalidCount} slice(s) have incomplete zone scores.`;
     return "All slices valid — ready to submit.";
   },
 
   buildSubmitPayload: () => {
-    const {
-      annotationSessionUuid,
-      usability,
-      lowQuality,
-      setNotes,
-      slices,
-      images,
-    } = get();
-
+    const { annotationSessionUuid, usability, lowQuality, setNotes, slices, images } = get();
     const imageEvaluations = get().aspectsEnabled()
       ? images.map((img) => {
           const slice = slices[img.uuid] ?? emptySlice();
@@ -247,22 +270,12 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
           for (const zone of ALL_ZONES) {
             for (const side of ["left", "right"]) {
               const key = `${zone}_${side}_score`;
-              if (relevant.includes(key)) {
-                scores[key] = slice.scores[key] ?? "Not_Applicable";
-              } else {
-                scores[key] = "Not_Applicable";
-              }
+              scores[key] = relevant.includes(key) ? (slice.scores[key] ?? "Not_Applicable") : "Not_Applicable";
             }
           }
-          return {
-            image_uuid: img.uuid,
-            region: slice.region,
-            notes: slice.notes || null,
-            ...scores,
-          };
+          return { image_uuid: img.uuid, region: slice.region, notes: slice.notes || null, ...scores };
         })
       : [];
-
     return {
       annotation_session_uuid: annotationSessionUuid,
       usability,
