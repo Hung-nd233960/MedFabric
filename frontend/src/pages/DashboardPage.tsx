@@ -210,12 +210,12 @@ export default function DashboardPage() {
             <div className="rounded-lg border overflow-hidden">
               <table className="w-full text-sm table-fixed">
                 <colgroup>
-                  <col className="w-[10%]" />
+                  <col className="w-[7.5%]" />
                   <col className="w-[25%]" />
                   <col className="w-[25%]" />
                   <col className="w-[10%]" />
                   <col className="w-[7.5%]" />
-                  <col className="w-[7.5%]" />
+                  <col className="w-[10%]" />
                   <col className="w-[10%]" />
                   <col className="w-[5%]" />
                 </colgroup>
