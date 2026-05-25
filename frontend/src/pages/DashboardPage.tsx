@@ -170,20 +170,30 @@ export default function DashboardPage() {
             <p className="text-muted-foreground text-sm">No image sets found in this dataset.</p>
           ) : (
             <div className="rounded-lg border overflow-hidden">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm table-fixed">
+                <colgroup>
+                  <col className="w-[10%]" />
+                  <col className="w-[25%]" />
+                  <col className="w-[25%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[5%]" />
+                  <col className="w-[5%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[10%]" />
+                </colgroup>
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="px-3 py-3 w-10">
+                    {["Index", "Image Set Name", "Patient ID", "ICD", "Slices", "Evaluators", "Status"].map((h) => (
+                      <th key={h} className="text-left px-3 py-3 font-medium truncate">{h}</th>
+                    ))}
+                    <th className="px-3 py-3 text-right font-medium">
                       <input
                         type="checkbox"
                         checked={selected.size === imageSets.length && imageSets.length > 0}
                         onChange={toggleAll}
-                        className="rounded"
+                        className="rounded cursor-pointer"
                       />
                     </th>
-                    {["#", "Name", "Patient ID", "ICD", "Slices", "Evaluators", "Status"].map((h) => (
-                      <th key={h} className="text-left px-4 py-3 font-medium">{h}</th>
-                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -195,26 +205,26 @@ export default function DashboardPage() {
                       }`}
                       onClick={() => toggleSelect(s.uuid)}
                     >
-                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={selected.has(s.uuid)}
-                          onChange={() => toggleSelect(s.uuid)}
-                          className="rounded"
-                        />
-                      </td>
-                      <td className="px-4 py-3 font-mono text-muted-foreground">{s.dataset_index}</td>
-                      <td className="px-4 py-3 font-medium">{s.image_set_name}</td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs font-mono">{s.patient_id ?? "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{s.icd_code ?? "—"}</td>
-                      <td className="px-4 py-3">{s.num_images}</td>
-                      <td className="px-4 py-3">{s.total_evaluators}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-3 font-mono text-muted-foreground overflow-hidden"><span className="block truncate">{s.dataset_index}</span></td>
+                      <td className="px-3 py-3 font-medium overflow-hidden"><span className="block truncate" title={s.image_set_name}>{s.image_set_name}</span></td>
+                      <td className="px-3 py-3 text-muted-foreground overflow-hidden"><span className="block truncate font-mono text-xs" title={s.patient_id ?? ""}>{s.patient_id ?? "—"}</span></td>
+                      <td className="px-3 py-3 text-muted-foreground overflow-hidden"><span className="block truncate" title={s.icd_code ?? ""}>{s.icd_code ?? "—"}</span></td>
+                      <td className="px-3 py-3 overflow-hidden"><span className="block truncate">{s.num_images}</span></td>
+                      <td className="px-3 py-3 overflow-hidden"><span className="block truncate">{s.total_evaluators}</span></td>
+                      <td className="px-3 py-3 overflow-hidden">
                         {s.evaluated_by_me ? (
                           <Badge variant="success">Done</Badge>
                         ) : (
                           <Badge variant="outline">Pending</Badge>
                         )}
+                      </td>
+                      <td className="px-3 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selected.has(s.uuid)}
+                          onChange={() => toggleSelect(s.uuid)}
+                          className="rounded cursor-pointer"
+                        />
                       </td>
                     </tr>
                   ))}
