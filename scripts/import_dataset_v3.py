@@ -31,9 +31,12 @@ from pathlib import Path
 
 import pandas as pd
 
-# Allow `app` imports from backend/
-BACKEND_ROOT = Path(__file__).resolve().parents[1] / "backend"
-sys.path.insert(0, str(BACKEND_ROOT))
+# Allow `app` imports — works both locally (backend/) and inside Docker (/app)
+_script_dir = Path(__file__).resolve().parent
+for _candidate in [_script_dir.parent / "backend", Path("/app")]:
+    if (_candidate / "app").is_dir():
+        sys.path.insert(0, str(_candidate))
+        break
 
 # Load .env before importing settings
 def _load_env(env_path: str) -> None:
