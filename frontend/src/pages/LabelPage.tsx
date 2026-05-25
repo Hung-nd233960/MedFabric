@@ -161,7 +161,7 @@ export default function LabelPage() {
 
           {/* Slice counter — top left */}
           <div className="absolute top-3 left-3 bg-black/60 rounded px-2 py-1 text-white text-xs font-mono">
-            {currentIndex + 1} / {images.length}
+            Image {currentIndex + 1} of {images.length}
           </div>
           {/* Slice name — top right */}
           {currentImg?.image_name && (
@@ -181,10 +181,7 @@ export default function LabelPage() {
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <span className="text-sm text-muted-foreground w-20 text-center">
-            {currentImg?.image_name ?? "—"}
-          </span>
-          <Button
+<Button
             variant="ghost"
             size="icon"
             disabled={currentIndex >= images.length - 1}
