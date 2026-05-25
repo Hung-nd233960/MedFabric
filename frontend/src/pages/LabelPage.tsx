@@ -25,13 +25,16 @@ import { Input } from "@/components/ui/input";
 import SetLevelEvaluation from "@/components/label/SetLevelEvaluation";
 import SliceEvaluation from "@/components/label/SliceEvaluation";
 import ValidationStatus from "@/components/label/ValidationStatus";
-import { imagesApi, imageSetsApi, evaluationsApi } from "@/lib/api";
+import { imagesApi, imageSetsApi, evaluationsApi, annotationSessionsApi } from "@/lib/api";
 import { useLabelStore } from "@/store/labelStore";
 import type { ImageRecord, ImageSet } from "@/lib/types";
+
 export default function LabelPage() {
   const { imageSetUuid } = useParams<{ imageSetUuid: string }>();
   const [searchParams] = useSearchParams();
   const sessionUuid = searchParams.get("session");
+  const queue = (searchParams.get("queue") ?? "").split(",").filter(Boolean);
+  const queueIndex = queue.indexOf(imageSetUuid ?? "");
   const navigate = useNavigate();
 
   const {
@@ -56,6 +59,7 @@ export default function LabelPage() {
   const [wlInput, setWlInput] = useState(String(windowLevel));
   const [wwInput, setWwInput] = useState(String(windowWidth));
   const [activeTab, setActiveTab] = useState<"eval" | "info">("eval");
+  const [navigating, setNavigating] = useState(false);
 
   // Load image set + images on mount
   useEffect(() => {
@@ -92,6 +96,18 @@ export default function LabelPage() {
     setWlInput(String(windowLevel));
     setWwInput(String(windowWidth));
   }, [windowLevel, windowWidth]);
+
+  const goToSet = async (targetUuid: string) => {
+    setNavigating(true);
+    try {
+      const res = await annotationSessionsApi.open(targetUuid);
+      navigate(`/label/${targetUuid}?session=${res.data.annotation_session_uuid}&queue=${queue.join(",")}`);
+    } catch {
+      toast.error("Failed to open set");
+    } finally {
+      setNavigating(false);
+    }
+  };
 
   const applyWindow = () => {
     const wl = parseInt(wlInput);
@@ -213,7 +229,34 @@ export default function LabelPage() {
             />
           </div>
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            {queue.length > 1 && (
+              <>
+                <Separator orientation="vertical" className="h-5" />
+                <span className="text-xs text-muted-foreground">
+                  Set {queueIndex + 1} of {queue.length}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={queueIndex <= 0 || navigating}
+                  onClick={() => goToSet(queue[queueIndex - 1])}
+                  title="Previous set"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={queueIndex >= queue.length - 1 || navigating}
+                  onClick={() => goToSet(queue[queueIndex + 1])}
+                  title="Next set"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </Button>
+                <Separator orientation="vertical" className="h-5" />
+              </>
+            )}
             <Button
               variant="ghost"
               size="sm"

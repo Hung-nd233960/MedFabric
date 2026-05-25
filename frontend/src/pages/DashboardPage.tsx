@@ -104,14 +104,17 @@ export default function DashboardPage() {
   };
 
   const handleAnnotateSelected = async () => {
-    const selectedSets = imageSets.filter((s) => selected.has(s.uuid));
+    const selectedSets = [...imageSets.filter((s) => selected.has(s.uuid))].sort(
+      (a, b) => a.dataset_index - b.dataset_index
+    );
     const target = selectedSets.find((s) => !s.evaluated_by_me) ?? selectedSets[0];
     if (!target) return;
 
     setStarting(true);
     try {
       const res = await annotationSessionsApi.open(target.uuid);
-      navigate(`/label/${target.uuid}?session=${res.data.annotation_session_uuid}`);
+      const queue = selectedSets.map((s) => s.uuid).join(",");
+      navigate(`/label/${target.uuid}?session=${res.data.annotation_session_uuid}&queue=${queue}`);
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
