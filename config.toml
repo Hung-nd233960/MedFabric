@@ -1,7 +1,0 @@
-[path]
-dataset = "./data_sets"
-
-[image_adjustments]
-default_brightness = 0
-default_contrast = 1.0
-default_filter = "None"
