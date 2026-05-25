@@ -37,7 +37,7 @@ export default function SetLevelEvaluation() {
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
-        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+        <Label className="text-base uppercase tracking-wide text-muted-foreground">
           Usability
         </Label>
         <div className="grid grid-cols-2 gap-2">
@@ -47,7 +47,7 @@ export default function SetLevelEvaluation() {
               type="button"
               onClick={() => setUsability(u)}
               className={cn(
-                "rounded-md border px-3 py-2 text-left text-xs font-medium transition-all",
+                "rounded-md border px-3 py-2 text-left text-base font-medium transition-all",
                 usability === u
                   ? USABILITY_COLORS[u]
                   : "border-border text-muted-foreground hover:bg-muted"
@@ -60,7 +60,7 @@ export default function SetLevelEvaluation() {
       </div>
 
       <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
-        <Label htmlFor="low-quality" className="cursor-pointer text-sm">
+        <Label htmlFor="low-quality" className="cursor-pointer text-lg">
           Low Quality
         </Label>
         <Switch
@@ -71,13 +71,13 @@ export default function SetLevelEvaluation() {
       </div>
 
       <div className="space-y-1.5">
-        <Label className="text-xs text-muted-foreground">Set-level notes (optional)</Label>
+        <Label className="text-base text-muted-foreground">Set-level notes (optional)</Label>
         <Textarea
           rows={2}
           placeholder="Any notes about this scan…"
           value={setNotes}
           onChange={(e) => setSetNotes(e.target.value)}
-          className="text-sm resize-none"
+          className="text-base resize-none"
         />
       </div>
     </div>

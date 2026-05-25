@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     # Admin bootstrap
     admin_usernames: List[str] = ["admin"]
 
+    # Registration — leave empty to disable self-registration
+    registration_code: str = ""
+
     # App
     app_title: str = "MedFabric"
     app_version: str = "3.0.0-alpha"

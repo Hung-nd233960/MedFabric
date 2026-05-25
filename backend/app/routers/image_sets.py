@@ -46,6 +46,17 @@ def list_for_dataset(
         .all()
     }
 
+    draft_by_me = {
+        row.image_set_uuid
+        for row in db.query(AnnotationSession.image_set_uuid)
+        .filter(
+            AnnotationSession.doctor_uuid == doctor.uuid,
+            AnnotationSession.submitted_at.is_(None),
+            AnnotationSession.draft_payload.isnot(None),
+        )
+        .all()
+    }
+
     evaluator_counts = dict(
         db.query(
             AnnotationSession.image_set_uuid,
@@ -81,6 +92,7 @@ def list_for_dataset(
                 icd_code=img_set.icd_code,
                 is_active=img_set.is_active,
                 evaluated_by_me=img_set.uuid in submitted_by_me,
+                in_draft_by_me=img_set.uuid in draft_by_me and img_set.uuid not in submitted_by_me,
                 total_evaluators=evaluator_counts.get(img_set.uuid, 0),
             )
         )

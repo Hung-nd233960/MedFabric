@@ -28,9 +28,9 @@ api.interceptors.response.use(
 
       if (!refreshing) {
         refreshing = api
-          .post<{ access_token: string }>("/auth/refresh")
+          .post<{ access_token: string; must_change_password: boolean }>("/auth/refresh")
           .then((r) => {
-            useAuthStore.getState().setAccessToken(r.data.access_token);
+            useAuthStore.getState().setAccessToken(r.data.access_token, r.data.must_change_password);
             return r.data.access_token;
           })
           .catch(() => {
@@ -55,10 +55,12 @@ api.interceptors.response.use(
 // Typed helpers
 export const authApi = {
   login: (username: string, password: string) =>
-    api.post<{ access_token: string }>("/auth/login", { username, password }),
-  register: (username: string, password: string, email?: string) =>
-    api.post<{ access_token: string }>("/auth/register", { username, password, email }),
+    api.post<{ access_token: string; must_change_password: boolean }>("/auth/login", { username, password }),
+  register: (username: string, password: string, email?: string, invitation_code?: string) =>
+    api.post<{ access_token: string; must_change_password: boolean }>("/auth/register", { username, password, email, invitation_code }),
   logout: () => api.post("/auth/logout"),
+  changePassword: (data: { new_password: string; current_password?: string }) =>
+    api.post("/auth/change-password", data),
 };
 
 export const dashboardApi = {
@@ -89,12 +91,11 @@ export const imageSetsApi = {
 export const imagesApi = {
   listByImageSet: (imageSetUuid: string) =>
     api.get(`/images/by-image-set/${imageSetUuid}`),
-  renderUrl: (imageUuid: string, wl?: number, ww?: number) => {
-    const params = new URLSearchParams();
-    if (wl != null) params.set("wl", String(wl));
-    if (ww != null) params.set("ww", String(ww));
-    const qs = params.toString();
-    return `/api/images/${imageUuid}/render${qs ? `?${qs}` : ""}`;
+  renderBlob: (imageUuid: string, wl?: number, ww?: number) => {
+    const params: Record<string, string> = {};
+    if (wl != null) params.wl = String(wl);
+    if (ww != null) params.ww = String(ww);
+    return api.get(`/images/${imageUuid}/render`, { params, responseType: "blob" });
   },
 };
 
@@ -104,10 +105,17 @@ export const annotationSessionsApi = {
   get: (uuid: string) => api.get(`/annotation-sessions/${uuid}`),
   mine: (submitted_only = false) =>
     api.get("/annotation-sessions/mine", { params: { submitted_only } }),
+  myHistory: () => api.get("/annotation-sessions/my-history"),
 };
 
 export const evaluationsApi = {
   submit: (payload: object) => api.post("/evaluations/submit", payload),
+  saveDraft: (payload: object) => api.post("/evaluations/draft", payload),
+  getDraftByImageSet: (imageSetUuid: string) =>
+    api.get(`/evaluations/draft/by-image-set/${imageSetUuid}`),
+  listMyDrafts: () => api.get("/evaluations/drafts/mine"),
+  deleteDraftByImageSet: (imageSetUuid: string) =>
+    api.delete(`/evaluations/draft/by-image-set/${imageSetUuid}`),
 };
 
 export const adminApi = {
@@ -121,6 +129,9 @@ export const adminApi = {
   revokeAssignment: (id: number) => api.delete(`/admin/assignments/${id}`),
   auditLog: (limit = 200, offset = 0) =>
     api.get("/admin/audit-log", { params: { limit, offset } }),
+  listAllDrafts: () => api.get("/admin/drafts"),
+  adminDeleteDraft: (annotationSessionUuid: string) =>
+    api.delete(`/admin/drafts/${annotationSessionUuid}`),
 };
 
 export const exportApi = {

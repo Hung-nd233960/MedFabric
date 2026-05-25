@@ -16,6 +16,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,8 +27,8 @@ export default function RegisterPage() {
     }
     setLoading(true);
     try {
-      const res = await authApi.register(username, password, email || undefined);
-      setAuth(res.data.access_token);
+      const res = await authApi.register(username, password, email || undefined, inviteCode);
+      setAuth(res.data.access_token, res.data.must_change_password);
       navigate("/");
     } catch (err: unknown) {
       const msg =
@@ -94,6 +95,17 @@ export default function RegisterPage() {
                 autoComplete="new-password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invite">Invitation Code</Label>
+              <Input
+                id="invite"
+                type="password"
+                autoComplete="off"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value)}
                 required
               />
             </div>

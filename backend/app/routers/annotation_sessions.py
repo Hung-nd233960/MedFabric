@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db.models import Doctors, LoginSession
-from app.db.schemas import AnnotationSessionCreate, AnnotationSessionRead
+from app.db.models import AnnotationSession, Doctors, ImageSet, LoginSession
+from app.db.schemas import AnnotationSessionCreate, AnnotationSessionRead, HistoryEvent
 from app.deps import get_current_doctor
 from app.services.annotation_sessions import (
     create_annotation_session,
@@ -55,6 +55,51 @@ def list_my_sessions(
     doctor: Doctors = Depends(get_current_doctor),
 ):
     return list_sessions_for_doctor(db, doctor.uuid, submitted_only=submitted_only)
+
+
+@router.get("/my-history", response_model=List[HistoryEvent])
+def my_history(
+    db: Session = Depends(get_db),
+    doctor: Doctors = Depends(get_current_doctor),
+):
+    """Return a chronological list of annotation activity events for the current doctor."""
+    from sqlalchemy import func as _func
+
+    index_rows = (
+        db.query(ImageSet.uuid, _func.row_number().over(
+            partition_by=ImageSet.dataset_uuid, order_by=ImageSet.uuid
+        ).label("idx"))
+        .subquery()
+    )
+    index_map = dict(db.query(index_rows.c.uuid, index_rows.c.idx).all())
+
+    sessions = (
+        db.query(AnnotationSession, ImageSet)
+        .join(ImageSet, AnnotationSession.image_set_uuid == ImageSet.uuid)
+        .filter(AnnotationSession.doctor_uuid == doctor.uuid)
+        .all()
+    )
+
+    events: List[HistoryEvent] = []
+    for sess, img_set in sessions:
+        idx = index_map.get(img_set.uuid, 0)
+        base = dict(
+            annotation_session_uuid=sess.annotation_session_uuid,
+            image_set_uuid=img_set.uuid,
+            image_set_name=img_set.image_set_name,
+            dataset_index=idx,
+            icd_code=img_set.icd_code,
+        )
+        # All three events are independent — a session can have all of them
+        if sess.draft_saved_at:
+            events.append(HistoryEvent(event_type="draft_saved", timestamp=sess.draft_saved_at, **base))
+        if sess.draft_deleted_at:
+            events.append(HistoryEvent(event_type="draft_deleted", timestamp=sess.draft_deleted_at, **base))
+        if sess.submitted_at:
+            events.append(HistoryEvent(event_type="submitted", timestamp=sess.submitted_at, **base))
+
+    events.sort(key=lambda e: e.timestamp, reverse=True)
+    return events
 
 
 @router.get("/{annotation_session_uuid}", response_model=AnnotationSessionRead)

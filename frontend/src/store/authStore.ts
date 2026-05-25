@@ -7,8 +7,10 @@ interface AuthState {
   role: DoctorRole | null;
   doctorUuid: string | null;
   username: string | null;
-  setAuth: (token: string) => void;
-  setAccessToken: (token: string) => void;
+  mustChangePassword: boolean;
+  setAuth: (token: string, mustChangePassword?: boolean) => void;
+  setAccessToken: (token: string, mustChangePassword?: boolean) => void;
+  setMustChangePassword: (v: boolean) => void;
   logout: () => void;
 }
 
@@ -27,27 +29,40 @@ export const useAuthStore = create<AuthState>()(
       role: null,
       doctorUuid: null,
       username: null,
+      mustChangePassword: false,
 
-      setAuth: (token: string) => {
+      setAuth: (token: string, mustChangePassword = false) => {
         const payload = parseJwtPayload(token);
         set({
           accessToken: token,
           doctorUuid: payload.sub as string,
           role: (payload.role as DoctorRole) ?? "Doctor",
+          username: (payload.username as string) ?? null,
+          mustChangePassword,
         });
       },
 
-      setAccessToken: (token: string) => {
+      setAccessToken: (token: string, mustChangePassword = false) => {
         const payload = parseJwtPayload(token);
         set({
           accessToken: token,
           doctorUuid: payload.sub as string,
           role: (payload.role as DoctorRole) ?? "Doctor",
+          username: (payload.username as string) ?? null,
+          mustChangePassword,
         });
       },
+
+      setMustChangePassword: (v: boolean) => set({ mustChangePassword: v }),
 
       logout: () => {
-        set({ accessToken: null, role: null, doctorUuid: null, username: null });
+        set({
+          accessToken: null,
+          role: null,
+          doctorUuid: null,
+          username: null,
+          mustChangePassword: false,
+        });
       },
     }),
     {
@@ -57,6 +72,7 @@ export const useAuthStore = create<AuthState>()(
         role: s.role,
         doctorUuid: s.doctorUuid,
         username: s.username,
+        mustChangePassword: s.mustChangePassword,
       }),
     }
   )

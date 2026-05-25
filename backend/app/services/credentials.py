@@ -1,4 +1,4 @@
-"""Doctor registration and login service."""
+"""Doctor registration, login, and password management service."""
 
 import logging
 import uuid
@@ -26,6 +26,8 @@ def register_doctor(
     password: str,
     email: Optional[str] = None,
     role: DoctorRole = DoctorRole.Doctor,
+    must_change_password: bool = False,
+    registration_source: str = "admin_created",
 ) -> Doctors:
     doctor = Doctors(
         uuid=uuid.uuid4(),
@@ -33,6 +35,8 @@ def register_doctor(
         email=email,
         password_hash=hash_password(password),
         role=role,
+        must_change_password=must_change_password,
+        registration_source=registration_source,
     )
     try:
         db.add(doctor)
@@ -59,6 +63,23 @@ def authenticate_doctor(db: Session, username: str, password: str) -> Doctors:
     if not verify_password(password, doctor.password_hash):
         raise InvalidCredentialsError("Invalid password.")
     logger.info("Doctor '%s' authenticated", username)
+    return doctor
+
+
+def change_password(
+    db: Session,
+    doctor_uuid: uuid.UUID,
+    new_password: str,
+    must_change_password: bool = False,
+) -> Doctors:
+    doctor = get_doctor_by_uuid(db, doctor_uuid)
+    if not doctor:
+        raise UserNotFoundError(f"Doctor {doctor_uuid} not found.")
+    doctor.password_hash = hash_password(new_password)
+    doctor.must_change_password = must_change_password
+    db.commit()
+    db.refresh(doctor)
+    logger.info("Password changed for doctor '%s'", doctor.username)
     return doctor
 
 

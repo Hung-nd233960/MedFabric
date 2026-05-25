@@ -1,8 +1,8 @@
 /**
  * Zone score grid for a single ASPECTS slice.
  *
- * Shows the relevant zones for the selected region (BasalGanglia or CoronaRadiata).
- * Each zone has Left / Right buttons with three states: Damaged / Not Damaged / Not Visible.
+ * The header row and each ZoneRow independently use grid-cols-[4%_1fr_1fr],
+ * so columns visually align without needing a shared parent grid or fragments.
  */
 import { useLabelStore } from "@/store/labelStore";
 import type { RegionScore, Zone } from "@/lib/types";
@@ -19,7 +19,7 @@ const SCORE_STYLES: Record<Exclude<RegionScore, "Not_Applicable">, string> = {
   Affected: "border-red-500 bg-red-500/20 text-red-400 hover:bg-red-500/30",
   Not_Affected: "border-green-500 bg-green-500/20 text-green-400 hover:bg-green-500/30",
   Not_In_This_Slice:
-    "border-muted-foreground/40 bg-muted/40 text-muted-foreground hover:bg-muted/60",
+    "border-yellow-500 bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30",
 };
 
 function ScoreButton({
@@ -37,7 +37,7 @@ function ScoreButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded border px-1.5 py-0.5 text-[10px] font-medium transition-all",
+        "rounded border px-1.5 py-0.5 text-sm font-medium transition-all",
         selected ? SCORE_STYLES[value] : "border-border text-muted-foreground hover:bg-muted"
       )}
     >
@@ -59,40 +59,35 @@ function ZoneRow({ zone, imageUuid }: ZoneRowProps) {
   const leftScore = (slice?.scores[leftKey] as RegionScore) ?? null;
   const rightScore = (slice?.scores[rightKey] as RegionScore) ?? null;
 
+  const zoneComplete = leftScore !== null && rightScore !== null;
+
   return (
-    <div className="grid grid-cols-[3rem_1fr_1fr] gap-2 items-center">
-      <span className="text-xs font-mono text-muted-foreground uppercase text-right pr-1">
+    <div className="grid grid-cols-[4%_1fr_1fr] items-center py-1">
+      <span className={cn(
+        "text-sm font-mono uppercase text-center font-semibold",
+        zoneComplete ? "text-green-400" : "text-red-400"
+      )}>
         {zone}
       </span>
-
-      {/* Left */}
-      <div className="space-y-1">
-        <span className="text-[10px] text-muted-foreground block">Left</span>
-        <div className="flex gap-1 flex-wrap">
-          {SCORE_OPTIONS.map((s) => (
-            <ScoreButton
-              key={s}
-              value={s}
-              current={leftScore}
-              onClick={() => setScore(imageUuid, leftKey, s)}
-            />
-          ))}
-        </div>
+      <div className="flex gap-1 flex-wrap px-1">
+        {SCORE_OPTIONS.map((s) => (
+          <ScoreButton
+            key={s}
+            value={s}
+            current={leftScore}
+            onClick={() => setScore(imageUuid, leftKey, s)}
+          />
+        ))}
       </div>
-
-      {/* Right */}
-      <div className="space-y-1">
-        <span className="text-[10px] text-muted-foreground block">Right</span>
-        <div className="flex gap-1 flex-wrap">
-          {SCORE_OPTIONS.map((s) => (
-            <ScoreButton
-              key={s}
-              value={s}
-              current={rightScore}
-              onClick={() => setScore(imageUuid, rightKey, s)}
-            />
-          ))}
-        </div>
+      <div className="flex gap-1 flex-wrap px-1">
+        {SCORE_OPTIONS.map((s) => (
+          <ScoreButton
+            key={s}
+            value={s}
+            current={rightScore}
+            onClick={() => setScore(imageUuid, rightKey, s)}
+          />
+        ))}
       </div>
     </div>
   );
@@ -104,17 +99,39 @@ interface ZoneScoreGridProps {
 
 export default function ZoneScoreGrid({ imageUuid }: ZoneScoreGridProps) {
   const { slices } = useLabelStore();
-  const region = slices[imageUuid]?.region ?? "None";
+  const slice = slices[imageUuid];
+  const region = slice?.region ?? "None";
 
   if (region === "None") return null;
 
   const zones = region === "BasalGanglia" ? BASAL_ZONES : CORONA_ZONES;
 
+  const leftComplete = zones.every((z) => (slice?.scores[`${z}_left_score`] ?? null) !== null);
+  const rightComplete = zones.every((z) => (slice?.scores[`${z}_right_score`] ?? null) !== null);
+
   return (
-    <div className="space-y-3">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">
+    <div className="space-y-1">
+      <div className="text-base uppercase tracking-wide text-muted-foreground mb-1">
         {region === "BasalGanglia" ? "Basal Ganglia Zones" : "Corona Radiata Zones"}
       </div>
+
+      {/* Header — same grid-cols as ZoneRow so columns align */}
+      <div className="grid grid-cols-[4%_1fr_1fr]">
+        <div />
+        <div className={cn(
+          "text-sm text-center font-semibold pb-1 border-b border-border",
+          leftComplete ? "text-green-400 border-green-400/40" : "text-red-400 border-red-400/40"
+        )}>
+          Left
+        </div>
+        <div className={cn(
+          "text-sm text-center font-semibold pb-1 border-b border-border",
+          rightComplete ? "text-green-400 border-green-400/40" : "text-red-400 border-red-400/40"
+        )}>
+          Right
+        </div>
+      </div>
+
       {zones.map((z) => (
         <ZoneRow key={z} zone={z as Zone} imageUuid={imageUuid} />
       ))}

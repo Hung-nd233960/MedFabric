@@ -21,6 +21,8 @@ export interface Doctor {
   role: DoctorRole;
   email: string | null;
   is_active: boolean;
+  must_change_password: boolean;
+  registration_source: string;
   created_at: string;
 }
 
@@ -61,6 +63,7 @@ export interface ImageSetWithProgress extends ImageSet {
   dataset_index: number;
   patient_id: string | null;
   evaluated_by_me: boolean;
+  in_draft_by_me: boolean;
   total_evaluators: number;
 }
 
@@ -78,6 +81,30 @@ export interface AnnotationSession {
   login_session_uuid: string;
   started_at: string;
   submitted_at: string | null;
+}
+
+export interface DraftItem {
+  annotation_session_uuid: string;
+  image_set_uuid: string;
+  image_set_name: string;
+  dataset_index: number;
+  patient_id: string | null;
+  icd_code: string | null;
+  num_images: number;
+  draft_saved_at: string;
+  evaluated_by_me: boolean;
+  doctor_uuid?: string;
+  doctor_username?: string;
+}
+
+export interface HistoryEvent {
+  event_type: "submitted" | "draft_saved" | "draft_deleted";
+  timestamp: string;
+  annotation_session_uuid: string;
+  image_set_uuid: string;
+  image_set_name: string;
+  dataset_index: number;
+  icd_code: string | null;
 }
 
 export interface DashboardStats {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { UserPlus, ShieldOff, ShieldCheck } from "lucide-react";
+import { UserPlus, ShieldOff, ShieldCheck, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,9 @@ export default function DoctorsPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ username: "", password: "", email: "", role: "Doctor" });
   const [saving, setSaving] = useState(false);
+  const [resetTarget, setResetTarget] = useState<Doctor | null>(null);
+  const [resetPw, setResetPw] = useState("");
+  const [resetSaving, setResetSaving] = useState(false);
 
   const load = async () => {
     try {
@@ -43,11 +46,28 @@ export default function DoctorsPage() {
     }
   };
 
+  const resetPassword = async () => {
+    if (!resetTarget) return;
+    if (resetPw.length < 8) { toast.error("Password must be at least 8 characters."); return; }
+    setResetSaving(true);
+    try {
+      await adminApi.updateDoctor(resetTarget.uuid, { password: resetPw });
+      toast.success(`Password reset for '${resetTarget.username}'. They will be prompted to change it on next login.`);
+      setResetTarget(null);
+      setResetPw("");
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? "Failed to reset password";
+      toast.error(msg);
+    } finally {
+      setResetSaving(false);
+    }
+  };
+
   const createDoctor = async () => {
     if (!form.username || !form.password) { toast.error("Username and password required"); return; }
     setSaving(true);
     try {
-      await adminApi.createDoctor(form);
+      await adminApi.createDoctor({ ...form, email: form.email || undefined });
       toast.success(`Doctor '${form.username}' created`);
       setOpen(false);
       setForm({ username: "", password: "", email: "", role: "Doctor" });
@@ -123,6 +143,7 @@ export default function DoctorsPage() {
               <th className="text-left px-4 py-3 font-medium">Email</th>
               <th className="text-left px-4 py-3 font-medium">Role</th>
               <th className="text-left px-4 py-3 font-medium">Status</th>
+              <th className="text-left px-4 py-3 font-medium">Source</th>
               <th className="text-left px-4 py-3 font-medium">Created</th>
               <th className="px-4 py-3" />
             </tr>
@@ -136,35 +157,91 @@ export default function DoctorsPage() {
                   <Badge variant={d.role === "Admin" ? "default" : "secondary"}>{d.role}</Badge>
                 </td>
                 <td className="px-4 py-3">
-                  <Badge variant={d.is_active ? "success" : "destructive"}>
-                    {d.is_active ? "Active" : "Inactive"}
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant={d.is_active ? "success" : "destructive"}>
+                      {d.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                    {d.must_change_password && (
+                      <Badge variant="outline" className="text-yellow-600 border-yellow-500">
+                        Reset Pending
+                      </Badge>
+                    )}
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <Badge
+                    variant="outline"
+                    className={d.registration_source === "self_registered"
+                      ? "text-blue-600 border-blue-500"
+                      : "text-muted-foreground"}
+                  >
+                    {d.registration_source === "self_registered" ? "Self-registered" : "Admin"}
                   </Badge>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground text-xs">
                   {new Date(d.created_at).toLocaleDateString()}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={() => toggleActive(d)}
-                  >
-                    {d.is_active ? (
-                      <><ShieldOff className="h-3.5 w-3.5" /> Deactivate</>
-                    ) : (
-                      <><ShieldCheck className="h-3.5 w-3.5" /> Reactivate</>
-                    )}
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => { setResetTarget(d); setResetPw(""); }}
+                    >
+                      <KeyRound className="h-3.5 w-3.5" /> Reset Password
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => toggleActive(d)}
+                    >
+                      {d.is_active ? (
+                        <><ShieldOff className="h-3.5 w-3.5" /> Deactivate</>
+                      ) : (
+                        <><ShieldCheck className="h-3.5 w-3.5" /> Reactivate</>
+                      )}
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}
             {doctors.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">No doctors found</td></tr>
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">No doctors found</td></tr>
             )}
           </tbody>
         </table>
       </div>
+      {/* Reset Password modal */}
+      {resetTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-background border border-border rounded-lg p-6 w-full max-w-sm shadow-xl space-y-4">
+            <h2 className="text-base font-semibold">Reset Password</h2>
+            <p className="text-sm text-muted-foreground">
+              Set a temporary password for <span className="font-medium text-foreground">{resetTarget.username}</span>.
+              They will be required to change it on next login.
+            </p>
+            <div className="space-y-1">
+              <Label>New Temporary Password</Label>
+              <Input
+                type="password"
+                value={resetPw}
+                onChange={(e) => setResetPw(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && resetPassword()}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button className="flex-1" disabled={resetSaving} onClick={resetPassword}>
+                {resetSaving ? "Resetting…" : "Reset Password"}
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => setResetTarget(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

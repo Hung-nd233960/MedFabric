@@ -34,6 +34,7 @@ class RegisterRequest(BaseModel):
     username: str
     password: str
     email: Optional[EmailStr] = None
+    invitation_code: str = ""
 
     @field_validator("username")
     @classmethod
@@ -58,6 +59,19 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    must_change_password: bool = False
+
+
+class ChangePasswordRequest(BaseModel):
+    new_password: str
+    current_password: Optional[str] = None
+
+    @field_validator("new_password")
+    @classmethod
+    def password_length(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters.")
+        return v
 
 
 class RefreshRequest(BaseModel):
@@ -75,6 +89,8 @@ class DoctorRead(_ORM):
     role: DoctorRole
     email: Optional[str] = None
     is_active: bool
+    must_change_password: bool = False
+    registration_source: str = "admin_created"
     created_at: datetime
 
 
@@ -89,6 +105,14 @@ class DoctorUpdate(BaseModel):
     email: Optional[EmailStr] = None
     is_active: Optional[bool] = None
     role: Optional[DoctorRole] = None
+    password: Optional[str] = None
+
+    @field_validator("password")
+    @classmethod
+    def password_min_length(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and len(v) < 8:
+            raise ValueError("Password must be at least 8 characters.")
+        return v
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +220,7 @@ class ImageSetWithProgress(_ORM):
     icd_code: Optional[str] = None
     is_active: bool
     evaluated_by_me: bool
+    in_draft_by_me: bool
     total_evaluators: int
 
 
@@ -221,10 +246,26 @@ class AnnotationSessionRead(_ORM):
     login_session_uuid: uuid.UUID
     started_at: datetime
     submitted_at: Optional[datetime] = None
+    draft_saved_at: Optional[datetime] = None
 
 
 class AnnotationSessionCreate(BaseModel):
     image_set_uuid: uuid.UUID
+
+
+class SaveDraft(BaseModel):
+    """Partial annotation payload stored server-side; same shape as SubmitAnnotation."""
+    annotation_session_uuid: uuid.UUID
+    usability: Optional[ImageSetUsability] = None
+    low_quality: bool = False
+    notes: Optional[str] = None
+    image_evaluations: List["ImageEvaluationSubmit"] = []
+
+
+class DraftRead(BaseModel):
+    annotation_session_uuid: uuid.UUID
+    draft_saved_at: Optional[datetime] = None
+    payload: Optional[dict] = None
 
 
 # ---------------------------------------------------------------------------
@@ -337,6 +378,37 @@ class DashboardStats(BaseModel):
     my_progress: int
     global_progress: int
     total_image_sets: int
+
+
+# ---------------------------------------------------------------------------
+# Drafts and History
+# ---------------------------------------------------------------------------
+
+class DraftItem(BaseModel):
+    """One active draft entry for the Drafts tab."""
+    annotation_session_uuid: uuid.UUID
+    image_set_uuid: uuid.UUID
+    image_set_name: str
+    dataset_index: int
+    patient_id: Optional[str] = None
+    icd_code: Optional[str] = None
+    num_images: int
+    draft_saved_at: datetime
+    evaluated_by_me: bool
+    # Admin-only — doctor who made the draft
+    doctor_uuid: Optional[uuid.UUID] = None
+    doctor_username: Optional[str] = None
+
+
+class HistoryEvent(BaseModel):
+    """One activity event for the History tab."""
+    event_type: str  # "submitted" | "draft_saved" | "draft_deleted"
+    timestamp: datetime
+    annotation_session_uuid: uuid.UUID
+    image_set_uuid: uuid.UUID
+    image_set_name: str
+    dataset_index: int
+    icd_code: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------

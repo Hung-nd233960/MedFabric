@@ -1,86 +1,118 @@
 /**
- * Validation status box shown in the right panel.
- * Three states:
- *   - Orange warning: slice not classified (region = None)
- *   - Green: slice is valid
- *   - Red: slice classified but zones incomplete
+ * Set-level validation box shown above the submit button.
+ *
+ * When ASPECTS is enabled, warnings follow a strict A > B > C > D hierarchy —
+ * only the highest-priority unresolved issue is shown.
+ *
+ *   A (red)    — missing required slice types (BasalGanglia / CoronaRadiata)
+ *   B (red)    — annotated slices with incomplete zone scores
+ *   C (yellow) — annotated slice indices are not consecutive
+ *   D (green)  — image set is valid for submission
  */
+import type { ReactNode } from "react";
 import { CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { useLabelStore } from "@/store/labelStore";
-import { cn } from "@/lib/utils";
+import type { Region, SliceEvalState } from "@/lib/types";
+import { BASAL_ZONES, CORONA_ZONES } from "@/lib/types";
 
-export default function ValidationStatus() {
-  const {
-    currentSlice,
-    isCurrentSliceValid,
-    isSetSubmittable,
-    validationMessage,
-    aspectsEnabled,
-  } = useLabelStore();
+function relevantKeys(region: Region): string[] {
+  if (region === "None") return [];
+  const zones = region === "BasalGanglia" ? BASAL_ZONES : CORONA_ZONES;
+  return zones.flatMap((z) => [`${z}_left_score`, `${z}_right_score`]);
+}
 
-  const slice = currentSlice();
-  const sliceValid = isCurrentSliceValid();
-  const setReady = isSetSubmittable();
-  const aspects = aspectsEnabled();
+function sliceFullyScored(slice: SliceEvalState): boolean {
+  if (slice.region === "None") return true;
+  return relevantKeys(slice.region).every((k) => slice.scores[k] !== null);
+}
 
-  if (!aspects) {
-    return (
-      <div
-        className={cn(
-          "rounded-md border px-3 py-2 text-sm flex items-start gap-2",
-          setReady
-            ? "border-green-600/40 bg-green-600/10 text-green-400"
-            : "border-muted/40 bg-muted/20 text-muted-foreground"
-        )}
-      >
-        {setReady ? (
-          <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
-        ) : (
-          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-        )}
-        <span>{validationMessage()}</span>
-      </div>
-    );
+function consecutive(sorted: number[]): boolean {
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] !== sorted[i - 1] + 1) return false;
   }
+  return true;
+}
 
-  // Determine current slice state for the indicator
-  let sliceIcon = <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />;
-  let sliceClass = "border-yellow-600/40 bg-yellow-600/10 text-yellow-400";
-  let sliceMsg = "This slice is unclassified (None) — will be skipped.";
-
-  if (slice.region !== "None") {
-    if (sliceValid) {
-      sliceIcon = <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />;
-      sliceClass = "border-green-600/40 bg-green-600/10 text-green-400";
-      sliceMsg = "This slice is valid.";
-    } else {
-      sliceIcon = <XCircle className="h-4 w-4 mt-0.5 shrink-0" />;
-      sliceClass = "border-red-600/40 bg-red-600/10 text-red-400";
-      sliceMsg = "Fill all zone scores for this slice.";
-    }
-  }
-
+function RedBox({ children }: { children: ReactNode }) {
   return (
-    <div className="space-y-2">
-      <div className={cn("rounded-md border px-3 py-2 text-xs flex items-start gap-2", sliceClass)}>
-        {sliceIcon}
-        <span>{sliceMsg}</span>
-      </div>
-      <div
-        className={cn(
-          "rounded-md border px-3 py-2 text-xs flex items-start gap-2",
-          setReady
-            ? "border-green-600/40 bg-green-600/10 text-green-400"
-            : "border-muted/40 bg-muted/20 text-muted-foreground"
-        )}
-      >
-        {setReady ? (
-          <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
-        ) : (
-          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-        )}
-        <span>{validationMessage()}</span>
-      </div>
+    <div className="rounded-md border border-red-600/40 bg-red-600/10 text-red-400 px-3 py-2 text-base flex items-start gap-2">
+      <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
+      <span>{children}</span>
     </div>
   );
+}
+
+function YellowBox({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-md border border-yellow-600/40 bg-yellow-600/10 text-yellow-400 px-3 py-2 text-base flex items-start gap-2">
+      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function GreenBox({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-md border border-green-600/40 bg-green-600/10 text-green-400 px-3 py-2 text-base flex items-start gap-2">
+      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function MutedBox({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-md border border-muted/40 bg-muted/20 text-muted-foreground px-3 py-2 text-base flex items-start gap-2">
+      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+      <span>{children}</span>
+    </div>
+  );
+}
+
+export default function ValidationStatus() {
+  const { images, slices, aspectsEnabled, isSetSubmittable } = useLabelStore();
+
+  const aspects = aspectsEnabled();
+  const setReady = isSetSubmittable();
+
+  // ── ASPECTS disabled path ────────────────────────────────────────────────
+  if (!aspects) {
+    if (setReady) return <GreenBox>Ready to submit.</GreenBox>;
+    return <MutedBox>Select a usability classification first.</MutedBox>;
+  }
+
+  // ── Class A: missing required slice types ────────────────────────────────
+  const hasBasal = images.some((img) => slices[img.uuid]?.region === "BasalGanglia");
+  const hasCorona = images.some((img) => slices[img.uuid]?.region === "CoronaRadiata");
+
+  if (!hasBasal || !hasCorona) {
+    const missing: string[] = [];
+    if (!hasBasal) missing.push("BasalGanglia");
+    if (!hasCorona) missing.push("CoronaRadiata");
+    return <RedBox>Need at least one {missing.join(" and ")} slice.</RedBox>;
+  }
+
+  // ── Class B: annotated slices with incomplete zone scores ────────────────
+  const incomplete = images
+    .map((img, i) => ({ i, slice: slices[img.uuid] }))
+    .filter(({ slice }) => slice && slice.region !== "None" && !sliceFullyScored(slice))
+    .map(({ i }) => i + 1); // 1-indexed image numbers
+
+  if (incomplete.length > 0) {
+    return <RedBox>Missing annotation in image {incomplete.join(", ")}.</RedBox>;
+  }
+
+  // ── Class C: annotated slices are not consecutive ────────────────────────
+  const annotatedIndices = images
+    .map((img, i) => ({ i, region: slices[img.uuid]?.region ?? "None" }))
+    .filter(({ region }) => region !== "None")
+    .map(({ i }) => i)
+    .sort((a, b) => a - b);
+
+  if (annotatedIndices.length > 1 && !consecutive(annotatedIndices)) {
+    return <YellowBox>Image slices are not consecutive, please check carefully.</YellowBox>;
+  }
+
+  // ── Class D: all clear ───────────────────────────────────────────────────
+  return <GreenBox>Image set is valid for submission.</GreenBox>;
 }

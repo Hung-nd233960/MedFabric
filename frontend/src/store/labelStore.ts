@@ -32,6 +32,18 @@ function emptySlice(): SliceEvalState {
   return { region: "None", scores: emptyScores(), notes: "" };
 }
 
+function snapshotSubmittable(snap: SetSnapshot): boolean {
+  if (!snap.usability) return false;
+  const aspects = snap.usability === "IschemicAssessable" && !snap.lowQuality;
+  if (!aspects) return true;
+  const list = Object.values(snap.slices);
+  return (
+    list.some((s) => s.region === "BasalGanglia") &&
+    list.some((s) => s.region === "CoronaRadiata") &&
+    list.every(isSliceValid)
+  );
+}
+
 function relevantScoreKeys(region: Region): string[] {
   if (region === "None") return [];
   const zones = region === "BasalGanglia" ? BASAL_ZONES : CORONA_ZONES;
@@ -101,6 +113,9 @@ interface LabelStore {
   isSetSubmittable: () => boolean;
   validationMessage: () => string;
   buildSubmitPayload: () => object;
+  isSetSubmittableByUuid: (imageSetUuid: string) => boolean;
+  buildSubmitPayloadForUuid: (imageSetUuid: string, sessionUuid: string) => object;
+  restoreDraft: (payload: Record<string, unknown>) => void;
 }
 
 export const useLabelStore = create<LabelStore>((set, get) => ({
@@ -283,5 +298,78 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
       notes: setNotes || null,
       image_evaluations: imageEvaluations,
     };
+  },
+
+  isSetSubmittableByUuid: (imageSetUuid) => {
+    const { imageSet, usability, lowQuality, setNotes, slices, currentIndex, setRegistry } = get();
+    const snap: SetSnapshot | null =
+      imageSet?.uuid === imageSetUuid
+        ? { usability, lowQuality, setNotes, slices, currentIndex }
+        : (setRegistry[imageSetUuid] ?? null);
+    if (!snap) return false;
+    return snapshotSubmittable(snap);
+  },
+
+  buildSubmitPayloadForUuid: (imageSetUuid, sessionUuid) => {
+    const { imageSet, usability, lowQuality, setNotes, slices, currentIndex, setRegistry } = get();
+    const snap: SetSnapshot =
+      imageSet?.uuid === imageSetUuid
+        ? { usability, lowQuality, setNotes, slices, currentIndex }
+        : setRegistry[imageSetUuid];
+    const aspects = snap.usability === "IschemicAssessable" && !snap.lowQuality;
+    const imageEvaluations = aspects
+      ? Object.keys(snap.slices).map((imgUuid) => {
+          const slice = snap.slices[imgUuid] ?? emptySlice();
+          const relevant = relevantScoreKeys(slice.region);
+          const scores: Record<string, string> = {};
+          for (const zone of ALL_ZONES) {
+            for (const side of ["left", "right"]) {
+              const key = `${zone}_${side}_score`;
+              scores[key] = relevant.includes(key) ? (slice.scores[key] ?? "Not_Applicable") : "Not_Applicable";
+            }
+          }
+          return { image_uuid: imgUuid, region: slice.region, notes: slice.notes || null, ...scores };
+        })
+      : [];
+    return {
+      annotation_session_uuid: sessionUuid,
+      usability: snap.usability,
+      low_quality: snap.lowQuality,
+      notes: snap.setNotes || null,
+      image_evaluations: imageEvaluations,
+    };
+  },
+
+  restoreDraft: (payload) => {
+    const { images } = get();
+    const evals = (payload.image_evaluations as Record<string, unknown>[] | undefined) ?? [];
+
+    // Rebuild slices from the saved image_evaluations array
+    const restoredSlices: Record<string, SliceEvalState> = {};
+    for (const img of images) {
+      const saved = evals.find((e) => e.image_uuid === img.uuid);
+      if (!saved) continue;
+      const region = (saved.region as Region) ?? "None";
+      const scores: Record<string, RegionScore | null> = {};
+      for (const zone of ALL_ZONES) {
+        for (const side of ["left", "right"]) {
+          const key = `${zone}_${side}_score`;
+          const val = saved[key] as RegionScore | undefined;
+          scores[key] = val && val !== "Not_Applicable" ? val : null;
+        }
+      }
+      restoredSlices[img.uuid] = {
+        region,
+        scores,
+        notes: (saved.notes as string) ?? "",
+      };
+    }
+
+    set({
+      usability: (payload.usability as ImageSetUsability) ?? null,
+      lowQuality: (payload.low_quality as boolean) ?? false,
+      setNotes: (payload.notes as string) ?? "",
+      slices: restoredSlices,
+    });
   },
 }));
