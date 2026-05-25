@@ -55,6 +55,7 @@ export default function LabelPage() {
   const [imgLoading, setImgLoading] = useState(false);
   const [wlInput, setWlInput] = useState(String(windowLevel));
   const [wwInput, setWwInput] = useState(String(windowWidth));
+  const [activeTab, setActiveTab] = useState<"eval" | "info">("eval");
 
   // Load image set + images on mount
   useEffect(() => {
@@ -137,7 +138,7 @@ export default function LabelPage() {
   return (
     <div className="flex h-[calc(100vh-3rem)] overflow-hidden">
       {/* ───── Left panel: image viewer ───── */}
-      <div className="flex flex-col flex-1 min-w-0 bg-black">
+      <div className="flex flex-col flex-1 min-w-0 max-w-[680px] bg-black">
         {/* Image area */}
         <div className="flex-1 flex items-center justify-center relative overflow-hidden">
           {imageUrl ? (
@@ -158,10 +159,16 @@ export default function LabelPage() {
             </div>
           )}
 
-          {/* Slice index overlay */}
+          {/* Slice counter — top left */}
           <div className="absolute top-3 left-3 bg-black/60 rounded px-2 py-1 text-white text-xs font-mono">
             {currentIndex + 1} / {images.length}
           </div>
+          {/* Slice name — top right */}
+          {currentImg?.image_name && (
+            <div className="absolute top-3 right-3 bg-black/60 rounded px-2 py-1 text-white text-xs font-mono max-w-[50%] truncate">
+              {currentImg.image_name}
+            </div>
+          )}
         </div>
 
         {/* Navigation + window controls */}
@@ -232,42 +239,80 @@ export default function LabelPage() {
           </p>
         </div>
 
-        <div className="flex-1 p-4 space-y-5">
-          {/* Set-level evaluation */}
-          <section>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground mb-3 font-medium">
-              Set Classification
-            </div>
-            <SetLevelEvaluation />
-          </section>
+        {/* Tabs */}
+        <div className="flex border-b border-border shrink-0">
+          {(["eval", "info"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-2 text-xs font-medium transition-colors ${
+                activeTab === tab
+                  ? "border-b-2 border-primary text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab === "eval" ? "Evaluation" : "Patient Info"}
+            </button>
+          ))}
+        </div>
 
-          {/* Slice-level (gated) */}
-          {aspectsEnabled() && currentImg && (
-            <>
+        <div className="flex-1 p-4 space-y-5 overflow-y-auto">
+          {activeTab === "info" ? (
+            <section className="space-y-3 text-sm">
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1 font-medium">ICD Code</div>
+                <p className="font-mono">{imageSet?.icd_code ?? "—"}</p>
+              </div>
               <Separator />
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1 font-medium">Description / Prognosis</div>
+                <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{imageSet?.description ?? "—"}</p>
+              </div>
+              <Separator />
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1 font-medium">Slices</div>
+                <p>{images.length}</p>
+              </div>
+            </section>
+          ) : (
+            <>
+              {/* Set-level evaluation */}
               <section>
                 <div className="text-xs uppercase tracking-wide text-muted-foreground mb-3 font-medium">
-                  Slice {currentIndex + 1} Scoring
+                  Set Classification
                 </div>
-                <SliceEvaluation imageUuid={currentImg.uuid} />
+                <SetLevelEvaluation />
+              </section>
+
+              {/* Slice-level (gated) */}
+              {aspectsEnabled() && currentImg && (
+                <>
+                  <Separator />
+                  <section>
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground mb-3 font-medium">
+                      Slice {currentIndex + 1} Scoring
+                    </div>
+                    <SliceEvaluation imageUuid={currentImg.uuid} />
+                  </section>
+                </>
+              )}
+
+              <Separator />
+
+              {/* Validation + submit */}
+              <section className="space-y-3">
+                <ValidationStatus />
+                <Button
+                  className="w-full gap-2"
+                  disabled={!canSubmit || submitting}
+                  onClick={handleSubmit}
+                >
+                  <Send className="h-4 w-4" />
+                  {submitting ? "Submitting…" : "Submit Annotation"}
+                </Button>
               </section>
             </>
           )}
-
-          <Separator />
-
-          {/* Validation + submit */}
-          <section className="space-y-3">
-            <ValidationStatus />
-            <Button
-              className="w-full gap-2"
-              disabled={!canSubmit || submitting}
-              onClick={handleSubmit}
-            >
-              <Send className="h-4 w-4" />
-              {submitting ? "Submitting…" : "Submit Annotation"}
-            </Button>
-          </section>
         </div>
       </div>
     </div>

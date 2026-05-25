@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Stethoscope, CheckCircle2, Globe, Layers } from "lucide-react";
+import { Stethoscope, CheckCircle2, Globe, Layers, PlayCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,15 +38,15 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [imageSets, setImageSets] = useState<ImageSetWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
-  const [starting, setStarting] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [statsRes] = await Promise.all([dashboardApi.stats()]);
+        const statsRes = await dashboardApi.stats();
         const s: DashboardStats = statsRes.data;
         setStats(s);
-
         if (s.assigned_dataset) {
           const setsRes = await imageSetsApi.listByDataset(s.assigned_dataset.dataset_uuid);
           setImageSets(setsRes.data);
@@ -60,18 +60,39 @@ export default function DashboardPage() {
     load();
   }, []);
 
-  const handleAnnotate = async (imageSetUuid: string) => {
-    setStarting(imageSetUuid);
+  const toggleSelect = (uuid: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(uuid)) next.delete(uuid);
+      else next.add(uuid);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selected.size === imageSets.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(imageSets.map((s) => s.uuid)));
+    }
+  };
+
+  const handleAnnotateSelected = async () => {
+    const selectedSets = imageSets.filter((s) => selected.has(s.uuid));
+    const target = selectedSets.find((s) => !s.evaluated_by_me) ?? selectedSets[0];
+    if (!target) return;
+
+    setStarting(true);
     try {
-      const res = await annotationSessionsApi.open(imageSetUuid);
-      navigate(`/label/${imageSetUuid}?session=${res.data.annotation_session_uuid}`);
+      const res = await annotationSessionsApi.open(target.uuid);
+      navigate(`/label/${target.uuid}?session=${res.data.annotation_session_uuid}`);
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
         "Failed to start annotation";
       toast.error(msg);
     } finally {
-      setStarting(null);
+      setStarting(false);
     }
   };
 
@@ -82,6 +103,11 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  const selectedSets = imageSets.filter((s) => selected.has(s.uuid));
+  const selectedIndices = [...selectedSets]
+    .sort((a, b) => a.dataset_index - b.dataset_index)
+    .map((s) => s.dataset_index);
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -103,36 +129,43 @@ export default function DashboardPage() {
       {/* Stats */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard
-            icon={Layers}
-            label="Total Image Sets"
-            value={stats.total_image_sets}
-          />
-          <StatCard
-            icon={Stethoscope}
-            label="My Progress"
-            value={stats.my_progress}
-            sub="sets evaluated by you"
-          />
-          <StatCard
-            icon={Globe}
-            label="Global Progress"
-            value={stats.global_progress}
-            sub="unique sets with ≥1 evaluation"
-          />
-          <StatCard
-            icon={CheckCircle2}
-            label="Remaining"
-            value={Math.max(0, stats.total_image_sets - stats.my_progress)}
-            sub="sets you haven't evaluated"
-          />
+          <StatCard icon={Layers} label="Total Image Sets" value={stats.total_image_sets} />
+          <StatCard icon={Stethoscope} label="My Progress" value={stats.my_progress} sub="sets evaluated by you" />
+          <StatCard icon={Globe} label="Global Progress" value={stats.global_progress} sub="unique sets with ≥1 evaluation" />
+          <StatCard icon={CheckCircle2} label="Remaining" value={Math.max(0, stats.total_image_sets - stats.my_progress)} sub="sets you haven't evaluated" />
         </div>
       )}
 
       {/* Image set table */}
       {stats?.assigned_dataset && (
-        <div>
-          <h2 className="text-lg font-medium mb-3">Image Sets</h2>
+        <div className="space-y-3">
+          <h2 className="text-lg font-medium">Image Sets</h2>
+
+          {/* Selection box */}
+          <div className={`rounded-lg border px-4 py-3 text-sm flex items-center justify-between gap-4 transition-colors ${
+            selected.size > 0 ? "border-primary bg-primary/5" : "border-border bg-muted/30"
+          }`}>
+            {selected.size === 0 ? (
+              <span className="text-muted-foreground">Please choose image sets to annotate</span>
+            ) : (
+              <>
+                <span>
+                  You have chosen sets:{" "}
+                  <span className="font-mono font-medium">{selectedIndices.join(", ")}</span>
+                </span>
+                <Button
+                  size="sm"
+                  className="gap-1.5 shrink-0"
+                  disabled={starting}
+                  onClick={handleAnnotateSelected}
+                >
+                  <PlayCircle className="h-4 w-4" />
+                  {starting ? "Starting…" : "Annotate"}
+                </Button>
+              </>
+            )}
+          </div>
+
           {imageSets.length === 0 ? (
             <p className="text-muted-foreground text-sm">No image sets found in this dataset.</p>
           ) : (
@@ -140,21 +173,40 @@ export default function DashboardPage() {
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="text-left px-4 py-3 font-medium">Name</th>
-                    <th className="text-left px-4 py-3 font-medium">ICD</th>
-                    <th className="text-left px-4 py-3 font-medium">Slices</th>
-                    <th className="text-left px-4 py-3 font-medium">Evaluators</th>
-                    <th className="text-left px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3" />
+                    <th className="px-3 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        checked={selected.size === imageSets.length && imageSets.length > 0}
+                        onChange={toggleAll}
+                        className="rounded"
+                      />
+                    </th>
+                    {["#", "Name", "Patient ID", "ICD", "Slices", "Evaluators", "Status"].map((h) => (
+                      <th key={h} className="text-left px-4 py-3 font-medium">{h}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {imageSets.map((s) => (
-                    <tr key={s.uuid} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 font-medium">{s.image_set_name}</td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {s.icd_code ?? "—"}
+                    <tr
+                      key={s.uuid}
+                      className={`transition-colors cursor-pointer ${
+                        selected.has(s.uuid) ? "bg-primary/5" : "hover:bg-muted/30"
+                      }`}
+                      onClick={() => toggleSelect(s.uuid)}
+                    >
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selected.has(s.uuid)}
+                          onChange={() => toggleSelect(s.uuid)}
+                          className="rounded"
+                        />
                       </td>
+                      <td className="px-4 py-3 font-mono text-muted-foreground">{s.dataset_index}</td>
+                      <td className="px-4 py-3 font-medium">{s.image_set_name}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs font-mono">{s.patient_id ?? "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{s.icd_code ?? "—"}</td>
                       <td className="px-4 py-3">{s.num_images}</td>
                       <td className="px-4 py-3">{s.total_evaluators}</td>
                       <td className="px-4 py-3">
@@ -163,20 +215,6 @@ export default function DashboardPage() {
                         ) : (
                           <Badge variant="outline">Pending</Badge>
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Button
-                          size="sm"
-                          variant={s.evaluated_by_me ? "secondary" : "default"}
-                          disabled={starting === s.uuid}
-                          onClick={() => handleAnnotate(s.uuid)}
-                        >
-                          {starting === s.uuid
-                            ? "Starting…"
-                            : s.evaluated_by_me
-                            ? "Re-annotate"
-                            : "Annotate"}
-                        </Button>
                       </td>
                     </tr>
                   ))}

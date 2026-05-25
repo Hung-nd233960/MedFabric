@@ -182,9 +182,11 @@ class ImageSetUpdate(BaseModel):
 
 class ImageSetWithProgress(_ORM):
     """ImageSet row extended with evaluation progress for the dashboard."""
+    dataset_index: int
     uuid: uuid.UUID
     dataset_uuid: uuid.UUID
     patient_uuid: uuid.UUID
+    patient_id: Optional[str] = None
     image_set_name: str
     image_format: ImageFormat
     image_window_level: Optional[int] = None

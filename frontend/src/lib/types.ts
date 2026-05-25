@@ -58,6 +58,8 @@ export interface ImageSet {
 }
 
 export interface ImageSetWithProgress extends ImageSet {
+  dataset_index: number;
+  patient_id: string | null;
   evaluated_by_me: boolean;
   total_evaluators: number;
 }

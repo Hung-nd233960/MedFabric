@@ -8,10 +8,9 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db.models import AnnotationSession, ImageSet
+from app.db.models import AnnotationSession, Doctors, ImageSet, Patient
 from app.db.schemas import ImageSetCreate, ImageSetRead, ImageSetUpdate, ImageSetWithProgress
 from app.deps import get_current_admin, get_current_doctor
-from app.db.models import Doctors
 from app.services.errors import (
     ImageSetAlreadyExistsError,
     ImageSetNotFoundError,
@@ -57,13 +56,22 @@ def list_for_dataset(
         .all()
     )
 
+    patient_uuids = {s.patient_uuid for s in image_sets}
+    patient_id_map = dict(
+        db.query(Patient.patient_uuid, Patient.patient_id)
+        .filter(Patient.patient_uuid.in_(patient_uuids))
+        .all()
+    ) if patient_uuids else {}
+
     result = []
-    for img_set in image_sets:
+    for idx, img_set in enumerate(image_sets, start=1):
         result.append(
             ImageSetWithProgress(
+                dataset_index=idx,
                 uuid=img_set.uuid,
                 dataset_uuid=img_set.dataset_uuid,
                 patient_uuid=img_set.patient_uuid,
+                patient_id=patient_id_map.get(img_set.patient_uuid),
                 image_set_name=img_set.image_set_name,
                 image_format=img_set.image_format,
                 image_window_level=img_set.image_window_level,
