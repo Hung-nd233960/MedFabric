@@ -8,7 +8,7 @@
  * The annotation session UUID is passed via query param ?session=<uuid>
  * (opened by DashboardPage before navigating here).
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -28,30 +28,11 @@ import ValidationStatus from "@/components/label/ValidationStatus";
 import { imagesApi, imageSetsApi, evaluationsApi } from "@/lib/api";
 import { useLabelStore } from "@/store/labelStore";
 import type { ImageRecord, ImageSet } from "@/lib/types";
-import { useAuthStore } from "@/store/authStore";
-
-function buildImageUrl(
-  imageUuid: string,
-  token: string | null,
-  wl: number,
-  ww: number
-): string {
-  const base = imagesApi.renderUrl(imageUuid, wl, ww);
-  // Token auth: pass as header via the proxy — but since <img> can't set headers,
-  // we use the access token in a query param here. Backend needs to support this
-  // or we use a blob URL pattern instead.
-  // For now, the proxy forwards /api/* and the interceptor adds the header on
-  // XHR requests. For <img> src we'll just omit auth and rely on session cookie
-  // (or implement a fetch+objectURL approach later).
-  return base;
-}
-
 export default function LabelPage() {
   const { imageSetUuid } = useParams<{ imageSetUuid: string }>();
   const [searchParams] = useSearchParams();
   const sessionUuid = searchParams.get("session");
   const navigate = useNavigate();
-  const token = useAuthStore((s) => s.accessToken);
 
   const {
     imageSet,

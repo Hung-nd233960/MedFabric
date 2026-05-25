@@ -22,7 +22,6 @@ import type {
   Region,
   RegionScore,
   SliceEvalState,
-  Zone,
 } from "@/lib/types";
 import { ALL_ZONES, BASAL_ZONES, CORONA_ZONES } from "@/lib/types";
 
