@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Stethoscope, CheckCircle2, Globe, Layers, PlayCircle } from "lucide-react";
@@ -7,6 +8,24 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { dashboardApi, imageSetsApi, annotationSessionsApi } from "@/lib/api";
 import type { DashboardStats, ImageSetWithProgress } from "@/lib/types";
+
+function Checkbox({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={(e) => { e.stopPropagation(); onChange(); }}
+      className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors shrink-0 ${
+        checked
+          ? "bg-primary border-primary"
+          : "border-muted-foreground/40 bg-transparent hover:border-primary"
+      }`}
+    >
+      {checked && <Check className="w-2.5 h-2.5 text-primary-foreground" strokeWidth={3} />}
+    </button>
+  );
+}
 
 function StatCard({
   icon: Icon,
@@ -195,22 +214,20 @@ export default function DashboardPage() {
                   <col className="w-[25%]" />
                   <col className="w-[25%]" />
                   <col className="w-[10%]" />
-                  <col className="w-[5%]" />
-                  <col className="w-[5%]" />
+                  <col className="w-[7.5%]" />
+                  <col className="w-[7.5%]" />
                   <col className="w-[10%]" />
-                  <col className="w-[10%]" />
+                  <col className="w-[5%]" />
                 </colgroup>
                 <thead className="bg-muted/50">
                   <tr>
                     {["Index", "Image Set Name", "Patient ID", "ICD", "Slices", "Evaluators", "Status"].map((h) => (
                       <th key={h} className="text-left px-3 py-3 font-medium truncate">{h}</th>
                     ))}
-                    <th className="px-3 py-3 text-right font-medium">
-                      <input
-                        type="checkbox"
+                    <th className="px-3 py-3 flex justify-end">
+                      <Checkbox
                         checked={selected.size === imageSets.length && imageSets.length > 0}
                         onChange={toggleAll}
-                        className="rounded cursor-pointer"
                       />
                     </th>
                   </tr>
@@ -237,13 +254,10 @@ export default function DashboardPage() {
                           <Badge variant="outline">Pending</Badge>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={selected.has(s.uuid)}
-                          onChange={() => toggleSelect(s.uuid)}
-                          className="rounded cursor-pointer"
-                        />
+                      <td className="px-3 py-3">
+                        <div className="flex justify-end">
+                          <Checkbox checked={selected.has(s.uuid)} onChange={() => toggleSelect(s.uuid)} />
+                        </div>
                       </td>
                     </tr>
                   ))}
