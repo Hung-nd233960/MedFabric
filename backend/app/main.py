@@ -7,6 +7,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
+from app.core.database import Base, engine
+import app.db.models  # noqa: F401 — registers all models with Base.metadata
 from app.routers import (
     admin,
     annotation_sessions,
@@ -31,7 +33,8 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("MedFabric %s starting up", settings.app_version)
+    logger.info("MedFabric %s starting up — creating tables if needed", settings.app_version)
+    Base.metadata.create_all(bind=engine)
     yield
     logger.info("MedFabric shutting down")
 
