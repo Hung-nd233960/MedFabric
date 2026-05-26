@@ -1,4 +1,4 @@
-# Run from project root: docker compose -f docker/docker-compose.v3.yaml --env-file backend/.env up --build -d
+# Run from project root: docker compose -f docker/docker-compose.tailscale.yaml --env-file backend/.env up --build -d
 services:
   postgres:
     image: postgres:16-alpine
@@ -24,8 +24,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    ports:
-      - "8000:8000"
     environment:
       DATABASE_URL: postgresql+psycopg2://medfabric:${POSTGRES_PASSWORD:-changeme}@postgres:5432/medfabric
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-CHANGE_ME_IN_PRODUCTION}
@@ -34,7 +32,7 @@ services:
       REFRESH_TOKEN_EXPIRE_HOURS: ${REFRESH_TOKEN_EXPIRE_HOURS:-12}
       DATASET_ROOT: /data/datasets
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      EXPOSE_API_DOCS: ${EXPOSE_API_DOCS:-true}
+      EXPOSE_API_DOCS: ${EXPOSE_API_DOCS:-false}
       DOCKER_VERSION: ${DOCKER_VERSION:-}
     volumes:
       - ${DATASET_ROOT:-../data_sets}:/data/datasets:ro
@@ -46,10 +44,40 @@ services:
       dockerfile: Dockerfile
     image: medfabric-frontend:3.0-beta
     restart: unless-stopped
-    ports:
-      - "3000:80"
     depends_on:
       - backend
 
+  tailscale:
+    build:
+      context: .
+      dockerfile: tailscale.Dockerfile
+    hostname: ${TAILSCALE_HOSTNAME:-medfabric}
+    restart: unless-stopped
+    environment:
+      TS_AUTHKEY: ${TAILSCALE_AUTH_KEY}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "false"
+    volumes:
+      - tailscale_state:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    depends_on:
+      - frontend
+    # socat forwards localhost:80 -> frontend:80 so tailscale funnel 80 has a local target.
+    # frontend stays on the normal Docker network and can reach backend without issue.
+    entrypoint: >
+      /bin/sh -c "
+        socat TCP-LISTEN:80,bind=0.0.0.0,fork,reuseaddr TCP:frontend:80 &
+        /usr/local/bin/containerboot &
+        until tailscale --socket /tmp/tailscaled.sock status --json 2>/dev/null | grep -q '\"BackendState\":\"Running\"'; do
+          sleep 2
+        done &&
+        tailscale --socket /tmp/tailscaled.sock funnel 80 &&
+        wait
+      "
+
 volumes:
   postgres_data:
+  tailscale_state:

@@ -66,7 +66,11 @@ def list_for_dataset(
             AnnotationSession.image_set_uuid,
             func.count(func.distinct(AnnotationSession.doctor_uuid)),
         )
-        .filter(AnnotationSession.submitted_at.isnot(None))
+        .join(Doctors, Doctors.uuid == AnnotationSession.doctor_uuid)
+        .filter(
+            AnnotationSession.submitted_at.isnot(None),
+            Doctors.is_test.is_(False),
+        )
         .group_by(AnnotationSession.image_set_uuid)
         .all()
     )

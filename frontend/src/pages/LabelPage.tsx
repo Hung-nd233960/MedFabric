@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, RotateCcw, Send, ArrowLeft, Trash2, Save, X, ClipboardList } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCcw, Send, ArrowLeft, Trash2, Save, X, ClipboardList, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
@@ -80,6 +80,7 @@ export default function LabelPage() {
     (Object.values(slices) as SliceEvalState[]).some(s => s.region !== "None" || s.notes.trim() !== "");
 
   const [loading, setLoading] = useState(true);
+  const [showOverlay, setShowOverlay] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -193,6 +194,13 @@ export default function LabelPage() {
     };
     load();
   }, [imageSetUuid, sessionUuid, isReadMode, currentSource, currentAdminDoctor]);
+
+  // Delay overlay by 500 ms — fast loads show nothing, slow loads get the blur treatment
+  useEffect(() => {
+    if (!loading) { setShowOverlay(false); return; }
+    const t = setTimeout(() => setShowOverlay(true), 500);
+    return () => clearTimeout(t);
+  }, [loading]);
 
   // Sync WL/WW inputs from store
   useEffect(() => {
@@ -515,16 +523,14 @@ export default function LabelPage() {
     return (setRegistry[uuid]?.slices as Record<string, SliceEvalState>) ?? {};
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-[calc(100vh-3rem)] text-muted-foreground">
-        Loading image set…
-      </div>
-    );
-  }
-
   return (
-    <div className="flex h-[calc(100vh-3rem)] overflow-hidden">
+    <div className="relative flex h-[calc(100vh-3rem)] overflow-hidden">
+
+      <div className={`absolute inset-0 z-20 flex items-center justify-center pointer-events-none transition-opacity duration-300 ${
+        showOverlay ? "opacity-100 bg-background/50 backdrop-blur-[2px]" : "opacity-0"
+      }`}>
+        <Loader2 className="w-8 h-8 animate-spin text-primary/70" />
+      </div>
 
       {/* ── Image viewer — 40% normal, 70% preview ── */}
       <div className={`${isPreviewMode ? "w-[70%]" : "w-[40%]"} bg-black relative flex items-center justify-center overflow-hidden shrink-0`}>

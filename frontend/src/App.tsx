@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { useAuthStore } from "@/store/authStore";
+import MobileGuard from "@/components/MobileGuard";
 import AppLayout from "@/components/layout/AppLayout";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
@@ -32,7 +33,7 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <>
+    <MobileGuard>
       <Toaster richColors position="top-right" />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
@@ -70,6 +71,6 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </>
+    </MobileGuard>
   );
 }
