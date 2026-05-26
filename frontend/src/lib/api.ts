@@ -28,9 +28,9 @@ api.interceptors.response.use(
 
       if (!refreshing) {
         refreshing = api
-          .post<{ access_token: string; must_change_password: boolean }>("/auth/refresh")
+          .post<{ access_token: string; must_change_password: boolean; must_set_name: boolean }>("/auth/refresh")
           .then((r) => {
-            useAuthStore.getState().setAccessToken(r.data.access_token, r.data.must_change_password);
+            useAuthStore.getState().setAccessToken(r.data.access_token, r.data.must_change_password, r.data.must_set_name);
             return r.data.access_token;
           })
           .catch(() => {
@@ -55,12 +55,14 @@ api.interceptors.response.use(
 // Typed helpers
 export const authApi = {
   login: (username: string, password: string) =>
-    api.post<{ access_token: string; must_change_password: boolean }>("/auth/login", { username, password }),
-  register: (username: string, password: string, email?: string, invitation_code?: string) =>
-    api.post<{ access_token: string; must_change_password: boolean }>("/auth/register", { username, password, email, invitation_code }),
+    api.post<{ access_token: string; must_change_password: boolean; must_set_name: boolean }>("/auth/login", { username, password }),
+  register: (username: string, password: string, full_name: string, email?: string, invitation_code?: string) =>
+    api.post<{ access_token: string; must_change_password: boolean; must_set_name: boolean }>("/auth/register", { username, password, full_name, email, invitation_code }),
   logout: () => api.post("/auth/logout"),
   changePassword: (data: { new_password: string; current_password?: string }) =>
     api.post("/auth/change-password", data),
+  setupAccount: (data: { full_name?: string; new_password?: string }) =>
+    api.post("/auth/setup-account", data),
 };
 
 export const dashboardApi = {
@@ -111,8 +113,11 @@ export const annotationSessionsApi = {
 export const evaluationsApi = {
   submit: (payload: object) => api.post("/evaluations/submit", payload),
   saveDraft: (payload: object) => api.post("/evaluations/draft", payload),
+  saveAutoDraft: (payload: object) => api.post("/evaluations/auto-draft", payload),
   getDraftByImageSet: (imageSetUuid: string) =>
     api.get(`/evaluations/draft/by-image-set/${imageSetUuid}`),
+  getSubmissionByImageSet: (imageSetUuid: string) =>
+    api.get(`/evaluations/submission/by-image-set/${imageSetUuid}`),
   listMyDrafts: () => api.get("/evaluations/drafts/mine"),
   deleteDraftByImageSet: (imageSetUuid: string) =>
     api.delete(`/evaluations/draft/by-image-set/${imageSetUuid}`),
@@ -132,6 +137,15 @@ export const adminApi = {
   listAllDrafts: () => api.get("/admin/drafts"),
   adminDeleteDraft: (annotationSessionUuid: string) =>
     api.delete(`/admin/drafts/${annotationSessionUuid}`),
+  listSubmissions: (datasetUuid?: string) =>
+    api.get("/admin/submissions", { params: datasetUuid ? { dataset_uuid: datasetUuid } : {} }),
+  getSubmissionByImageSetAdmin: (imageSetUuid: string, doctorUuid: string) =>
+    api.get(`/admin/submission/by-image-set/${imageSetUuid}`, { params: { doctor_uuid: doctorUuid } }),
+};
+
+export const aboutApi = {
+  get: () => api.get("/about"),
+  getDev: () => api.get("/about/dev"),
 };
 
 export const exportApi = {

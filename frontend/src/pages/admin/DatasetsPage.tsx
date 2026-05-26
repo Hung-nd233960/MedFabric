@@ -79,6 +79,7 @@ export default function DatasetsPage() {
               <th className="text-left px-4 py-3 font-medium">Name</th>
               <th className="text-left px-4 py-3 font-medium">Description</th>
               <th className="text-left px-4 py-3 font-medium">Status</th>
+              <th className="text-left px-4 py-3 font-medium">Progress</th>
               <th className="text-left px-4 py-3 font-medium">Created</th>
               <th className="px-4 py-3" />
             </tr>
@@ -89,6 +90,14 @@ export default function DatasetsPage() {
                 <td className="px-4 py-3 font-medium">{d.name}</td>
                 <td className="px-4 py-3 text-muted-foreground text-xs max-w-xs truncate">{d.description ?? "—"}</td>
                 <td className="px-4 py-3"><Badge variant={d.is_active ? "success" : "secondary"}>{d.is_active ? "Active" : "Inactive"}</Badge></td>
+                <td className="px-4 py-3">
+                  <div className="text-sm font-medium">{d.global_progress}/{d.total_image_sets}</div>
+                  {d.total_image_sets > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      {Math.round(d.global_progress / d.total_image_sets * 100)}%
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-muted-foreground text-xs">{new Date(d.created_at).toLocaleDateString()}</td>
                 <td className="px-4 py-3 text-right">
                   <Button variant="ghost" size="sm" onClick={() => toggleActive(d)}>
@@ -97,7 +106,7 @@ export default function DatasetsPage() {
                 </td>
               </tr>
             ))}
-            {datasets.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No datasets</td></tr>}
+            {datasets.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">No datasets</td></tr>}
           </tbody>
         </table>
       </div>

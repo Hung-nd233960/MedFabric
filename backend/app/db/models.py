@@ -168,7 +168,10 @@ class Doctors(Base):
     email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
     password_hash: Mapped[str] = mapped_column(String(1024), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_test: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    must_set_name: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     registration_source: Mapped[str] = mapped_column(String(64), nullable=False, default="admin_created")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False,
@@ -321,6 +324,12 @@ class AnnotationSession(Base):
         DateTime(timezone=True), nullable=True
     )
     draft_deleted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    auto_draft_payload: Mapped[Optional[str]] = mapped_column(
+        Text(), nullable=True
+    )
+    auto_draft_saved_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 

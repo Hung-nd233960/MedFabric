@@ -106,7 +106,7 @@ export default function AssignmentsPage() {
       <div className="rounded-lg border overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
-            <tr>{["Doctor", "Role", "Assigned Dataset", "Since", ""].map(h => <th key={h} className="text-left px-4 py-3 font-medium">{h}</th>)}</tr>
+            <tr>{["Doctor", "Role", "Assigned Dataset", "Progress", "Since", ""].map(h => <th key={h} className="text-left px-4 py-3 font-medium">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-border">
             {rows.map(d => (
@@ -119,6 +119,18 @@ export default function AssignmentsPage() {
                   ) : (
                     <span className="text-muted-foreground">— none —</span>
                   )}
+                </td>
+                <td className="px-4 py-3">
+                  {d.assignment ? (
+                    <>
+                      <div className="text-sm font-medium">{d.assignment.doctor_progress}/{d.assignment.total_image_sets}</div>
+                      {d.assignment.total_image_sets > 0 && (
+                        <div className="text-xs text-muted-foreground">
+                          {Math.round(d.assignment.doctor_progress / d.assignment.total_image_sets * 100)}%
+                        </div>
+                      )}
+                    </>
+                  ) : ""}
                 </td>
                 <td className="px-4 py-3 text-muted-foreground text-xs">
                   {d.assignment ? new Date(d.assignment.assigned_at).toLocaleDateString() : ""}

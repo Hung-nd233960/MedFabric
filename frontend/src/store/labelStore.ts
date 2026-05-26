@@ -64,7 +64,41 @@ interface SetSnapshot {
   currentIndex: number;
 }
 
+export type { SetSnapshot };
+
+export function buildSnapshotFromPayload(
+  payload: Record<string, unknown>,
+  images: ImageRecord[]
+): SetSnapshot {
+  const evals = (payload.image_evaluations as Record<string, unknown>[] | undefined) ?? [];
+  const slices: Record<string, SliceEvalState> = {};
+  for (const img of images) {
+    const saved = evals.find((e) => e.image_uuid === img.uuid);
+    if (!saved) { slices[img.uuid] = emptySlice(); continue; }
+    const region = (saved.region as Region) ?? "None";
+    const scores: Record<string, RegionScore | null> = {};
+    for (const zone of ALL_ZONES) {
+      for (const side of ["left", "right"]) {
+        const key = `${zone}_${side}_score`;
+        const val = saved[key] as RegionScore | undefined;
+        scores[key] = val && val !== "Not_Applicable" ? val : null;
+      }
+    }
+    slices[img.uuid] = { region, scores, notes: (saved.notes as string) ?? "" };
+  }
+  return {
+    usability: (payload.usability as ImageSetUsability) ?? null,
+    lowQuality: (payload.low_quality as boolean) ?? false,
+    setNotes: (payload.notes as string) ?? "",
+    slices,
+    currentIndex: 0,
+  };
+}
+
 interface LabelStore {
+  mode: "annotate" | "read" | "preview";
+  setMode: (m: "annotate" | "read" | "preview") => void;
+
   // Per-set registry — persists annotations across set switches
   setRegistry: Record<string, SetSnapshot>;
 
@@ -87,10 +121,13 @@ interface LabelStore {
   windowWidth: number;
   defaultWindowLevel: number;
   defaultWindowWidth: number;
+  autoSaveStatus: "idle" | "pending" | "saving" | "saved";
+  setAutoSaveStatus: (s: "idle" | "pending" | "saving" | "saved") => void;
 
   // Actions — load
   loadImageSet: (imageSet: ImageSet, images: ImageRecord[], sessionUuid: string) => void;
   reset: () => void;
+  preloadRegistry: (entries: Record<string, SetSnapshot>) => void;
 
   // Actions — set level
   setUsability: (u: ImageSetUsability) => void;
@@ -119,6 +156,9 @@ interface LabelStore {
 }
 
 export const useLabelStore = create<LabelStore>((set, get) => ({
+  mode: "annotate",
+  setMode: (m) => set({ mode: m }),
+
   setRegistry: {},
   imageSet: null,
   images: [],
@@ -132,6 +172,8 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
   windowWidth: 100,
   defaultWindowLevel: 35,
   defaultWindowWidth: 100,
+  autoSaveStatus: "idle",
+  setAutoSaveStatus: (s) => set({ autoSaveStatus: s }),
 
   loadImageSet: (imageSet, images, sessionUuid) => {
     const s = get();
@@ -173,6 +215,7 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
 
   reset: () =>
     set({
+      mode: "annotate",
       setRegistry: {},
       imageSet: null,
       images: [],
@@ -186,7 +229,11 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
       windowWidth: 100,
       defaultWindowLevel: 35,
       defaultWindowWidth: 100,
+      autoSaveStatus: "idle",
     }),
+
+  preloadRegistry: (entries) =>
+    set((s) => ({ setRegistry: { ...s.setRegistry, ...entries } })),
 
   setUsability: (u) => set({ usability: u }),
   setLowQuality: (lq) => set({ lowQuality: lq }),

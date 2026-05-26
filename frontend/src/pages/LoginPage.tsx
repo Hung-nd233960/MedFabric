@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { authApi } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import ThemeToggle from "@/components/layout/ThemeToggle";
+import AboutDialog from "@/components/layout/AboutDialog";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await authApi.login(username, password);
-      setAuth(res.data.access_token, res.data.must_change_password);
+      setAuth(res.data.access_token, res.data.must_change_password, res.data.must_set_name);
       navigate("/");
     } catch (err: unknown) {
       const msg =
@@ -35,7 +36,8 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="absolute top-4 right-4">
+      <div className="absolute top-4 right-4 flex items-center gap-1">
+        <AboutDialog />
         <ThemeToggle />
       </div>
 

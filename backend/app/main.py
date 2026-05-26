@@ -7,11 +7,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
+from app.core.about import get_about, set_startup_time
 from sqlalchemy import text
 
 from app.core.database import Base, engine
 import app.db.models  # noqa: F401 — registers all models with Base.metadata
 from app.routers import (
+    about,
     admin,
     annotation_sessions,
     auth,
@@ -39,8 +41,14 @@ def _add_missing_columns() -> None:
         "ALTER TABLE annotation_sessions ADD COLUMN IF NOT EXISTS draft_payload TEXT",
         "ALTER TABLE annotation_sessions ADD COLUMN IF NOT EXISTS draft_saved_at TIMESTAMPTZ",
         "ALTER TABLE annotation_sessions ADD COLUMN IF NOT EXISTS draft_deleted_at TIMESTAMPTZ",
+        "ALTER TABLE doctors ADD COLUMN IF NOT EXISTS full_name VARCHAR(255)",
         "ALTER TABLE doctors ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE doctors ADD COLUMN IF NOT EXISTS must_set_name BOOLEAN NOT NULL DEFAULT FALSE",
         "ALTER TABLE doctors ADD COLUMN IF NOT EXISTS registration_source VARCHAR(64) NOT NULL DEFAULT 'admin_created'",
+        "ALTER TABLE annotation_sessions ADD COLUMN IF NOT EXISTS auto_draft_payload TEXT",
+        "ALTER TABLE annotation_sessions ADD COLUMN IF NOT EXISTS auto_draft_saved_at TIMESTAMPTZ",
+        "ALTER TABLE doctors ADD COLUMN IF NOT EXISTS is_test BOOLEAN NOT NULL DEFAULT FALSE",
+        "UPDATE doctors SET is_test = TRUE WHERE role = 'Admin' AND is_test = FALSE",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -53,6 +61,8 @@ def _add_missing_columns() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    set_startup_time()
+    get_about()  # load and cache about.toml; logs name/version/creator
     logger.info("MedFabric %s starting up — creating tables if needed", settings.app_version)
     Base.metadata.create_all(bind=engine)
     _add_missing_columns()
@@ -63,9 +73,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_title,
     version=settings.app_version,
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json",
+    docs_url="/api/docs" if settings.expose_api_docs else None,
+    redoc_url="/api/redoc" if settings.expose_api_docs else None,
+    openapi_url="/api/openapi.json" if settings.expose_api_docs else None,
     lifespan=lifespan,
 )
 
@@ -81,6 +91,7 @@ app.add_middleware(
 # Mount all routers under /api
 API_PREFIX = "/api"
 for router_module in [
+    about,
     auth,
     datasets,
     patients,

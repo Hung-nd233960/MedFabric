@@ -8,7 +8,7 @@
  * Keyboard: ← / → navigate images (blocked when focus is on an input).
  */
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, RotateCcw, Send, ArrowLeft, Trash2, Save, X, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,8 +18,9 @@ import { Input } from "@/components/ui/input";
 import SetLevelEvaluation from "@/components/label/SetLevelEvaluation";
 import SliceEvaluation from "@/components/label/SliceEvaluation";
 import ValidationStatus from "@/components/label/ValidationStatus";
-import { imagesApi, imageSetsApi, evaluationsApi, annotationSessionsApi, authApi } from "@/lib/api";
-import { useLabelStore } from "@/store/labelStore";
+import { imagesApi, imageSetsApi, evaluationsApi, annotationSessionsApi, authApi, adminApi } from "@/lib/api";
+import { useLabelStore, buildSnapshotFromPayload } from "@/store/labelStore";
+import { useLabelQueueStore } from "@/store/labelQueueStore";
 import { useAuthStore } from "@/store/authStore";
 import { useNavGuardStore } from "@/store/navGuardStore";
 import type { ImageRecord, ImageSet, SliceEvalState, ImageSetUsability } from "@/lib/types";
@@ -49,28 +50,41 @@ function getMissingZones(slice: SliceEvalState): string | null {
 }
 
 export default function LabelPage() {
-  const { imageSetUuid } = useParams<{ imageSetUuid: string }>();
-  const [searchParams] = useSearchParams();
-  const sessionUuid = searchParams.get("session");
-  const queue = (searchParams.get("queue") ?? "").split(",").filter(Boolean);
-  const indices = (searchParams.get("indices") ?? "").split(",").filter(Boolean).map(Number);
-  const queuePos = queue.indexOf(imageSetUuid ?? "");
+  const {
+    queue, currentPos: queuePos, indices, sources,
+    sessionUuid, adminDoctors, isReadMode, isPreviewMode,
+    setCurrentPos, setSessionUuid, clear: clearQueue,
+  } = useLabelQueueStore();
+  const imageSetUuid = queue[queuePos] ?? null;
+  const currentSource = sources[queuePos] ?? "submission";
+  const currentAdminDoctor = adminDoctors[queuePos] ?? null;
+  const isAdminRead = adminDoctors.length > 0;
   const navigate = useNavigate();
 
   const {
     imageSet, images, currentIndex, windowLevel, windowWidth,
-    defaultWindowLevel, defaultWindowWidth, setRegistry, lowQuality, slices,
-    loadImageSet, reset,
+    defaultWindowLevel, defaultWindowWidth, setRegistry, lowQuality, setNotes, slices,
+    loadImageSet, reset, setMode, preloadRegistry,
     setCurrentIndex, setWindow, resetWindow,
     aspectsEnabled, usability, currentImage,
     isSetSubmittable, isSetSubmittableByUuid, buildSubmitPayload, buildSubmitPayloadForUuid,
+    setAutoSaveStatus,
   } = useLabelStore();
 
   const { logout } = useAuthStore();
 
+  const hasAnyAnnotation =
+    usability !== null ||
+    lowQuality ||
+    setNotes.trim() !== "" ||
+    (Object.values(slices) as SliceEvalState[]).some(s => s.region !== "None" || s.notes.trim() !== "");
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialLoadDone = useRef(false);
+  const draftToastShown = useRef(false);
   const [navigating, setNavigating] = useState(false);
   const [imgLoading, setImgLoading] = useState(false);
   const [submitDialogMode, setSubmitDialogMode] = useState<"all-ready" | "partial-ready" | null>(null);
@@ -80,6 +94,13 @@ export default function LabelPage() {
   const [showManagementBoard, setShowManagementBoard] = useState(false);
   const [selectedBoardSetUuid, setSelectedBoardSetUuid] = useState<string | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [rightTab, setRightTab] = useState<"set-info" | "patient-info" | "annotation-info">("set-info");
+  const [annotationMeta, setAnnotationMeta] = useState<{
+    type: "submission" | "draft";
+    doctorUsername: string | null;
+    doctorFullName: string | null;
+    timestamp: string | null;
+  } | null>(null);
 
   // Local input state (uncontrolled until apply)
   const [wlInput, setWlInput] = useState(String(windowLevel));
@@ -89,10 +110,22 @@ export default function LabelPage() {
 
   const currentImg = currentImage();
 
+  // Redirect if queue is empty (e.g. page refresh)
+  useEffect(() => {
+    if (queue.length === 0) navigate("/", { replace: true });
+  }, [queue.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Load image set on mount / set change
   useEffect(() => {
-    if (!imageSetUuid || !sessionUuid) { navigate("/"); return; }
+    if (!imageSetUuid) return;
+    if (!isReadMode && !isPreviewMode && !sessionUuid) { navigate("/", { replace: true }); return; }
+    setMode(isReadMode ? "read" : isPreviewMode ? "preview" : "annotate");
+    setRightTab("set-info");
+    setAnnotationMeta(null);
     setLoading(true);
+    initialLoadDone.current = false;
+    setAutoSaveStatus("idle");
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     const load = async () => {
       try {
         const [setRes, imgRes] = await Promise.all([
@@ -101,29 +134,65 @@ export default function LabelPage() {
         ]);
         const imgSet: ImageSet = setRes.data;
         const imgs: ImageRecord[] = imgRes.data;
-        loadImageSet(imgSet, imgs, sessionUuid);
+        loadImageSet(imgSet, imgs, sessionUuid ?? "");
 
-        // Restore server-side draft if one exists
-        try {
-          const draftRes = await evaluationsApi.getDraftByImageSet(imageSetUuid);
-          const p = draftRes.data.payload;
-          if (p) {
+        if (isReadMode) {
+          // Load submission or draft data to restore into store
+          try {
             const { restoreDraft } = useLabelStore.getState();
-            restoreDraft(p);
-            toast.info("Draft restored.");
+            if (currentSource === "draft") {
+              const draftRes = await evaluationsApi.getDraftByImageSet(imageSetUuid);
+              const d = draftRes.data;
+              if (d.payload) restoreDraft(d.payload);
+              setAnnotationMeta({
+                type: "draft",
+                doctorUsername: d.doctor_username ?? null,
+                doctorFullName: d.doctor_full_name ?? null,
+                timestamp: d.draft_saved_at ?? null,
+              });
+            } else {
+              const subRes = currentAdminDoctor
+                ? await adminApi.getSubmissionByImageSetAdmin(imageSetUuid, currentAdminDoctor)
+                : await evaluationsApi.getSubmissionByImageSet(imageSetUuid);
+              const d = subRes.data;
+              if (d.payload) restoreDraft(d.payload);
+              setAnnotationMeta({
+                type: "submission",
+                doctorUsername: d.doctor_username ?? null,
+                doctorFullName: d.doctor_full_name ?? null,
+                timestamp: d.draft_saved_at ?? null,
+              });
+            }
+          } catch {
+            setAnnotationMeta(null);
           }
-        } catch {
-          // No draft — normal fresh load
+        } else if (!isPreviewMode) {
+          // Annotate mode: restore server-side draft if one exists
+          try {
+            const draftRes = await evaluationsApi.getDraftByImageSet(imageSetUuid);
+            const p = draftRes.data.payload;
+            if (p) {
+              const { restoreDraft } = useLabelStore.getState();
+              restoreDraft(p);
+              if (!draftToastShown.current) {
+                toast.info("Draft restored.");
+                draftToastShown.current = true;
+              }
+            }
+          } catch {
+            // No draft — normal fresh load
+          }
         }
       } catch {
         toast.error("Failed to load image set");
         navigate("/");
       } finally {
         setLoading(false);
+        if (!isReadMode && !isPreviewMode) initialLoadDone.current = true;
       }
     };
     load();
-  }, [imageSetUuid, sessionUuid]);
+  }, [imageSetUuid, sessionUuid, isReadMode, currentSource, currentAdminDoctor]);
 
   // Sync WL/WW inputs from store
   useEffect(() => {
@@ -155,14 +224,82 @@ export default function LabelPage() {
   }, [currentIndex, images.length]);
   void inputFocusRef;
 
-  // Register navbar navigation interceptor while on this page
+  // Auto-save draft while in annotate mode — debounced 2.5 s after last change
   useEffect(() => {
+    if (isReadMode || !sessionUuid || !initialLoadDone.current) return;
+    setAutoSaveStatus("pending");
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(async () => {
+      setAutoSaveStatus("saving");
+      try {
+        await evaluationsApi.saveAutoDraft(useLabelStore.getState().buildSubmitPayload());
+        setAutoSaveStatus("saved");
+        // Revert to idle after 3 s, but only if nothing changed in the meantime
+        setTimeout(() => { if (useLabelStore.getState().autoSaveStatus === "saved") setAutoSaveStatus("idle"); }, 3000);
+      } catch {
+        setAutoSaveStatus("idle");
+      }
+    }, 2500);
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usability, lowQuality, setNotes, slices]);
+
+  // Register navbar navigation interceptor while on this page (skip in read/preview mode)
+  useEffect(() => {
+    if (isReadMode || isPreviewMode) return;
     useNavGuardStore.getState().setInterceptor((dest: string) => {
+      const st = useLabelStore.getState();
+      const dirty =
+        st.usability !== null ||
+        st.lowQuality ||
+        st.setNotes.trim() !== "" ||
+        (Object.values(st.slices) as SliceEvalState[]).some(s => s.region !== "None" || s.notes.trim() !== "");
+      if (!dirty) { st.reset(); useLabelQueueStore.getState().clear(); navigate(dest); return; }
       setPendingNavDest(dest);
       setConfirmExit(true);
     });
     return () => { useNavGuardStore.getState().setInterceptor(null); };
-  }, []);
+  }, [isReadMode, isPreviewMode]);
+
+  // In reader mode: preload all other queue sets into setRegistry so the Management Board
+  // can show their status without requiring navigation to each set first.
+  useEffect(() => {
+    if (!isReadMode || queue.length <= 1) return;
+    let cancelled = false;
+    const otherIndices = queue
+      .map((uuid: string, i: number) => ({ uuid, i }))
+      .filter(({ uuid }: { uuid: string; i: number }) => uuid !== imageSetUuid);
+
+    Promise.all(
+      otherIndices.map(async ({ uuid, i }: { uuid: string; i: number }) => {
+        try {
+          const [imgRes, annRes] = await Promise.all([
+            imagesApi.listByImageSet(uuid),
+            sources[i] === "draft"
+              ? evaluationsApi.getDraftByImageSet(uuid)
+              : adminDoctors[i]
+                ? adminApi.getSubmissionByImageSetAdmin(uuid, adminDoctors[i])
+                : evaluationsApi.getSubmissionByImageSet(uuid),
+          ]);
+          const imgs: ImageRecord[] = imgRes.data;
+          const payload = annRes.data?.payload;
+          if (!payload) return null;
+          return { uuid, snapshot: buildSnapshotFromPayload(payload, imgs) };
+        } catch {
+          return null;
+        }
+      })
+    ).then((results) => {
+      if (cancelled) return;
+      const entries: Record<string, ReturnType<typeof buildSnapshotFromPayload>> = {};
+      for (const r of results) {
+        if (r) entries[r.uuid] = r.snapshot;
+      }
+      if (Object.keys(entries).length > 0) preloadRegistry(entries);
+    });
+
+    return () => { cancelled = true; };
+  }, [isReadMode, imageSetUuid]);
 
   useEffect(() => {
     if (!currentImg) { setBlobUrl(null); return; }
@@ -194,12 +331,17 @@ export default function LabelPage() {
   };
 
   const goToSet = async (targetUuid: string) => {
+    const targetPos = queue.indexOf(targetUuid);
+    if (targetPos === -1) return;
+    if (isReadMode || isPreviewMode) {
+      setCurrentPos(targetPos);
+      return;
+    }
     setNavigating(true);
     try {
       const res = await annotationSessionsApi.open(targetUuid);
-      const q = queue.join(",");
-      const idx = indices.join(",");
-      navigate(`/label/${targetUuid}?session=${res.data.annotation_session_uuid}&queue=${q}&indices=${idx}`);
+      setSessionUuid(res.data.annotation_session_uuid);
+      setCurrentPos(targetPos);
     } catch {
       toast.error("Failed to open set");
     } finally {
@@ -252,6 +394,7 @@ export default function LabelPage() {
       const parts = [toSubmit.length && `${toSubmit.length} submitted`, toDraft.length && `${toDraft.length} drafted`].filter(Boolean);
       toast.success(parts.join(", ") || "Done.");
       reset();
+      clearQueue();
       navigate("/");
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? "Action failed";
@@ -274,10 +417,14 @@ export default function LabelPage() {
     }
   };
 
-  const doNavigatePending = async () => {
+  const doNavigatePending = async (deleteDraft = false) => {
     const dest = pendingNavDest;
     setPendingNavDest(null);
+    if (deleteDraft && imageSetUuid) {
+      try { await evaluationsApi.deleteDraftByImageSet(imageSetUuid); } catch { /* no draft is fine */ }
+    }
     reset();
+    clearQueue();
     if (dest === "__logout__") {
       try { await authApi.logout(); } finally {
         logout();
@@ -288,7 +435,13 @@ export default function LabelPage() {
     }
   };
 
-  const handleExit = () => { setPendingNavDest("/"); setConfirmExit(true); };
+  const handleExit = () => {
+    if (isReadMode) { reset(); clearQueue(); navigate(isAdminRead ? "/admin/submissions" : "/"); return; }
+    if (isPreviewMode) { reset(); clearQueue(); navigate("/"); return; }
+    if (!hasAnyAnnotation) { reset(); clearQueue(); navigate("/"); return; }
+    setPendingNavDest("/");
+    setConfirmExit(true);
+  };
 
   const handleResetAll = async () => {
     if (!imageSetUuid || !sessionUuid) return;
@@ -318,7 +471,7 @@ export default function LabelPage() {
   const datasetIndex = indices[queuePos] ?? null;
 
   const aspectsDisabledMessage = usability === null
-    ? "Please give image set usability first"
+    ? (isReadMode ? "No usability recorded" : "Please give image set usability first")
     : "ASPECTS scoring is disabled for this image set";
 
   // Management Board helpers (closure over store state)
@@ -373,8 +526,8 @@ export default function LabelPage() {
   return (
     <div className="flex h-[calc(100vh-3rem)] overflow-hidden">
 
-      {/* ── Left (40%): image viewer ── */}
-      <div className="w-[40%] bg-black relative flex items-center justify-center overflow-hidden shrink-0">
+      {/* ── Image viewer — 40% normal, 70% preview ── */}
+      <div className={`${isPreviewMode ? "w-[70%]" : "w-[40%]"} bg-black relative flex items-center justify-center overflow-hidden shrink-0`}>
         {blobUrl ? (
           <img
             key={blobUrl}
@@ -400,8 +553,8 @@ export default function LabelPage() {
         )}
       </div>
 
-      {/* ── Middle (30%): image annotation ── */}
-      <div className="w-[30%] flex flex-col border-l border-border bg-background shrink-0 overflow-hidden">
+      {/* ── Middle (30%): image annotation — hidden in preview ── */}
+      {!isPreviewMode && <div className="w-[30%] flex flex-col border-l border-border bg-background shrink-0 overflow-hidden">
         <div className="flex-1 overflow-y-auto">
           <div className="p-4 space-y-4">
             <h3 className="text-base font-semibold uppercase tracking-widest text-muted-foreground">
@@ -503,64 +656,30 @@ export default function LabelPage() {
                   </p>
                 </div>
               ) : currentImg ? (
-                <SliceEvaluation imageUuid={currentImg.uuid} />
+                <SliceEvaluation imageUuid={currentImg.uuid} readOnly={isReadMode} />
               ) : (
                 <p className="text-base text-muted-foreground">No image loaded</p>
               )}
             </div>
           </div>
         </div>
-      </div>
+      </div>}
 
-      {/* ── Right (30%): image set evaluation ── */}
-      <div className="w-[30%] flex flex-col border-l border-border bg-background shrink-0 overflow-hidden">
+      {/* ── Right (30%): image set evaluation — hidden in preview ── */}
+      {!isPreviewMode && <div className="w-[30%] flex flex-col border-l border-border bg-background shrink-0 overflow-hidden">
         <div className="flex-1 overflow-y-auto">
           <div className="p-4 space-y-4">
             <h3 className="text-base font-semibold uppercase tracking-widest text-muted-foreground">
               Image Set Evaluation
             </h3>
 
-            {/* Set position indicator */}
-            <p className="text-lg font-semibold text-foreground">
-              Set {queuePos + 1} of {queue.length}
-            </p>
-
-            {/* Set info */}
-            <div className="space-y-3">
-              <div className="space-y-1 text-base">
-                {datasetIndex !== null && (
-                  <div className="flex gap-2">
-                    <span className="text-muted-foreground w-28 shrink-0">Set Index</span>
-                    <span className="font-mono">{datasetIndex}</span>
-                  </div>
-                )}
-                {imageSet?.uuid && (
-                  <div className="flex gap-2">
-                    <span className="text-muted-foreground w-28 shrink-0">Image Set ID</span>
-                    <span className="font-mono truncate text-sm">{imageSet.uuid}</span>
-                  </div>
-                )}
-                {imageSet?.image_set_name && (
-                  <div className="flex gap-2">
-                    <span className="text-muted-foreground w-28 shrink-0">Set ID</span>
-                    <span className="font-mono truncate">{imageSet.image_set_name}</span>
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <span className="text-muted-foreground w-28 shrink-0">ICD</span>
-                  <span className="font-mono">{imageSet?.icd_code ?? "—"}</span>
-                </div>
-                {imageSet?.description && (
-                  <div className="flex gap-2">
-                    <span className="text-muted-foreground w-28 shrink-0">Description</span>
-                    <span className="leading-relaxed">{imageSet.description}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Set navigation — only when queue has multiple sets */}
+            {/* Set position indicator + navigation (always visible) */}
+            <div className="space-y-2">
+              <p className="text-lg font-semibold text-foreground">
+                Set {queuePos + 1} of {queue.length}
+              </p>
               {queue.length > 1 && (
-                <div className="flex items-end gap-2">
+                <div className="flex items-center gap-2">
                   <Button
                     variant="outline" size="icon" className="h-8 w-8 shrink-0"
                     disabled={navigating}
@@ -577,7 +696,7 @@ export default function LabelPage() {
                     onKeyDown={(e) => e.key === "Enter" && applyJumpSet(jumpSetInput)}
                     min={1} max={queue.length}
                   />
-                  <span className="text-base text-muted-foreground shrink-0">of {queue.length} sets</span>
+                  <span className="text-sm text-muted-foreground shrink-0">of {queue.length}</span>
                   <Button
                     variant="outline" size="icon" className="h-8 w-8 shrink-0"
                     disabled={navigating}
@@ -585,8 +704,7 @@ export default function LabelPage() {
                   >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
-                  <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                    <span className="text-[10px] text-muted-foreground leading-none">Jump to Image Set</span>
+                  {queue.length >= 4 && (
                     <input
                       type="range"
                       min={1}
@@ -594,8 +712,130 @@ export default function LabelPage() {
                       value={parseInt(jumpSetInput) || queuePos + 1}
                       onChange={(e) => setJumpSetInput(e.target.value)}
                       onPointerUp={(e) => applyJumpSet((e.target as HTMLInputElement).value)}
-                      className="w-full cursor-pointer accent-primary"
+                      className="flex-1 min-w-0 cursor-pointer accent-primary"
                     />
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Tabs — Set Information / Patient Information / (Reader) Annotation Info */}
+            <div className="space-y-3">
+              <div className="flex border-b border-border">
+                {(["set-info", "patient-info"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setRightTab(tab)}
+                    className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
+                      rightTab === tab
+                        ? "border-primary text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {tab === "set-info" ? "Set Information" : "Patient Information"}
+                  </button>
+                ))}
+                {isReadMode && (
+                  <button
+                    type="button"
+                    onClick={() => setRightTab("annotation-info")}
+                    className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
+                      rightTab === "annotation-info"
+                        ? "border-primary text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Annotation Info
+                  </button>
+                )}
+              </div>
+
+              {/* ── Set Information ── */}
+              {rightTab === "set-info" && (
+                <div className="space-y-1 text-base">
+                  {datasetIndex !== null && (
+                    <div className="flex gap-2">
+                      <span className="text-muted-foreground w-24 shrink-0">Set Index</span>
+                      <span className="font-mono">{datasetIndex}</span>
+                    </div>
+                  )}
+                  {imageSet?.image_set_name && (
+                    <div className="flex gap-2">
+                      <span className="text-muted-foreground w-24 shrink-0">Set ID</span>
+                      <span className="font-mono truncate">{imageSet.image_set_name}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Patient Information ── */}
+              {rightTab === "patient-info" && (
+                <div className="space-y-1 text-base">
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground w-24 shrink-0">Patient ID</span>
+                    <span
+                      className="font-mono truncate max-w-[140px]"
+                      title={imageSet?.patient_id ?? undefined}
+                    >
+                      {imageSet?.patient_id ?? "—"}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground w-24 shrink-0">Age</span>
+                    <span>{imageSet?.patient_age != null ? imageSet.patient_age : "—"}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground w-24 shrink-0">Gender</span>
+                    <span>{imageSet?.patient_gender ?? "—"}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground w-24 shrink-0">ICD</span>
+                    <span className="font-mono">{imageSet?.icd_code ?? "—"}</span>
+                  </div>
+                  {imageSet?.description && (
+                    <div className="flex gap-2">
+                      <span className="text-muted-foreground w-24 shrink-0">Description</span>
+                      <span className="leading-relaxed text-sm">{imageSet.description}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Annotation Info (reader mode only) ── */}
+              {rightTab === "annotation-info" && isReadMode && (
+                <div className="space-y-3 text-base">
+                  <div className="flex gap-2 items-start">
+                    <span className="text-muted-foreground w-20 shrink-0">Type</span>
+                    {annotationMeta ? (
+                      annotationMeta.type === "submission" ? (
+                        <span className="inline-flex items-center rounded-full border border-blue-500/40 bg-blue-500/10 px-2.5 py-0.5 text-sm font-medium text-blue-400">
+                          Full Annotation
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2.5 py-0.5 text-sm font-medium text-yellow-400">
+                          Draft
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground w-20 shrink-0">By</span>
+                    <span className="font-medium">
+                      {annotationMeta
+                        ? (annotationMeta.doctorFullName ?? annotationMeta.doctorUsername ?? "—")
+                        : "—"}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground w-20 shrink-0">Time</span>
+                    <span className="text-sm">
+                      {annotationMeta?.timestamp
+                        ? new Date(annotationMeta.timestamp).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+                        : "—"}
+                    </span>
                   </div>
                 </div>
               )}
@@ -606,65 +846,207 @@ export default function LabelPage() {
             {/* Set classification */}
             <div className="space-y-3">
               <p className="text-base font-medium text-muted-foreground">Set Classification</p>
-              <SetLevelEvaluation />
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Submit + Exit + Reset */}
-          <div className="p-4 space-y-3">
-            <ValidationStatus />
-
-            {/* Management Board */}
-            <Button
-              variant="outline"
-              className="w-full gap-2 border-foreground text-foreground font-semibold"
-              onClick={() => setShowManagementBoard(true)}
-            >
-              <ClipboardList className="h-4 w-4" />
-              Management Board
-            </Button>
-
-            {/* Save Draft + Submit — inline 50/50 */}
-            <div className="flex gap-2">
-              <Button
-                className="flex-1 gap-2 bg-yellow-500 hover:bg-yellow-600 text-black"
-                disabled={savingDraft || submitting}
-                onClick={handleSaveDraft}
-              >
-                <Save className="h-4 w-4" />
-                {savingDraft ? "Saving…" : "Save Draft"}
-              </Button>
-              <Button
-                className="flex-1 gap-2"
-                disabled={!anyReady || submitting || navigating}
-                onClick={() => setSubmitDialogMode(allReady ? "all-ready" : "partial-ready")}
-              >
-                <Send className="h-4 w-4" />
-                {submitting ? "Submitting…" : anyReady ? "Submit Annotation" : "Not Ready"}
-              </Button>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                className="flex-1 gap-2 bg-purple-600 hover:bg-purple-700 text-white"
-                onClick={handleExit}
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Exit to Dashboard
-              </Button>
-              <Button
-                variant="ghost"
-                className="flex-1 gap-2 text-destructive hover:text-destructive"
-                onClick={() => setConfirmReset(true)}
-              >
-                <Trash2 className="h-4 w-4" />
-                Reset All Annotations
-              </Button>
+              <SetLevelEvaluation readOnly={isReadMode} />
             </div>
           </div>
         </div>
-      </div>
+
+        {/* ── Pinned action buttons ── */}
+        <div className="border-t border-border p-4 space-y-3 shrink-0">
+          {isReadMode ? (
+            <>
+              <div className="rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm text-blue-400 text-center font-medium">
+                Read-only — annotations cannot be changed
+              </div>
+              <Button
+                variant="outline"
+                className="w-full gap-2 border-foreground text-foreground font-semibold"
+                onClick={() => setShowManagementBoard(true)}
+              >
+                <ClipboardList className="h-4 w-4" />
+                Management Board
+              </Button>
+              <Button
+                className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={handleExit}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                {isAdminRead ? "Return to Submissions" : "Return to Dashboard"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <ValidationStatus />
+              <Button
+                variant="outline"
+                className="w-full gap-2 border-foreground text-foreground font-semibold"
+                onClick={() => setShowManagementBoard(true)}
+              >
+                <ClipboardList className="h-4 w-4" />
+                Management Board
+              </Button>
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1 gap-2 bg-yellow-500 hover:bg-yellow-600 text-black"
+                  disabled={savingDraft || submitting}
+                  onClick={handleSaveDraft}
+                >
+                  <Save className="h-4 w-4" />
+                  {savingDraft ? "Saving…" : "Save Draft"}
+                </Button>
+                <Button
+                  className="flex-1 gap-2"
+                  disabled={!anyReady || submitting || navigating}
+                  onClick={() => setSubmitDialogMode(allReady ? "all-ready" : "partial-ready")}
+                >
+                  <Send className="h-4 w-4" />
+                  {submitting ? "Submitting…" : anyReady ? "Submit Annotation" : "Not Ready"}
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1 gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+                  onClick={handleExit}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Exit to Dashboard
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="flex-1 gap-2 text-destructive hover:text-destructive"
+                  onClick={() => setConfirmReset(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Reset All Annotations
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>}
+
+      {/* ── Preview panel (30%) — only in preview mode ── */}
+      {isPreviewMode && (
+        <div className="w-[30%] flex flex-col border-l border-border bg-background shrink-0 overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-4 space-y-4" style={{ zoom: 1.25 }}>
+
+              {/* Image Set Preview */}
+              <h3 className="text-base font-semibold uppercase tracking-widest text-muted-foreground">
+                Image Set Preview
+              </h3>
+              <div className="space-y-2">
+                <p className="text-lg font-semibold">{queue.length > 1 ? `Set ${queuePos + 1} of ${queue.length}` : "Set"}</p>
+                {queue.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" disabled={navigating}
+                      onClick={() => goToSet(queue[(queuePos - 1 + queue.length) % queue.length])}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Input type="number" className={`h-8 w-14 text-center text-base ${NO_SPINNER}`}
+                      value={jumpSetInput}
+                      onChange={(e) => setJumpSetInput(e.target.value)}
+                      onBlur={(e) => applyJumpSet(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && applyJumpSet(jumpSetInput)}
+                      min={1} max={queue.length} />
+                    <span className="text-sm text-muted-foreground shrink-0">of {queue.length}</span>
+                    <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" disabled={navigating}
+                      onClick={() => goToSet(queue[(queuePos + 1) % queue.length])}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    {queue.length >= 4 && (
+                      <input type="range" min={1} max={queue.length}
+                        value={parseInt(jumpSetInput) || queuePos + 1}
+                        onChange={(e) => setJumpSetInput(e.target.value)}
+                        onPointerUp={(e) => applyJumpSet((e.target as HTMLInputElement).value)}
+                        className="flex-1 min-w-0 cursor-pointer accent-primary" />
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Set Information */}
+              <div className="space-y-1 text-sm">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Set Information</p>
+                {datasetIndex !== null && <div className="flex gap-2"><span className="text-muted-foreground w-24 shrink-0">Set Index</span><span className="font-mono">{datasetIndex}</span></div>}
+                {imageSet?.image_set_name && <div className="flex gap-2"><span className="text-muted-foreground w-24 shrink-0">Set Name</span><span className="truncate">{imageSet.image_set_name}</span></div>}
+              </div>
+
+              {/* Patient Information */}
+              <div className="space-y-1 text-sm">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Patient Information</p>
+                <div className="flex gap-2"><span className="text-muted-foreground w-24 shrink-0">Patient ID</span><span className="font-mono truncate max-w-[140px]" title={imageSet?.patient_id ?? undefined}>{imageSet?.patient_id ?? "—"}</span></div>
+                <div className="flex gap-2"><span className="text-muted-foreground w-24 shrink-0">Age</span><span>{imageSet?.patient_age != null ? imageSet.patient_age : "—"}</span></div>
+                <div className="flex gap-2"><span className="text-muted-foreground w-24 shrink-0">Gender</span><span>{imageSet?.patient_gender ?? "—"}</span></div>
+                <div className="flex gap-2"><span className="text-muted-foreground w-24 shrink-0">ICD</span><span className="font-mono">{imageSet?.icd_code ?? "—"}</span></div>
+                {imageSet?.description && <div className="flex gap-2"><span className="text-muted-foreground w-24 shrink-0">Description</span><span className="text-muted-foreground">{imageSet.description}</span></div>}
+              </div>
+
+              <Separator />
+
+              {/* Image Preview */}
+              <h3 className="text-base font-semibold uppercase tracking-widest text-muted-foreground">
+                Image Preview
+              </h3>
+              <div className="space-y-3">
+                {images.length === 1 ? (
+                  <p className="text-base text-muted-foreground">Image 1 of 1</p>
+                ) : (
+                  <div className="flex items-end gap-2">
+                    <Button variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                      onClick={() => { const n = (currentIndex - 1 + images.length) % images.length; setCurrentIndex(n); setJumpImgInput(String(n + 1)); }}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Input type="number" className={`h-8 w-16 text-center text-base ${NO_SPINNER}`}
+                      value={jumpImgInput}
+                      onChange={(e) => setJumpImgInput(e.target.value)}
+                      onBlur={(e) => applyJumpImage(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && applyJumpImage(jumpImgInput)}
+                      min={1} max={images.length} />
+                    <span className="text-base text-muted-foreground shrink-0">of {images.length}</span>
+                    <Button variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                      onClick={() => { const n = (currentIndex + 1) % images.length; setCurrentIndex(n); setJumpImgInput(String(n + 1)); }}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                      <span className="text-[10px] text-muted-foreground leading-none">Jump to Image</span>
+                      <input type="range" min={1} max={images.length} value={currentIndex + 1}
+                        onChange={(e) => { const n = parseInt(e.target.value); setCurrentIndex(n - 1); setJumpImgInput(String(n)); }}
+                        className="w-full cursor-pointer accent-primary" />
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Label className="text-base text-muted-foreground shrink-0">WL</Label>
+                  <Input type="number" className={`h-7 w-16 text-base ${NO_SPINNER}`} value={wlInput}
+                    onChange={(e) => setWlInput(e.target.value)} onBlur={applyWindow}
+                    onKeyDown={(e) => e.key === "Enter" && applyWindow()} />
+                  <Label className="text-base text-muted-foreground shrink-0">WW</Label>
+                  <Input type="number" className={`h-7 w-16 text-base ${NO_SPINNER}`} value={wwInput}
+                    onChange={(e) => setWwInput(e.target.value)} onBlur={applyWindow}
+                    onKeyDown={(e) => e.key === "Enter" && applyWindow()} />
+                  <Button variant="outline" size="icon" className="h-7 w-7 shrink-0" onClick={handleResetWindow}
+                    title={`Reset to WL ${defaultWindowLevel} / WW ${defaultWindowWidth}`}>
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Pinned actions */}
+          <div className="border-t border-border p-4 space-y-3 shrink-0">
+            <Button variant="outline" className="w-full gap-2 border-foreground text-foreground font-semibold"
+              onClick={() => setShowManagementBoard(true)}>
+              <ClipboardList className="h-4 w-4" /> Management Board
+            </Button>
+            <Button className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white" onClick={handleExit}>
+              <ArrowLeft className="h-4 w-4" /> Return to Dashboard
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* ── Submit dialog — all ready ── */}
       {submitDialogMode === "all-ready" && (
@@ -743,7 +1125,7 @@ export default function LabelPage() {
           <div className="bg-background border border-border rounded-lg p-6 w-80 space-y-4 shadow-xl">
             <p className="text-base font-semibold">Leave annotation?</p>
             <p className="text-sm text-muted-foreground">
-              Unsaved annotations will be lost unless you save a draft first.
+              Your latest changes have been auto-saved. You can keep or discard them.
             </p>
             <div className="flex flex-col gap-2">
               <Button
@@ -752,14 +1134,14 @@ export default function LabelPage() {
                 onClick={async () => { setConfirmExit(false); await handleSaveDraft(); doNavigatePending(); }}
               >
                 <Save className="h-4 w-4" />
-                {savingDraft ? "Saving…" : "Save Draft"}
+                {savingDraft ? "Saving…" : "Draft the latest changes"}
               </Button>
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => { setConfirmExit(false); doNavigatePending(); }}
+                onClick={() => { setConfirmExit(false); doNavigatePending(true); }}
               >
-                Don't save draft
+                Don't keep the latest changes
               </Button>
               <Button
                 variant="ghost"
@@ -798,13 +1180,13 @@ export default function LabelPage() {
             <div className="flex flex-1 min-h-0">
 
               {/* Left: Image Set Statuses */}
-              <div className="w-1/2 border-r overflow-y-auto">
+              <div className={`${isPreviewMode ? "w-full" : "w-1/2 border-r"} overflow-y-auto`}>
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-background border-b z-10">
                     <tr>
                       <th className="px-3 py-2 text-left font-medium text-muted-foreground w-12">Set #</th>
                       <th className="px-3 py-2 text-left font-medium text-muted-foreground w-16">Index</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>
+                      {!isPreviewMode && <th className="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -825,7 +1207,7 @@ export default function LabelPage() {
                         >
                           <td className="px-3 py-2 font-mono text-muted-foreground">{pos + 1}</td>
                           <td className="px-3 py-2 font-mono text-muted-foreground">{indices[pos] ?? "—"}</td>
-                          <td className={`px-3 py-2 font-medium ${colorClass}`}>{status.text}</td>
+                          {!isPreviewMode && <td className={`px-3 py-2 font-medium ${colorClass}`}>{status.text}</td>}
                         </tr>
                       );
                     })}
@@ -833,8 +1215,9 @@ export default function LabelPage() {
                 </table>
               </div>
 
-              {/* Right: Image Status for selected set */}
-              <div className="w-1/2 overflow-y-auto">
+              {/* Right: Image Status for selected set (hidden in preview mode) */}
+              {!isPreviewMode && <div className="w-1/2 overflow-y-auto">
+
                 {selectedBoardSetUuid ? (() => {
                   const snap = getSnapForMB(selectedBoardSetUuid);
                   const isAspects = snap?.usability === "IschemicAssessable" && !snap?.lowQuality;
@@ -893,7 +1276,7 @@ export default function LabelPage() {
                     </p>
                   </div>
                 )}
-              </div>
+              </div>}
             </div>
           </div>
         </div>

@@ -24,18 +24,26 @@ def register_doctor(
     db: Session,
     username: str,
     password: str,
+    full_name: Optional[str] = None,
     email: Optional[str] = None,
     role: DoctorRole = DoctorRole.Doctor,
+    is_test: bool = False,
     must_change_password: bool = False,
+    must_set_name: bool = False,
     registration_source: str = "admin_created",
 ) -> Doctors:
+    # Admins are always test accounts — their annotations must not count toward global progress
+    effective_is_test = True if role == DoctorRole.Admin else is_test
     doctor = Doctors(
         uuid=uuid.uuid4(),
         username=username,
+        full_name=full_name or None,
         email=email,
         password_hash=hash_password(password),
         role=role,
+        is_test=effective_is_test,
         must_change_password=must_change_password,
+        must_set_name=must_set_name,
         registration_source=registration_source,
     )
     try:

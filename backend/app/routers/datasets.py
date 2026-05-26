@@ -4,9 +4,11 @@ import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.db.models import AnnotationSession, Doctors, ImageSet
 from app.db.schemas import DataSetCreate, DataSetRead, DataSetUpdate
 from app.deps import get_current_admin, get_current_doctor
 from app.services.datasets import create_dataset, get_dataset, list_datasets, update_dataset
@@ -21,7 +23,35 @@ def list_all_datasets(
     db: Session = Depends(get_db),
     _=Depends(get_current_doctor),
 ):
-    return list_datasets(db, active_only=active_only)
+    datasets = list_datasets(db, active_only=active_only)
+    result = []
+    for ds in datasets:
+        total = (
+            db.query(func.count(ImageSet.uuid))
+            .filter(ImageSet.dataset_uuid == ds.dataset_uuid)
+            .scalar() or 0
+        )
+        global_prog = (
+            db.query(func.count(func.distinct(AnnotationSession.image_set_uuid)))
+            .join(ImageSet, AnnotationSession.image_set_uuid == ImageSet.uuid)
+            .join(Doctors, AnnotationSession.doctor_uuid == Doctors.uuid)
+            .filter(
+                ImageSet.dataset_uuid == ds.dataset_uuid,
+                AnnotationSession.submitted_at.isnot(None),
+                Doctors.is_test.is_(False),
+            )
+            .scalar() or 0
+        )
+        result.append(DataSetRead(
+            dataset_uuid=ds.dataset_uuid,
+            name=ds.name,
+            description=ds.description,
+            is_active=ds.is_active,
+            created_at=ds.created_at,
+            total_image_sets=total,
+            global_progress=global_prog,
+        ))
+    return result
 
 
 @router.post("/", response_model=DataSetRead, status_code=status.HTTP_201_CREATED)

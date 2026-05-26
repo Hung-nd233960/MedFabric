@@ -26,19 +26,23 @@ function ScoreButton({
   value,
   current,
   onClick,
+  readOnly,
 }: {
   value: Exclude<RegionScore, "Not_Applicable">;
   current: RegionScore | null;
   onClick: () => void;
+  readOnly?: boolean;
 }) {
   const selected = current === value;
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={readOnly ? undefined : onClick}
+      disabled={readOnly && !selected}
       className={cn(
         "rounded border px-1.5 py-0.5 text-sm font-medium transition-all",
-        selected ? SCORE_STYLES[value] : "border-border text-muted-foreground hover:bg-muted"
+        selected ? SCORE_STYLES[value] : "border-border text-muted-foreground hover:bg-muted",
+        readOnly && "cursor-default pointer-events-none"
       )}
     >
       {SCORE_LABELS[value]}
@@ -49,9 +53,10 @@ function ScoreButton({
 interface ZoneRowProps {
   zone: Zone;
   imageUuid: string;
+  readOnly?: boolean;
 }
 
-function ZoneRow({ zone, imageUuid }: ZoneRowProps) {
+function ZoneRow({ zone, imageUuid, readOnly }: ZoneRowProps) {
   const { slices, setScore } = useLabelStore();
   const slice = slices[imageUuid];
   const leftKey = `${zone}_left_score`;
@@ -76,6 +81,7 @@ function ZoneRow({ zone, imageUuid }: ZoneRowProps) {
             value={s}
             current={leftScore}
             onClick={() => setScore(imageUuid, leftKey, s)}
+            readOnly={readOnly}
           />
         ))}
       </div>
@@ -86,6 +92,7 @@ function ZoneRow({ zone, imageUuid }: ZoneRowProps) {
             value={s}
             current={rightScore}
             onClick={() => setScore(imageUuid, rightKey, s)}
+            readOnly={readOnly}
           />
         ))}
       </div>
@@ -95,9 +102,10 @@ function ZoneRow({ zone, imageUuid }: ZoneRowProps) {
 
 interface ZoneScoreGridProps {
   imageUuid: string;
+  readOnly?: boolean;
 }
 
-export default function ZoneScoreGrid({ imageUuid }: ZoneScoreGridProps) {
+export default function ZoneScoreGrid({ imageUuid, readOnly }: ZoneScoreGridProps) {
   const { slices } = useLabelStore();
   const slice = slices[imageUuid];
   const region = slice?.region ?? "None";
@@ -133,7 +141,7 @@ export default function ZoneScoreGrid({ imageUuid }: ZoneScoreGridProps) {
       </div>
 
       {zones.map((z) => (
-        <ZoneRow key={z} zone={z as Zone} imageUuid={imageUuid} />
+        <ZoneRow key={z} zone={z as Zone} imageUuid={imageUuid} readOnly={readOnly} />
       ))}
     </div>
   );

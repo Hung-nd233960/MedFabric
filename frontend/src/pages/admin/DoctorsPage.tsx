@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { UserPlus, ShieldOff, ShieldCheck, KeyRound } from "lucide-react";
+import { UserPlus, ShieldOff, ShieldCheck, KeyRound, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ export default function DoctorsPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [showInactive, setShowInactive] = useState(false);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ username: "", password: "", email: "", role: "Doctor" });
+  const [form, setForm] = useState({ username: "", full_name: "", password: "", email: "", role: "Doctor", is_test: false });
   const [saving, setSaving] = useState(false);
   const [resetTarget, setResetTarget] = useState<Doctor | null>(null);
   const [resetPw, setResetPw] = useState("");
@@ -46,6 +46,17 @@ export default function DoctorsPage() {
     }
   };
 
+  const toggleTest = async (doctor: Doctor) => {
+    try {
+      await adminApi.updateDoctor(doctor.uuid, { is_test: !doctor.is_test });
+      toast.success(`'${doctor.username}' marked as ${!doctor.is_test ? "testing" : "real"} account`);
+      load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? "Failed to update account";
+      toast.error(msg);
+    }
+  };
+
   const resetPassword = async () => {
     if (!resetTarget) return;
     if (resetPw.length < 8) { toast.error("Password must be at least 8 characters."); return; }
@@ -67,10 +78,10 @@ export default function DoctorsPage() {
     if (!form.username || !form.password) { toast.error("Username and password required"); return; }
     setSaving(true);
     try {
-      await adminApi.createDoctor({ ...form, email: form.email || undefined });
+      await adminApi.createDoctor({ ...form, email: form.email || undefined, full_name: form.full_name || undefined });
       toast.success(`Doctor '${form.username}' created`);
       setOpen(false);
-      setForm({ username: "", password: "", email: "", role: "Doctor" });
+      setForm({ username: "", full_name: "", password: "", email: "", role: "Doctor", is_test: false });
       load();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? "Failed to create doctor";
@@ -105,11 +116,12 @@ export default function DoctorsPage() {
                 <DialogTitle>Create Doctor Account</DialogTitle>
               </DialogHeader>
               <div className="space-y-3 mt-2">
-                {(["username", "password", "email"] as const).map((f) => (
+                {(["username", "full_name", "password", "email"] as const).map((f) => (
                   <div key={f} className="space-y-1">
                     <Label className="capitalize">{f}</Label>
                     <Input
                       type={f === "password" ? "password" : "text"}
+                      placeholder={f === "full_name" ? "Leave blank to prompt on first login" : undefined}
                       value={form[f]}
                       onChange={(e) => setForm((p) => ({ ...p, [f]: e.target.value }))}
                     />
@@ -126,6 +138,18 @@ export default function DoctorsPage() {
                     <option value="Admin">Admin</option>
                   </select>
                 </div>
+                <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="rounded"
+                    checked={form.role === "Admin" ? true : form.is_test}
+                    disabled={form.role === "Admin"}
+                    onChange={(e) => setForm((p) => ({ ...p, is_test: e.target.checked }))}
+                  />
+                  <span className={form.role === "Admin" ? "text-muted-foreground" : ""}>
+                    Testing account <span className="text-muted-foreground text-xs">(annotations excluded from global progress)</span>
+                  </span>
+                </label>
                 <Button className="w-full mt-2" disabled={saving} onClick={createDoctor}>
                   {saving ? "Creating…" : "Create"}
                 </Button>
@@ -140,6 +164,7 @@ export default function DoctorsPage() {
           <thead className="bg-muted/50">
             <tr>
               <th className="text-left px-4 py-3 font-medium">Username</th>
+              <th className="text-left px-4 py-3 font-medium">Full Name</th>
               <th className="text-left px-4 py-3 font-medium">Email</th>
               <th className="text-left px-4 py-3 font-medium">Role</th>
               <th className="text-left px-4 py-3 font-medium">Status</th>
@@ -152,18 +177,29 @@ export default function DoctorsPage() {
             {doctors.map((d) => (
               <tr key={d.uuid} className="hover:bg-muted/30">
                 <td className="px-4 py-3 font-medium">{d.username}</td>
+                <td className="px-4 py-3 text-muted-foreground">{d.full_name ?? <span className="italic text-yellow-600 text-xs">Not set</span>}</td>
                 <td className="px-4 py-3 text-muted-foreground">{d.email ?? "—"}</td>
                 <td className="px-4 py-3">
                   <Badge variant={d.role === "Admin" ? "default" : "secondary"}>{d.role}</Badge>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <Badge variant={d.is_active ? "success" : "destructive"}>
                       {d.is_active ? "Active" : "Inactive"}
                     </Badge>
+                    {d.is_test && (
+                      <Badge variant="outline" className="text-purple-500 border-purple-500/50">
+                        <FlaskConical className="h-3 w-3 mr-1" />Testing
+                      </Badge>
+                    )}
                     {d.must_change_password && (
                       <Badge variant="outline" className="text-yellow-600 border-yellow-500">
                         Reset Pending
+                      </Badge>
+                    )}
+                    {d.must_set_name && (
+                      <Badge variant="outline" className="text-orange-600 border-orange-500">
+                        Name Pending
                       </Badge>
                     )}
                   </div>
@@ -191,6 +227,22 @@ export default function DoctorsPage() {
                     >
                       <KeyRound className="h-3.5 w-3.5" /> Reset Password
                     </Button>
+                    {d.role === "Admin" ? (
+                      <Button variant="ghost" size="sm" className="gap-1.5 opacity-40 cursor-not-allowed" disabled title="Admin accounts are permanently test accounts">
+                        <FlaskConical className="h-3.5 w-3.5" /> Always Test
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => toggleTest(d)}
+                        title={d.is_test ? "Remove test flag (blocked if account has submissions)" : "Mark as testing account"}
+                      >
+                        <FlaskConical className="h-3.5 w-3.5" />
+                        {d.is_test ? "Unmark Test" : "Mark as Test"}
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -208,7 +260,7 @@ export default function DoctorsPage() {
               </tr>
             ))}
             {doctors.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">No doctors found</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">No doctors found</td></tr>
             )}
           </tbody>
         </table>

@@ -30,7 +30,7 @@ const USABILITY_COLORS: Record<ImageSetUsability, string> = {
     "border-muted-foreground/50 bg-muted/50 text-muted-foreground",
 };
 
-export default function SetLevelEvaluation() {
+export default function SetLevelEvaluation({ readOnly }: { readOnly?: boolean }) {
   const { usability, lowQuality, setNotes, setUsability, setLowQuality, setSetNotes } =
     useLabelStore();
 
@@ -45,12 +45,14 @@ export default function SetLevelEvaluation() {
             <button
               key={u}
               type="button"
-              onClick={() => setUsability(u)}
+              onClick={readOnly ? undefined : () => setUsability(u)}
+              disabled={readOnly && usability !== u}
               className={cn(
                 "rounded-md border px-3 py-2 text-left text-base font-medium transition-all",
                 usability === u
                   ? USABILITY_COLORS[u]
-                  : "border-border text-muted-foreground hover:bg-muted"
+                  : "border-border text-muted-foreground hover:bg-muted",
+                readOnly && "cursor-default pointer-events-none"
               )}
             >
               {USABILITY_LABELS[u]}
@@ -60,13 +62,14 @@ export default function SetLevelEvaluation() {
       </div>
 
       <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
-        <Label htmlFor="low-quality" className="cursor-pointer text-lg">
+        <Label htmlFor="low-quality" className={readOnly ? "text-lg" : "cursor-pointer text-lg"}>
           Low Quality
         </Label>
         <Switch
           id="low-quality"
           checked={lowQuality}
-          onCheckedChange={setLowQuality}
+          onCheckedChange={readOnly ? undefined : setLowQuality}
+          disabled={readOnly}
         />
       </div>
 
@@ -76,7 +79,8 @@ export default function SetLevelEvaluation() {
           rows={2}
           placeholder="Any notes about this scan…"
           value={setNotes}
-          onChange={(e) => setSetNotes(e.target.value)}
+          onChange={readOnly ? undefined : (e) => setSetNotes(e.target.value)}
+          readOnly={readOnly}
           className="text-base resize-none"
         />
       </div>

@@ -13,6 +13,7 @@ export default function RegisterPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
   const [username, setUsername] = useState("");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -27,8 +28,8 @@ export default function RegisterPage() {
     }
     setLoading(true);
     try {
-      const res = await authApi.register(username, password, email || undefined, inviteCode);
-      setAuth(res.data.access_token, res.data.must_change_password);
+      const res = await authApi.register(username, password, fullName, email || undefined, inviteCode);
+      setAuth(res.data.access_token, res.data.must_change_password, res.data.must_set_name);
       navigate("/");
     } catch (err: unknown) {
       const msg =
@@ -62,6 +63,17 @@ export default function RegisterPage() {
                 minLength={3}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="fullname">Full Name</Label>
+              <Input
+                id="fullname"
+                autoComplete="name"
+                minLength={2}
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
                 required
               />
             </div>

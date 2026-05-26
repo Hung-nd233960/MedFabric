@@ -18,12 +18,27 @@ export type RegionScore =
 export interface Doctor {
   uuid: string;
   username: string;
+  full_name: string | null;
   role: DoctorRole;
   email: string | null;
   is_active: boolean;
+  is_test: boolean;
   must_change_password: boolean;
+  must_set_name: boolean;
   registration_source: string;
   created_at: string;
+}
+
+export interface SubmissionRecord {
+  annotation_session_uuid: string;
+  image_set_uuid: string;
+  image_set_name: string;
+  dataset_index: number;
+  icd_code: string | null;
+  doctor_uuid: string;
+  doctor_username: string;
+  doctor_full_name: string | null;
+  submitted_at: string;
 }
 
 export interface DataSet {
@@ -32,6 +47,8 @@ export interface DataSet {
   description: string | null;
   is_active: boolean;
   created_at: string;
+  total_image_sets: number;
+  global_progress: number;
 }
 
 export interface Patient {
@@ -47,6 +64,9 @@ export interface ImageSet {
   uuid: string;
   dataset_uuid: string;
   patient_uuid: string;
+  patient_id: string | null;
+  patient_age: number | null;
+  patient_gender: Gender | null;
   image_set_name: string;
   image_format: ImageFormat;
   image_window_level: number | null;
@@ -83,6 +103,14 @@ export interface AnnotationSession {
   submitted_at: string | null;
 }
 
+export interface DraftRead {
+  annotation_session_uuid: string;
+  draft_saved_at: string | null;
+  payload: Record<string, unknown> | null;
+  doctor_username: string | null;
+  doctor_full_name: string | null;
+}
+
 export interface DraftItem {
   annotation_session_uuid: string;
   image_set_uuid: string;
@@ -92,6 +120,7 @@ export interface DraftItem {
   icd_code: string | null;
   num_images: number;
   draft_saved_at: string;
+  draft_source: "manual" | "auto";
   evaluated_by_me: boolean;
   doctor_uuid?: string;
   doctor_username?: string;
@@ -120,6 +149,8 @@ export interface DoctorDatasetAssignment {
   dataset_uuid: string;
   assigned_at: string;
   is_active: boolean;
+  total_image_sets: number;
+  doctor_progress: number;
 }
 
 export interface AdminAuditLog {

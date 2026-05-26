@@ -6,7 +6,7 @@ from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.db.models import AnnotationSession, DataSet, ImageSet
+from app.db.models import AnnotationSession, DataSet, Doctors, ImageSet
 from app.db.schemas import DashboardStats
 from app.services.admin import get_active_assignment
 
@@ -49,13 +49,15 @@ def get_dashboard_stats(db: Session, doctor_uuid: uuid.UUID) -> DashboardStats:
             or 0
         )
 
-        # Global = unique image_sets with ≥1 submitted annotation
+        # Global = unique image_sets with ≥1 submitted annotation from non-test accounts
         global_progress = (
             db.query(func.count(func.distinct(AnnotationSession.image_set_uuid)))
             .join(ImageSet, ImageSet.uuid == AnnotationSession.image_set_uuid)
+            .join(Doctors, Doctors.uuid == AnnotationSession.doctor_uuid)
             .filter(
                 AnnotationSession.submitted_at.isnot(None),
                 ImageSet.dataset_uuid == dataset_uuid,
+                Doctors.is_test.is_(False),
             )
             .scalar()
             or 0

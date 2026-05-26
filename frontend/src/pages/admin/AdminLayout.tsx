@@ -7,6 +7,7 @@ import {
   Link2,
   Download,
   ArrowLeft,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "@/components/layout/ThemeToggle";
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { to: "patients", label: "Patients", icon: UserSquare2 },
   { to: "image-sets", label: "Image Sets", icon: ImageIcon },
   { to: "assignments", label: "Assignments", icon: Link2 },
+  { to: "submissions", label: "Submissions", icon: ClipboardList },
   { to: "export", label: "Export", icon: Download },
 ];
 

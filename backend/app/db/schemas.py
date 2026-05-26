@@ -33,6 +33,7 @@ class _ORM(BaseModel):
 class RegisterRequest(BaseModel):
     username: str
     password: str
+    full_name: str
     email: Optional[EmailStr] = None
     invitation_code: str = ""
 
@@ -50,6 +51,13 @@ class RegisterRequest(BaseModel):
             raise ValueError("Password must be at least 8 characters.")
         return v
 
+    @field_validator("full_name")
+    @classmethod
+    def full_name_length(cls, v: str) -> str:
+        if len(v.strip()) < 2:
+            raise ValueError("Full name must be at least 2 characters.")
+        return v.strip()
+
 
 class LoginRequest(BaseModel):
     username: str
@@ -60,6 +68,7 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     must_change_password: bool = False
+    must_set_name: bool = False
 
 
 class ChangePasswordRequest(BaseModel):
@@ -70,6 +79,25 @@ class ChangePasswordRequest(BaseModel):
     @classmethod
     def password_length(cls, v: str) -> str:
         if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters.")
+        return v
+
+
+class SetupAccountRequest(BaseModel):
+    full_name: Optional[str] = None
+    new_password: Optional[str] = None
+
+    @field_validator("full_name")
+    @classmethod
+    def full_name_min(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and len(v.strip()) < 2:
+            raise ValueError("Full name must be at least 2 characters.")
+        return v.strip() if v else v
+
+    @field_validator("new_password")
+    @classmethod
+    def password_min(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and len(v) < 8:
             raise ValueError("Password must be at least 8 characters.")
         return v
 
@@ -86,10 +114,13 @@ class RefreshRequest(BaseModel):
 class DoctorRead(_ORM):
     uuid: uuid.UUID
     username: str
+    full_name: Optional[str] = None
     role: DoctorRole
     email: Optional[str] = None
     is_active: bool
+    is_test: bool = False
     must_change_password: bool = False
+    must_set_name: bool = False
     registration_source: str = "admin_created"
     created_at: datetime
 
@@ -97,13 +128,17 @@ class DoctorRead(_ORM):
 class DoctorCreate(BaseModel):
     username: str
     password: str
+    full_name: Optional[str] = None
     email: Optional[EmailStr] = None
     role: DoctorRole = DoctorRole.Doctor
+    is_test: bool = False
 
 
 class DoctorUpdate(BaseModel):
+    full_name: Optional[str] = None
     email: Optional[EmailStr] = None
     is_active: Optional[bool] = None
+    is_test: Optional[bool] = None
     role: Optional[DoctorRole] = None
     password: Optional[str] = None
 
@@ -125,6 +160,8 @@ class DataSetRead(_ORM):
     description: Optional[str] = None
     is_active: bool
     created_at: datetime
+    total_image_sets: int = 0
+    global_progress: int = 0
 
 
 class DataSetCreate(BaseModel):
@@ -172,6 +209,9 @@ class ImageSetRead(_ORM):
     uuid: uuid.UUID
     dataset_uuid: uuid.UUID
     patient_uuid: uuid.UUID
+    patient_id: Optional[str] = None
+    patient_age: Optional[int] = None
+    patient_gender: Optional[str] = None
     image_set_name: str
     image_format: ImageFormat
     image_window_level: Optional[int] = None
@@ -266,6 +306,8 @@ class DraftRead(BaseModel):
     annotation_session_uuid: uuid.UUID
     draft_saved_at: Optional[datetime] = None
     payload: Optional[dict] = None
+    doctor_username: Optional[str] = None
+    doctor_full_name: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -352,6 +394,8 @@ class DoctorDatasetAssignmentRead(_ORM):
     dataset_uuid: uuid.UUID
     assigned_at: datetime
     is_active: bool
+    total_image_sets: int = 0
+    doctor_progress: int = 0
 
 
 class AssignDatasetRequest(BaseModel):
@@ -394,6 +438,7 @@ class DraftItem(BaseModel):
     icd_code: Optional[str] = None
     num_images: int
     draft_saved_at: datetime
+    draft_source: str  # "manual" | "auto"
     evaluated_by_me: bool
     # Admin-only — doctor who made the draft
     doctor_uuid: Optional[uuid.UUID] = None
@@ -418,3 +463,19 @@ class HistoryEvent(BaseModel):
 class ExportRequest(BaseModel):
     dataset_uuid: Optional[uuid.UUID] = None
     format: str = "xlsx"
+
+
+# ---------------------------------------------------------------------------
+# Admin Submissions
+# ---------------------------------------------------------------------------
+
+class SubmissionRecord(BaseModel):
+    annotation_session_uuid: uuid.UUID
+    image_set_uuid: uuid.UUID
+    image_set_name: str
+    dataset_index: int
+    icd_code: Optional[str] = None
+    doctor_uuid: uuid.UUID
+    doctor_username: str
+    doctor_full_name: Optional[str] = None
+    submitted_at: datetime

@@ -1,14 +1,48 @@
 import { useEffect, useState } from "react";
-import { Check, PlayCircle, Trash2, Clock, CheckCircle2, FileEdit, Stethoscope, Globe, Layers } from "lucide-react";
+import { Check, PlayCircle, Trash2, Clock, CheckCircle2, FileEdit, Stethoscope, Globe, Layers, BookOpen, ScanEye, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { dashboardApi, imageSetsApi, annotationSessionsApi, evaluationsApi } from "@/lib/api";
+import { useLabelStore } from "@/store/labelStore";
+import { useLabelQueueStore } from "@/store/labelQueueStore";
 import type { DashboardStats, DraftItem, HistoryEvent, ImageSetWithProgress } from "@/lib/types";
 
 type Tab = "image-sets" | "drafts" | "history";
+type SortDir = "asc" | "desc";
+type SortCol     = "index" | "name" | "patient_id" | "icd" | "slices" | "evaluators" | "status";
+type DraftSortCol = "index" | "name" | "patient_id" | "icd" | "slices" | "annotated" | "draft_time";
+type HistSortCol  = "index" | "name" | "icd" | "event" | "time";
+
+const SET_COLS: { key: SortCol; label: string }[] = [
+  { key: "index",      label: "Index" },
+  { key: "name",       label: "Image Set Name" },
+  { key: "patient_id", label: "Patient ID" },
+  { key: "icd",        label: "ICD" },
+  { key: "slices",     label: "Slices" },
+  { key: "evaluators", label: "Evaluators" },
+  { key: "status",     label: "Status" },
+];
+
+const DRAFT_COLS: { key: DraftSortCol; label: string }[] = [
+  { key: "index",      label: "Index" },
+  { key: "name",       label: "Image Set Name" },
+  { key: "patient_id", label: "Patient ID" },
+  { key: "icd",        label: "ICD" },
+  { key: "slices",     label: "Slices" },
+  { key: "annotated",  label: "Annotated" },
+  { key: "draft_time", label: "Draft" },
+];
+
+const HIST_COLS: { key: HistSortCol; label: string }[] = [
+  { key: "index", label: "Index" },
+  { key: "name",  label: "Image Set Name" },
+  { key: "icd",   label: "ICD" },
+  { key: "event", label: "Event" },
+  { key: "time",  label: "Time" },
+];
 
 function Checkbox({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -55,6 +89,17 @@ function formatDateTime(iso: string) {
   return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
+const EVENT_VARIANTS: Record<string, "success" | "warning" | "destructive" | "outline"> = {
+  submitted: "success",
+  draft_saved: "warning",
+  draft_deleted: "destructive",
+};
+const EVENT_LABELS: Record<string, string> = {
+  submitted: "Submitted",
+  draft_saved: "Draft Saved",
+  draft_deleted: "Draft Deleted",
+};
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("image-sets");
@@ -62,12 +107,25 @@ export default function DashboardPage() {
   const [imageSets, setImageSets] = useState<ImageSetWithProgress[]>([]);
   const [drafts, setDrafts] = useState<DraftItem[]>([]);
   const [history, setHistory] = useState<HistoryEvent[]>([]);
-  const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [deletingDrafts, setDeletingDrafts] = useState(false);
   const [confirmDeleteDrafts, setConfirmDeleteDrafts] = useState(false);
   const [selectedSets, setSelectedSets] = useState<Set<string>>(new Set());
   const [selectedDrafts, setSelectedDrafts] = useState<Set<string>>(new Set());
+  const [sortCol, setSortCol] = useState<SortCol>("index");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [sortDraftCol, setSortDraftCol] = useState<DraftSortCol>("draft_time");
+  const [sortDraftDir, setSortDraftDir] = useState<SortDir>("desc");
+  const [sortHistCol, setSortHistCol] = useState<HistSortCol>("time");
+  const [sortHistDir, setSortHistDir] = useState<SortDir>("desc");
+  const { mode, setMode } = useLabelStore();
+
+  // In reader mode, only show sets that have data to read
+  const readableSets = imageSets.filter((s) => s.evaluated_by_me || s.in_draft_by_me);
+  const visibleSets = mode === "read" ? readableSets : imageSets;
+  const chosenIndices = [...visibleSets.filter((s: ImageSetWithProgress) => selectedSets.has(s.uuid))]
+    .sort((a: ImageSetWithProgress, b: ImageSetWithProgress) => a.dataset_index - b.dataset_index)
+    .map((s: ImageSetWithProgress) => s.dataset_index);
 
   const refreshDraftsAndHistory = async () => {
     try {
@@ -77,6 +135,10 @@ export default function DashboardPage() {
       ]);
       setDrafts(draftsRes.data);
       setHistory(histRes.data);
+      if (stats?.assigned_dataset) {
+        const setsRes = await imageSetsApi.listByDataset(stats.assigned_dataset.dataset_uuid);
+        setImageSets(setsRes.data);
+      }
     } catch {
       // silent — the main load already toasted on failure
     }
@@ -100,8 +162,6 @@ export default function DashboardPage() {
         }
       } catch {
         toast.error("Failed to load dashboard");
-      } finally {
-        setLoading(false);
       }
     };
     load();
@@ -114,7 +174,69 @@ export default function DashboardPage() {
     return next;
   });
   const toggleAllSets = () =>
-    setSelectedSets(selectedSets.size === imageSets.length ? new Set() : new Set(imageSets.map((s) => s.uuid)));
+    setSelectedSets(selectedSets.size === visibleSets.length ? new Set() : new Set(visibleSets.map((s) => s.uuid)));
+
+  const handleSort      = (col: SortCol)      => { if (sortCol === col)      setSortDir((d) => d === "asc" ? "desc" : "asc"); else { setSortCol(col);      setSortDir("asc"); } };
+  const handleSortDraft = (col: DraftSortCol) => { if (sortDraftCol === col) setSortDraftDir((d) => d === "asc" ? "desc" : "asc"); else { setSortDraftCol(col); setSortDraftDir("asc"); } };
+  const handleSortHist  = (col: HistSortCol)  => { if (sortHistCol === col)  setSortHistDir((d) => d === "asc" ? "desc" : "asc"); else { setSortHistCol(col);  setSortHistDir("asc"); } };
+
+  const statusRank = (s: ImageSetWithProgress) => s.evaluated_by_me ? 2 : s.in_draft_by_me ? 1 : 0;
+
+  const sortedSets = [...visibleSets].sort((a, b) => {
+    // Selected rows float to top
+    const sel = (selectedSets.has(b.uuid) ? 1 : 0) - (selectedSets.has(a.uuid) ? 1 : 0);
+    if (sel !== 0) return sel;
+    let cmp = 0;
+    switch (sortCol) {
+      case "index":      cmp = a.dataset_index - b.dataset_index; break;
+      case "name":       cmp = (a.image_set_name ?? "").localeCompare(b.image_set_name ?? ""); break;
+      case "patient_id": cmp = (a.patient_id ?? "").localeCompare(b.patient_id ?? ""); break;
+      case "icd":        cmp = (a.icd_code ?? "").localeCompare(b.icd_code ?? ""); break;
+      case "slices":     cmp = a.num_images - b.num_images; break;
+      case "evaluators": cmp = a.total_evaluators - b.total_evaluators; break;
+      case "status":     cmp = statusRank(a) - statusRank(b); break;
+    }
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
+  const sortedDrafts = [...drafts].sort((a, b) => {
+    const sel = (selectedDrafts.has(b.annotation_session_uuid) ? 1 : 0) - (selectedDrafts.has(a.annotation_session_uuid) ? 1 : 0);
+    if (sel !== 0) return sel;
+    let cmp = 0;
+    switch (sortDraftCol) {
+      case "index":      cmp = a.dataset_index - b.dataset_index; break;
+      case "name":       cmp = (a.image_set_name ?? "").localeCompare(b.image_set_name ?? ""); break;
+      case "patient_id": cmp = (a.patient_id ?? "").localeCompare(b.patient_id ?? ""); break;
+      case "icd":        cmp = (a.icd_code ?? "").localeCompare(b.icd_code ?? ""); break;
+      case "slices":     cmp = a.num_images - b.num_images; break;
+      case "annotated":  cmp = (a.evaluated_by_me ? 1 : 0) - (b.evaluated_by_me ? 1 : 0); break;
+      case "draft_time": cmp = a.draft_saved_at.localeCompare(b.draft_saved_at); break;
+    }
+    return sortDraftDir === "asc" ? cmp : -cmp;
+  });
+
+  const sortedHistory = [...history].sort((a, b) => {
+    let cmp = 0;
+    switch (sortHistCol) {
+      case "index": cmp = a.dataset_index - b.dataset_index; break;
+      case "name":  cmp = (a.image_set_name ?? "").localeCompare(b.image_set_name ?? ""); break;
+      case "icd":   cmp = (a.icd_code ?? "").localeCompare(b.icd_code ?? ""); break;
+      case "event": cmp = a.event_type.localeCompare(b.event_type); break;
+      case "time":  cmp = a.timestamp.localeCompare(b.timestamp); break;
+    }
+    return sortHistDir === "asc" ? cmp : -cmp;
+  });
+
+  const mkSortIcon = (active: string, dir: SortDir) => (col: string) =>
+    active !== col
+      ? <ArrowUpDown className="h-3 w-3 opacity-40 shrink-0" />
+      : dir === "asc"
+        ? <ArrowUp className="h-3 w-3 shrink-0" />
+        : <ArrowDown className="h-3 w-3 shrink-0" />;
+
+  const SortIcon      = mkSortIcon(sortCol,      sortDir);
+  const SortIconDraft = mkSortIcon(sortDraftCol, sortDraftDir);
+  const SortIconHist  = mkSortIcon(sortHistCol,  sortHistDir);
 
   const handleAnnotateSets = async () => {
     const chosen = [...imageSets.filter((s) => selectedSets.has(s.uuid))].sort(
@@ -125,15 +247,73 @@ export default function DashboardPage() {
     setStarting(true);
     try {
       const res = await annotationSessionsApi.open(target.uuid);
-      const queue = chosen.map((s) => s.uuid).join(",");
-      const indices = chosen.map((s) => s.dataset_index).join(",");
-      navigate(`/label/${target.uuid}?session=${res.data.annotation_session_uuid}&queue=${queue}&indices=${indices}`);
+      useLabelQueueStore.getState().enter({
+        queue: chosen.map((s) => s.uuid),
+        currentPos: chosen.findIndex((s) => s.uuid === target.uuid),
+        indices: chosen.map((s) => s.dataset_index),
+        sources: [],
+        sessionUuid: res.data.annotation_session_uuid,
+        adminDoctors: [],
+        isReadMode: false,
+        isPreviewMode: false,
+      });
+      navigate("/label");
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? "Failed to start";
       toast.error(msg);
     } finally {
       setStarting(false);
     }
+  };
+
+  const handleReadSets = () => {
+    const chosen = [...readableSets.filter((s) => selectedSets.has(s.uuid))].sort(
+      (a, b) => a.dataset_index - b.dataset_index
+    );
+    if (!chosen.length) return;
+    useLabelQueueStore.getState().enter({
+      queue: chosen.map((s) => s.uuid),
+      currentPos: 0,
+      indices: chosen.map((s) => s.dataset_index),
+      sources: chosen.map((s) => (s.evaluated_by_me ? "submission" : "draft")),
+      sessionUuid: null,
+      adminDoctors: [],
+      isReadMode: true,
+      isPreviewMode: false,
+    });
+    navigate("/label");
+  };
+
+  const handlePreviewSets = () => {
+    const chosen = [...imageSets.filter((s) => selectedSets.has(s.uuid))].sort(
+      (a, b) => a.dataset_index - b.dataset_index
+    );
+    if (!chosen.length) return;
+    useLabelQueueStore.getState().enter({
+      queue: chosen.map((s) => s.uuid),
+      currentPos: 0,
+      indices: chosen.map((s) => s.dataset_index),
+      sources: [],
+      sessionUuid: null,
+      adminDoctors: [],
+      isReadMode: false,
+      isPreviewMode: true,
+    });
+    navigate("/label");
+  };
+
+  const handleReadDraft = (draft: { image_set_uuid: string; dataset_index: number }) => {
+    useLabelQueueStore.getState().enter({
+      queue: [draft.image_set_uuid],
+      currentPos: 0,
+      indices: [draft.dataset_index],
+      sources: ["draft"],
+      sessionUuid: null,
+      adminDoctors: [],
+      isReadMode: true,
+      isPreviewMode: false,
+    });
+    navigate("/label");
   };
 
   // ── Drafts tab helpers ──────────────────────────────────────────────────────
@@ -149,7 +329,17 @@ export default function DashboardPage() {
     setStarting(true);
     try {
       const res = await annotationSessionsApi.open(draft.image_set_uuid);
-      navigate(`/label/${draft.image_set_uuid}?session=${res.data.annotation_session_uuid}&queue=${draft.image_set_uuid}&indices=${draft.dataset_index}`);
+      useLabelQueueStore.getState().enter({
+        queue: [draft.image_set_uuid],
+        currentPos: 0,
+        indices: [draft.dataset_index],
+        sources: [],
+        sessionUuid: res.data.annotation_session_uuid,
+        adminDoctors: [],
+        isReadMode: false,
+        isPreviewMode: false,
+      });
+      navigate("/label");
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? "Failed to start";
       toast.error(msg);
@@ -161,9 +351,11 @@ export default function DashboardPage() {
   const handleDeleteDrafts = async () => {
     setDeletingDrafts(true);
     setConfirmDeleteDrafts(false);
-    const targets = drafts.filter((d) => selectedDrafts.has(d.annotation_session_uuid));
+    const targets = drafts.filter((d: DraftItem) => selectedDrafts.has(d.annotation_session_uuid));
     try {
-      await Promise.all(targets.map((d) => evaluationsApi.deleteDraftByImageSet(d.image_set_uuid)));
+      for (const d of targets) {
+        await evaluationsApi.deleteDraftByImageSet(d.image_set_uuid);
+      }
       setSelectedDrafts(new Set());
       toast.success(`${targets.length} draft(s) deleted.`);
       await refreshDraftsAndHistory();
@@ -174,27 +366,8 @@ export default function DashboardPage() {
     }
   };
 
-  if (loading) {
-    return <div className="flex items-center justify-center h-64 text-muted-foreground">Loading…</div>;
-  }
-
-  const chosenIndices = [...imageSets.filter((s) => selectedSets.has(s.uuid))]
-    .sort((a, b) => a.dataset_index - b.dataset_index)
-    .map((s) => s.dataset_index);
-
-  const EVENT_LABELS: Record<string, string> = {
-    submitted: "Submitted",
-    draft_saved: "Draft Saved",
-    draft_deleted: "Draft Deleted",
-  };
-  const EVENT_VARIANTS: Record<string, "success" | "warning" | "destructive" | "outline"> = {
-    submitted: "success",
-    draft_saved: "warning",
-    draft_deleted: "destructive",
-  };
-
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-6 max-w-6xl mx-auto space-y-6" style={{ zoom: 1.2 }}>
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold">Dashboard</h1>
@@ -233,25 +406,51 @@ export default function DashboardPage() {
       {/* Tabs */}
       {stats?.assigned_dataset && (
         <div className="space-y-4">
-          {/* Tab bar */}
-          <div className="flex gap-1 border-b border-border">
-            {(["image-sets", "drafts", "history"] as Tab[]).map((tab) => {
-              const labels: Record<Tab, string> = { "image-sets": "Image Sets", drafts: `Drafts (${drafts.length})`, history: "History" };
-              return (
+          {/* Mode toggle + Tab bar */}
+          <div className="flex items-center justify-between gap-4 border-b border-border pb-0">
+            <div className="flex gap-1">
+
+              {(["image-sets", "drafts", "history"] as Tab[]).map((tab) => {
+                const labels: Record<Tab, string> = { "image-sets": "Image Sets", drafts: `Drafts (${drafts.length})`, history: "History" };
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => { setActiveTab(tab); setSelectedSets(new Set()); setSelectedDrafts(new Set()); }}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === tab
+                        ? "border-primary text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {labels[tab]}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Mode toggle — only shown on image-sets and drafts tabs */}
+            {(activeTab === "image-sets" || activeTab === "drafts") && (
+              <div className="flex items-center gap-1 rounded-lg border border-border p-0.5 mb-1">
                 <button
-                  key={tab}
                   type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === tab
-                      ? "border-primary text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  onClick={() => { setMode("annotate"); setSelectedSets(new Set()); setSelectedDrafts(new Set()); }}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                    mode === "annotate" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {labels[tab]}
+                  <PlayCircle className="h-3.5 w-3.5" /> Annotate
                 </button>
-              );
-            })}
+                <button
+                  type="button"
+                  onClick={() => { setMode("read"); setSelectedSets(new Set()); setSelectedDrafts(new Set()); }}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                    mode === "read" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <BookOpen className="h-3.5 w-3.5" /> Reader
+                </button>
+              </div>
+            )}
           </div>
 
           {/* ── Image Sets tab ── */}
@@ -261,23 +460,38 @@ export default function DashboardPage() {
                 selectedSets.size > 0 ? "border-primary bg-primary/5" : "border-border bg-muted/30"
               }`}>
                 {selectedSets.size === 0 ? (
-                  <span className="text-muted-foreground">Please choose image sets to annotate</span>
+                  <span className="text-muted-foreground">
+                    {mode === "read" ? "Choose annotated or drafted sets to read" : "Choose image sets to annotate"}
+                  </span>
                 ) : (
                   <>
                     <span>
                       You have chosen sets:{" "}
                       <span className="font-mono font-medium">{chosenIndices.join(", ")}</span>
                     </span>
-                    <Button size="sm" className="gap-1.5 shrink-0" disabled={starting} onClick={handleAnnotateSets}>
-                      <PlayCircle className="h-4 w-4" />
-                      {starting ? "Starting…" : "Annotate"}
-                    </Button>
+                    {mode === "read" ? (
+                      <Button size="sm" className="gap-1.5 shrink-0" onClick={handleReadSets}>
+                        <BookOpen className="h-4 w-4" /> Read
+                      </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="gap-1.5 shrink-0 border-orange-500/60 text-orange-400 hover:bg-orange-500/10" onClick={handlePreviewSets}>
+                          <ScanEye className="h-4 w-4" /> Preview
+                        </Button>
+                        <Button size="sm" className="gap-1.5 shrink-0" disabled={starting} onClick={handleAnnotateSets}>
+                          <PlayCircle className="h-4 w-4" />
+                          {starting ? "Starting…" : "Annotate"}
+                        </Button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
 
-              {imageSets.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No image sets found.</p>
+              {visibleSets.length === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  {mode === "read" ? "No annotated or drafted sets to read." : "No image sets found."}
+                </p>
               ) : (
                 <div className="rounded-lg border overflow-hidden">
                   <table className="w-full text-sm table-fixed">
@@ -293,16 +507,26 @@ export default function DashboardPage() {
                     </colgroup>
                     <thead className="bg-muted/50">
                       <tr>
-                        {["Index", "Image Set Name", "Patient ID", "ICD", "Slices", "Evaluators", "Status"].map((h) => (
-                          <th key={h} className="text-left px-3 py-3 font-medium truncate">{h}</th>
+                        {SET_COLS.map(({ key, label }) => (
+                          <th key={key} className="text-left px-3 py-2 font-medium">
+                            <button
+                              type="button"
+                              onClick={() => handleSort(key)}
+                              className="flex items-center gap-1 hover:text-foreground transition-colors text-muted-foreground data-[active]:text-foreground"
+                              data-active={sortCol === key ? "" : undefined}
+                            >
+                              {label}
+                              {SortIcon(key)}
+                            </button>
+                          </th>
                         ))}
-                        <th className="px-3 py-3 flex justify-end">
-                          <Checkbox checked={selectedSets.size === imageSets.length && imageSets.length > 0} onChange={toggleAllSets} />
+                        <th className="px-3 py-2 flex justify-end">
+                          <Checkbox checked={selectedSets.size === visibleSets.length && visibleSets.length > 0} onChange={toggleAllSets} />
                         </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {imageSets.map((s) => (
+                      {sortedSets.map((s) => (
                         <tr key={s.uuid} className={`transition-colors cursor-pointer ${selectedSets.has(s.uuid) ? "bg-primary/5" : "hover:bg-muted/30"}`} onClick={() => toggleSet(s.uuid)}>
                           <td className="px-3 py-3 font-mono text-muted-foreground overflow-hidden"><span className="block truncate">{s.dataset_index}</span></td>
                           <td className="px-3 py-3 font-medium overflow-hidden"><span className="block truncate" title={s.image_set_name}>{s.image_set_name}</span></td>
@@ -341,28 +565,38 @@ export default function DashboardPage() {
                 selectedDrafts.size > 0 ? "border-primary bg-primary/5" : "border-border bg-muted/30"
               }`}>
                 {selectedDrafts.size === 0 ? (
-                  <span className="text-muted-foreground">Select drafts to annotate or delete</span>
+                  <span className="text-muted-foreground">
+                    {mode === "read" ? "Select a draft to read" : "Select drafts to annotate or delete"}
+                  </span>
                 ) : (
                   <>
                     <span><span className="font-medium">{selectedDrafts.size}</span> draft(s) selected</span>
                     <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="gap-1.5"
-                        disabled={deletingDrafts}
-                        onClick={() => setConfirmDeleteDrafts(true)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete Draft
-                      </Button>
+                      {mode !== "read" && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="gap-1.5"
+                          disabled={deletingDrafts}
+                          onClick={() => setConfirmDeleteDrafts(true)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete Draft
+                        </Button>
+                      )}
                       {selectedDrafts.size === 1 && (() => {
                         const draft = drafts.find((d) => selectedDrafts.has(d.annotation_session_uuid));
                         return draft ? (
-                          <Button size="sm" className="gap-1.5" disabled={starting} onClick={() => handleAnnotateDraft(draft)}>
-                            <PlayCircle className="h-4 w-4" />
-                            {starting ? "Starting…" : "Annotate"}
-                          </Button>
+                          mode === "read" ? (
+                            <Button size="sm" className="gap-1.5" onClick={() => handleReadDraft(draft)}>
+                              <BookOpen className="h-4 w-4" /> Read
+                            </Button>
+                          ) : (
+                            <Button size="sm" className="gap-1.5" disabled={starting} onClick={() => handleAnnotateDraft(draft)}>
+                              <PlayCircle className="h-4 w-4" />
+                              {starting ? "Starting…" : "Annotate"}
+                            </Button>
+                          )
                         ) : null;
                       })()}
                     </div>
@@ -387,16 +621,26 @@ export default function DashboardPage() {
                     </colgroup>
                     <thead className="bg-muted/50">
                       <tr>
-                        {["Index", "Image Set Name", "Patient ID", "ICD", "Slices", "Annotated", "Draft Time"].map((h) => (
-                          <th key={h} className="text-left px-3 py-3 font-medium truncate">{h}</th>
+                        {DRAFT_COLS.map(({ key, label }) => (
+                          <th key={key} className="text-left px-3 py-2 font-medium">
+                            <button
+                              type="button"
+                              onClick={() => handleSortDraft(key)}
+                              className="flex items-center gap-1 hover:text-foreground transition-colors text-muted-foreground data-[active]:text-foreground"
+                              data-active={sortDraftCol === key ? "" : undefined}
+                            >
+                              {label}
+                              {SortIconDraft(key)}
+                            </button>
+                          </th>
                         ))}
-                        <th className="px-3 py-3 flex justify-end">
+                        <th className="px-3 py-2 flex justify-end">
                           <Checkbox checked={selectedDrafts.size === drafts.length && drafts.length > 0} onChange={toggleAllDrafts} />
                         </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {drafts.map((d) => (
+                      {sortedDrafts.map((d) => (
                         <tr key={d.annotation_session_uuid} className={`transition-colors cursor-pointer ${selectedDrafts.has(d.annotation_session_uuid) ? "bg-primary/5" : "hover:bg-muted/30"}`} onClick={() => toggleDraft(d.annotation_session_uuid)}>
                           <td className="px-3 py-3 font-mono text-muted-foreground overflow-hidden"><span className="block truncate">{d.dataset_index}</span></td>
                           <td className="px-3 py-3 font-medium overflow-hidden"><span className="block truncate" title={d.image_set_name}>{d.image_set_name}</span></td>
@@ -409,6 +653,9 @@ export default function DashboardPage() {
                           <td className="px-3 py-3 overflow-hidden">
                             <span className="flex items-center gap-1 text-muted-foreground text-xs">
                               <Clock className="h-3 w-3 shrink-0" />
+                              <span className={d.draft_source === "manual" ? "text-yellow-400" : "text-muted-foreground"}>
+                                {d.draft_source === "manual" ? "Manual" : "Auto"}
+                              </span>
                               {formatDateTime(d.draft_saved_at)}
                             </span>
                           </td>
@@ -443,13 +690,23 @@ export default function DashboardPage() {
                     </colgroup>
                     <thead className="bg-muted/50">
                       <tr>
-                        {["Index", "Image Set Name", "ICD", "Event", "Time"].map((h) => (
-                          <th key={h} className="text-left px-3 py-3 font-medium truncate">{h}</th>
+                        {HIST_COLS.map(({ key, label }) => (
+                          <th key={key} className="text-left px-3 py-2 font-medium">
+                            <button
+                              type="button"
+                              onClick={() => handleSortHist(key)}
+                              className="flex items-center gap-1 hover:text-foreground transition-colors text-muted-foreground data-[active]:text-foreground"
+                              data-active={sortHistCol === key ? "" : undefined}
+                            >
+                              {label}
+                              {SortIconHist(key)}
+                            </button>
+                          </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {history.map((e) => (
+                      {sortedHistory.map((e) => (
                         <tr key={`${e.annotation_session_uuid}-${e.event_type}`} className="hover:bg-muted/30">
                           <td className="px-3 py-3 font-mono text-muted-foreground"><span className="block truncate">{e.dataset_index}</span></td>
                           <td className="px-3 py-3 font-medium overflow-hidden"><span className="block truncate" title={e.image_set_name}>{e.image_set_name}</span></td>

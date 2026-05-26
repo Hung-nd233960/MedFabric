@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.core.security import create_access_token, create_refresh_token, verify_password, verify_refresh_token
+from app.core.security import create_access_token, create_refresh_token, hash_password, verify_password, verify_refresh_token
 from app.db.models import Doctors
-from app.db.schemas import ChangePasswordRequest, LoginRequest, RegisterRequest, TokenResponse
+from app.db.schemas import ChangePasswordRequest, LoginRequest, RegisterRequest, SetupAccountRequest, TokenResponse
 from app.deps import get_current_doctor, get_refresh_token_from_cookie
 from app.services.credentials import (
     authenticate_doctor,
@@ -47,11 +47,15 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
 def _build_token_response(doctor: Doctors, response: Response) -> TokenResponse:
     access = create_access_token(
         str(doctor.uuid),
-        extra={"role": doctor.role.value, "username": doctor.username},
+        extra={"role": doctor.role.value, "username": doctor.username, "is_test": doctor.is_test},
     )
     refresh = create_refresh_token(str(doctor.uuid))
     _set_refresh_cookie(response, refresh)
-    return TokenResponse(access_token=access, must_change_password=doctor.must_change_password)
+    return TokenResponse(
+        access_token=access,
+        must_change_password=doctor.must_change_password,
+        must_set_name=doctor.must_set_name,
+    )
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -71,6 +75,7 @@ def register(body: RegisterRequest, response: Response, db: Session = Depends(ge
             db,
             username=body.username,
             password=body.password,
+            full_name=body.full_name,
             email=body.email,
             registration_source="self_registered",
         )
@@ -119,6 +124,22 @@ def refresh(
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(response: Response, doctor=Depends(get_current_doctor)):
     response.delete_cookie(key=_REFRESH_COOKIE, path="/api/auth/refresh")
+
+
+@router.post("/setup-account", status_code=status.HTTP_204_NO_CONTENT)
+def setup_account(
+    body: SetupAccountRequest,
+    db: Session = Depends(get_db),
+    doctor: Doctors = Depends(get_current_doctor),
+):
+    """First-login: set full_name and/or change forced password."""
+    if body.full_name and doctor.must_set_name:
+        doctor.full_name = body.full_name
+        doctor.must_set_name = False
+    if body.new_password and doctor.must_change_password:
+        doctor.password_hash = hash_password(body.new_password)
+        doctor.must_change_password = False
+    db.commit()
 
 
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)

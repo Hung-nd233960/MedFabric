@@ -7,6 +7,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.db.models import Image, ImageSet
 from app.db.schemas import ImageRead
@@ -15,6 +16,7 @@ from app.services.errors import ImageNotFoundError, ImageSetNotFoundError, Inval
 from app.services.image_loader.dicom_processing import render_dicom_as_png
 
 router = APIRouter(prefix="/images", tags=["images"])
+settings = get_settings()
 
 # Default CT brain window
 _DEFAULT_WL = 35
@@ -54,7 +56,7 @@ def render_image(
     center = wl if wl is not None else (img_set.image_window_level or _DEFAULT_WL)
     width = ww if ww is not None else (img_set.image_window_width or _DEFAULT_WW)
 
-    folder = Path(img_set.folder_path)
+    folder = settings.dataset_root / img_set.folder_path
     file_path = folder / img.image_name
     if not file_path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DICOM file not found on disk")

@@ -13,6 +13,8 @@ import PatientsPage from "@/pages/admin/PatientsPage";
 import ImageSetsPage from "@/pages/admin/ImageSetsPage";
 import AssignmentsPage from "@/pages/admin/AssignmentsPage";
 import ExportPage from "@/pages/admin/ExportPage";
+import SubmissionsPage from "@/pages/admin/SubmissionsPage";
+import ChangePasswordPage from "@/pages/ChangePasswordPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.accessToken);
@@ -44,7 +46,8 @@ export default function App() {
           }
         >
           <Route path="/" element={<DashboardPage />} />
-          <Route path="/label/:imageSetUuid" element={<LabelPage />} />
+          <Route path="/change-password" element={<ChangePasswordPage />} />
+          <Route path="/label" element={<LabelPage />} />
         </Route>
 
         <Route
@@ -61,6 +64,7 @@ export default function App() {
           <Route path="patients" element={<PatientsPage />} />
           <Route path="image-sets" element={<ImageSetsPage />} />
           <Route path="assignments" element={<AssignmentsPage />} />
+          <Route path="submissions" element={<SubmissionsPage />} />
           <Route path="export" element={<ExportPage />} />
         </Route>
 

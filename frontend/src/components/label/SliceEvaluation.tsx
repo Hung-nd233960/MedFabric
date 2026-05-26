@@ -26,9 +26,10 @@ const REGION_COLORS: Record<Region, string> = {
 
 interface SliceEvaluationProps {
   imageUuid: string;
+  readOnly?: boolean;
 }
 
-export default function SliceEvaluation({ imageUuid }: SliceEvaluationProps) {
+export default function SliceEvaluation({ imageUuid, readOnly }: SliceEvaluationProps) {
   const { slices, setRegion, setSliceNotes, isCurrentSliceValid } = useLabelStore();
   const slice = slices[imageUuid];
   const region = slice?.region ?? "None";
@@ -61,12 +62,14 @@ export default function SliceEvaluation({ imageUuid }: SliceEvaluationProps) {
             <button
               key={r}
               type="button"
-              onClick={() => setRegion(imageUuid, r)}
+              onClick={readOnly ? undefined : () => setRegion(imageUuid, r)}
+              disabled={readOnly && region !== r}
               className={cn(
                 "flex-1 rounded-md border px-2 py-1.5 text-base font-medium transition-all",
                 region === r
                   ? REGION_COLORS[r]
-                  : "border-border text-muted-foreground hover:bg-muted"
+                  : "border-border text-muted-foreground hover:bg-muted",
+                readOnly && "cursor-default pointer-events-none"
               )}
             >
               {REGION_LABELS[r]}
@@ -75,7 +78,7 @@ export default function SliceEvaluation({ imageUuid }: SliceEvaluationProps) {
         </div>
       </div>
 
-      {region !== "None" && <ZoneScoreGrid imageUuid={imageUuid} />}
+      {region !== "None" && <ZoneScoreGrid imageUuid={imageUuid} readOnly={readOnly} />}
 
       <div className="space-y-1.5">
         <Label className="text-base text-muted-foreground">Slice notes (optional)</Label>
@@ -83,7 +86,8 @@ export default function SliceEvaluation({ imageUuid }: SliceEvaluationProps) {
           rows={2}
           placeholder="Notes for this slice…"
           value={slice?.notes ?? ""}
-          onChange={(e) => setSliceNotes(imageUuid, e.target.value)}
+          onChange={readOnly ? undefined : (e) => setSliceNotes(imageUuid, e.target.value)}
+          readOnly={readOnly}
           className="text-base resize-none"
         />
       </div>

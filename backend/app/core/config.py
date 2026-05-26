@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     app_title: str = "MedFabric"
     app_version: str = "3.0.0-alpha"
     log_level: str = "INFO"
+    expose_api_docs: bool = True
+    docker_version: str = ""  # optional; set via DOCKER_VERSION env var
 
     @property
     def refresh_token_expire_seconds(self) -> int:

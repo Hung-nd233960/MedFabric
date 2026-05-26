@@ -4,7 +4,7 @@ import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -52,7 +52,11 @@ def list_for_dataset(
         .filter(
             AnnotationSession.doctor_uuid == doctor.uuid,
             AnnotationSession.submitted_at.is_(None),
-            AnnotationSession.draft_payload.isnot(None),
+            AnnotationSession.draft_deleted_at.is_(None),
+            or_(
+                AnnotationSession.draft_payload.isnot(None),
+                AnnotationSession.auto_draft_payload.isnot(None),
+            ),
         )
         .all()
     }
@@ -131,9 +135,15 @@ def get_one_image_set(
     _=Depends(get_current_doctor),
 ):
     try:
-        return get_image_set(db, image_set_uuid)
+        img_set = get_image_set(db, image_set_uuid)
     except ImageSetNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    patient = db.query(Patient).filter(Patient.patient_uuid == img_set.patient_uuid).first()
+    return ImageSetRead.model_validate(img_set).model_copy(update={
+        "patient_id": patient.patient_id if patient else None,
+        "patient_age": patient.age if patient else None,
+        "patient_gender": patient.gender.value if patient and patient.gender else None,
+    })
 
 
 @router.patch("/{image_set_uuid}", response_model=ImageSetRead)

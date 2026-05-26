@@ -7,10 +7,13 @@ interface AuthState {
   role: DoctorRole | null;
   doctorUuid: string | null;
   username: string | null;
+  isTest: boolean;
   mustChangePassword: boolean;
-  setAuth: (token: string, mustChangePassword?: boolean) => void;
-  setAccessToken: (token: string, mustChangePassword?: boolean) => void;
+  mustSetName: boolean;
+  setAuth: (token: string, mustChangePassword?: boolean, mustSetName?: boolean) => void;
+  setAccessToken: (token: string, mustChangePassword?: boolean, mustSetName?: boolean) => void;
   setMustChangePassword: (v: boolean) => void;
+  setMustSetName: (v: boolean) => void;
   logout: () => void;
 }
 
@@ -29,31 +32,38 @@ export const useAuthStore = create<AuthState>()(
       role: null,
       doctorUuid: null,
       username: null,
+      isTest: false,
       mustChangePassword: false,
+      mustSetName: false,
 
-      setAuth: (token: string, mustChangePassword = false) => {
+      setAuth: (token, mustChangePassword = false, mustSetName = false) => {
         const payload = parseJwtPayload(token);
         set({
           accessToken: token,
           doctorUuid: payload.sub as string,
           role: (payload.role as DoctorRole) ?? "Doctor",
           username: (payload.username as string) ?? null,
+          isTest: (payload.is_test as boolean) ?? false,
           mustChangePassword,
+          mustSetName,
         });
       },
 
-      setAccessToken: (token: string, mustChangePassword = false) => {
+      setAccessToken: (token, mustChangePassword = false, mustSetName = false) => {
         const payload = parseJwtPayload(token);
         set({
           accessToken: token,
           doctorUuid: payload.sub as string,
           role: (payload.role as DoctorRole) ?? "Doctor",
           username: (payload.username as string) ?? null,
+          isTest: (payload.is_test as boolean) ?? false,
           mustChangePassword,
+          mustSetName,
         });
       },
 
-      setMustChangePassword: (v: boolean) => set({ mustChangePassword: v }),
+      setMustChangePassword: (v) => set({ mustChangePassword: v }),
+      setMustSetName: (v) => set({ mustSetName: v }),
 
       logout: () => {
         set({
@@ -61,7 +71,9 @@ export const useAuthStore = create<AuthState>()(
           role: null,
           doctorUuid: null,
           username: null,
+          isTest: false,
           mustChangePassword: false,
+          mustSetName: false,
         });
       },
     }),
@@ -72,7 +84,9 @@ export const useAuthStore = create<AuthState>()(
         role: s.role,
         doctorUuid: s.doctorUuid,
         username: s.username,
+        isTest: s.isTest,
         mustChangePassword: s.mustChangePassword,
+        mustSetName: s.mustSetName,
       }),
     }
   )

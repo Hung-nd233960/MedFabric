@@ -10,30 +10,37 @@ import { useAuthStore } from "@/store/authStore";
 import { authApi } from "@/lib/api";
 
 export default function AppLayout() {
-  const { mustChangePassword, setMustChangePassword } = useAuthStore();
+  const { mustChangePassword, mustSetName, setMustChangePassword, setMustSetName } = useAuthStore();
 
+  const [fullName, setFullName] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const handleSetPassword = async () => {
-    if (newPw.length < 8) {
-      toast.error("Password must be at least 8 characters.");
+  const needsSetup = mustChangePassword || mustSetName;
+
+  const handleSetup = async () => {
+    if (mustSetName && fullName.trim().length < 2) {
+      toast.error("Full name must be at least 2 characters.");
       return;
     }
-    if (newPw !== confirmPw) {
-      toast.error("Passwords do not match.");
-      return;
+    if (mustChangePassword) {
+      if (newPw.length < 8) { toast.error("Password must be at least 8 characters."); return; }
+      if (newPw !== confirmPw) { toast.error("Passwords do not match."); return; }
     }
     setSaving(true);
     try {
-      await authApi.changePassword({ new_password: newPw });
-      setMustChangePassword(false);
-      toast.success("Password updated. Welcome!");
+      await authApi.setupAccount({
+        full_name: mustSetName ? fullName.trim() : undefined,
+        new_password: mustChangePassword ? newPw : undefined,
+      });
+      if (mustSetName) setMustSetName(false);
+      if (mustChangePassword) setMustChangePassword(false);
+      toast.success("Account set up. Welcome!");
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-        "Failed to set password.";
+        "Setup failed.";
       toast.error(msg);
     } finally {
       setSaving(false);
@@ -47,40 +54,54 @@ export default function AppLayout() {
         <Outlet />
       </main>
 
-      {/* Forced password change — blocks the entire app */}
-      {mustChangePassword && (
+      {needsSetup && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm">
           <div className="bg-background border border-border rounded-lg p-8 w-full max-w-sm shadow-2xl space-y-5">
             <div className="flex flex-col items-center gap-2 text-center">
               <ShieldAlert className="h-8 w-8 text-yellow-500" />
-              <h2 className="text-lg font-semibold">Password Change Required</h2>
+              <h2 className="text-lg font-semibold">Complete Account Setup</h2>
               <p className="text-sm text-muted-foreground">
-                An administrator has set a temporary password for your account. Please choose a new password to continue.
+                Please complete your account setup before continuing.
               </p>
             </div>
             <div className="space-y-3">
-              <div className="space-y-1">
-                <Label>New Password</Label>
-                <Input
-                  type="password"
-                  autoComplete="new-password"
-                  value={newPw}
-                  onChange={(e) => setNewPw(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Confirm New Password</Label>
-                <Input
-                  type="password"
-                  autoComplete="new-password"
-                  value={confirmPw}
-                  onChange={(e) => setConfirmPw(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSetPassword()}
-                />
-              </div>
+              {mustSetName && (
+                <div className="space-y-1">
+                  <Label>Full Name</Label>
+                  <Input
+                    autoComplete="name"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Your full name"
+                  />
+                </div>
+              )}
+              {mustChangePassword && (
+                <>
+                  <div className="space-y-1">
+                    <Label>New Password</Label>
+                    <Input
+                      type="password"
+                      autoComplete="new-password"
+                      value={newPw}
+                      onChange={(e) => setNewPw(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Confirm New Password</Label>
+                    <Input
+                      type="password"
+                      autoComplete="new-password"
+                      value={confirmPw}
+                      onChange={(e) => setConfirmPw(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleSetup()}
+                    />
+                  </div>
+                </>
+              )}
             </div>
-            <Button className="w-full" disabled={saving} onClick={handleSetPassword}>
-              {saving ? "Saving…" : "Set New Password"}
+            <Button className="w-full" disabled={saving} onClick={handleSetup}>
+              {saving ? "Saving…" : "Complete Setup"}
             </Button>
           </div>
         </div>

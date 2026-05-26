@@ -1,0 +1,8 @@
+[about]
+name = "MedFabric"
+version = "3.0.0-beta"
+description = "ASPECTS annotation platform for ischemic stroke imaging research."
+creator = "[Your Name]"
+institution = "[Institution / Hospital]"
+contact_email = "[contact@example.com]"
+project_url = ""

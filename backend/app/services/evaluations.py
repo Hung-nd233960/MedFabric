@@ -123,6 +123,8 @@ def submit_annotation(db: Session, payload: SubmitAnnotation) -> AnnotationSessi
 
     from datetime import datetime, timezone
     ann_sess.submitted_at = datetime.now(timezone.utc)
+    ann_sess.auto_draft_payload = None
+    ann_sess.auto_draft_saved_at = None
     db.commit()
     db.refresh(ann_sess)
     return ann_sess
