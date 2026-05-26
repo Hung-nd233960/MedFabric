@@ -18,7 +18,7 @@ services:
     build:
       context: ../backend
       dockerfile: Dockerfile
-    image: medfabric-backend:3.0-alpha
+    image: medfabric-backend:3.0-beta
     restart: unless-stopped
     depends_on:
       postgres:
@@ -43,7 +43,7 @@ services:
     build:
       context: ../frontend
       dockerfile: Dockerfile
-    image: medfabric-frontend:3.0-alpha
+    image: medfabric-frontend:3.0-beta
     restart: unless-stopped
     ports:
       - "3000:80"
