@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { WithTooltip } from "@/components/ui/tooltip";
 import SetLevelEvaluation from "@/components/label/SetLevelEvaluation";
 import SliceEvaluation from "@/components/label/SliceEvaluation";
 import ValidationStatus from "@/components/label/ValidationStatus";
@@ -573,16 +574,18 @@ export default function LabelPage() {
                 <p className="text-base text-muted-foreground">Image 1 of 1</p>
               ) : (
                 <div className="flex items-end gap-2">
-                  <Button
-                    variant="outline" size="icon" className="h-8 w-8 shrink-0"
-                    onClick={() => {
-                      const n = (currentIndex - 1 + images.length) % images.length;
-                      setCurrentIndex(n);
-                      setJumpImgInput(String(n + 1));
-                    }}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
+                  <WithTooltip content="Previous image (← key)" side="top">
+                    <Button
+                      variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                      onClick={() => {
+                        const n = (currentIndex - 1 + images.length) % images.length;
+                        setCurrentIndex(n);
+                        setJumpImgInput(String(n + 1));
+                      }}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                  </WithTooltip>
                   <Input
                     type="number"
                     className={`h-8 w-16 text-center text-base ${NO_SPINNER}`}
@@ -593,16 +596,18 @@ export default function LabelPage() {
                     min={1} max={images.length}
                   />
                   <span className="text-base text-muted-foreground shrink-0">of {images.length}</span>
-                  <Button
-                    variant="outline" size="icon" className="h-8 w-8 shrink-0"
-                    onClick={() => {
-                      const n = (currentIndex + 1) % images.length;
-                      setCurrentIndex(n);
-                      setJumpImgInput(String(n + 1));
-                    }}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+                  <WithTooltip content="Next image (→ key)" side="top">
+                    <Button
+                      variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                      onClick={() => {
+                        const n = (currentIndex + 1) % images.length;
+                        setCurrentIndex(n);
+                        setJumpImgInput(String(n + 1));
+                      }}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </WithTooltip>
                   <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                     <span className="text-[10px] text-muted-foreground leading-none">Jump to Image</span>
                     <input
@@ -640,13 +645,14 @@ export default function LabelPage() {
                   onBlur={applyWindow}
                   onKeyDown={(e) => e.key === "Enter" && applyWindow()}
                 />
-                <Button
-                  variant="outline" size="icon" className="h-7 w-7 shrink-0"
-                  onClick={handleResetWindow}
-                  title={`Reset to WL ${defaultWindowLevel} / WW ${defaultWindowWidth}`}
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                </Button>
+                <WithTooltip content={`Reset to WL ${defaultWindowLevel} / WW ${defaultWindowWidth}`} side="top">
+                  <Button
+                    variant="outline" size="icon" className="h-7 w-7 shrink-0"
+                    onClick={handleResetWindow}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  </Button>
+                </WithTooltip>
               </div>
             </div>
 
@@ -686,13 +692,15 @@ export default function LabelPage() {
               </p>
               {queue.length > 1 && (
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline" size="icon" className="h-8 w-8 shrink-0"
-                    disabled={navigating}
-                    onClick={() => goToSet(queue[(queuePos - 1 + queue.length) % queue.length])}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
+                  <WithTooltip content="Previous image set" side="top">
+                    <Button
+                      variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                      disabled={navigating}
+                      onClick={() => goToSet(queue[(queuePos - 1 + queue.length) % queue.length])}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                  </WithTooltip>
                   <Input
                     type="number"
                     className={`h-8 w-14 text-center text-base ${NO_SPINNER}`}
@@ -703,13 +711,15 @@ export default function LabelPage() {
                     min={1} max={queue.length}
                   />
                   <span className="text-sm text-muted-foreground shrink-0">of {queue.length}</span>
-                  <Button
-                    variant="outline" size="icon" className="h-8 w-8 shrink-0"
-                    disabled={navigating}
-                    onClick={() => goToSet(queue[(queuePos + 1) % queue.length])}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+                  <WithTooltip content="Next image set" side="top">
+                    <Button
+                      variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                      disabled={navigating}
+                      onClick={() => goToSet(queue[(queuePos + 1) % queue.length])}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </WithTooltip>
                   {queue.length >= 4 && (
                     <input
                       type="range"
@@ -945,10 +955,12 @@ export default function LabelPage() {
                 <p className="text-lg font-semibold">{queue.length > 1 ? `Set ${queuePos + 1} of ${queue.length}` : "Set"}</p>
                 {queue.length > 1 && (
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" disabled={navigating}
-                      onClick={() => goToSet(queue[(queuePos - 1 + queue.length) % queue.length])}>
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
+                    <WithTooltip content="Previous image set" side="top">
+                      <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" disabled={navigating}
+                        onClick={() => goToSet(queue[(queuePos - 1 + queue.length) % queue.length])}>
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                    </WithTooltip>
                     <Input type="number" className={`h-8 w-14 text-center text-base ${NO_SPINNER}`}
                       value={jumpSetInput}
                       onChange={(e) => setJumpSetInput(e.target.value)}
@@ -956,10 +968,12 @@ export default function LabelPage() {
                       onKeyDown={(e) => e.key === "Enter" && applyJumpSet(jumpSetInput)}
                       min={1} max={queue.length} />
                     <span className="text-sm text-muted-foreground shrink-0">of {queue.length}</span>
-                    <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" disabled={navigating}
-                      onClick={() => goToSet(queue[(queuePos + 1) % queue.length])}>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
+                    <WithTooltip content="Next image set" side="top">
+                      <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" disabled={navigating}
+                        onClick={() => goToSet(queue[(queuePos + 1) % queue.length])}>
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </WithTooltip>
                     {queue.length >= 4 && (
                       <input type="range" min={1} max={queue.length}
                         value={parseInt(jumpSetInput) || queuePos + 1}
@@ -999,10 +1013,12 @@ export default function LabelPage() {
                   <p className="text-base text-muted-foreground">Image 1 of 1</p>
                 ) : (
                   <div className="flex items-end gap-2">
-                    <Button variant="outline" size="icon" className="h-8 w-8 shrink-0"
-                      onClick={() => { const n = (currentIndex - 1 + images.length) % images.length; setCurrentIndex(n); setJumpImgInput(String(n + 1)); }}>
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
+                    <WithTooltip content="Previous image (← key)" side="top">
+                      <Button variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                        onClick={() => { const n = (currentIndex - 1 + images.length) % images.length; setCurrentIndex(n); setJumpImgInput(String(n + 1)); }}>
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                    </WithTooltip>
                     <Input type="number" className={`h-8 w-16 text-center text-base ${NO_SPINNER}`}
                       value={jumpImgInput}
                       onChange={(e) => setJumpImgInput(e.target.value)}
@@ -1010,10 +1026,12 @@ export default function LabelPage() {
                       onKeyDown={(e) => e.key === "Enter" && applyJumpImage(jumpImgInput)}
                       min={1} max={images.length} />
                     <span className="text-base text-muted-foreground shrink-0">of {images.length}</span>
-                    <Button variant="outline" size="icon" className="h-8 w-8 shrink-0"
-                      onClick={() => { const n = (currentIndex + 1) % images.length; setCurrentIndex(n); setJumpImgInput(String(n + 1)); }}>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
+                    <WithTooltip content="Next image (→ key)" side="top">
+                      <Button variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                        onClick={() => { const n = (currentIndex + 1) % images.length; setCurrentIndex(n); setJumpImgInput(String(n + 1)); }}>
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </WithTooltip>
                     <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                       <span className="text-[10px] text-muted-foreground leading-none">Jump to Image</span>
                       <input type="range" min={1} max={images.length} value={currentIndex + 1}
@@ -1031,10 +1049,11 @@ export default function LabelPage() {
                   <Input type="number" className={`h-7 w-16 text-base ${NO_SPINNER}`} value={wwInput}
                     onChange={(e) => setWwInput(e.target.value)} onBlur={applyWindow}
                     onKeyDown={(e) => e.key === "Enter" && applyWindow()} />
-                  <Button variant="outline" size="icon" className="h-7 w-7 shrink-0" onClick={handleResetWindow}
-                    title={`Reset to WL ${defaultWindowLevel} / WW ${defaultWindowWidth}`}>
-                    <RotateCcw className="h-3.5 w-3.5" />
-                  </Button>
+                  <WithTooltip content={`Reset to WL ${defaultWindowLevel} / WW ${defaultWindowWidth}`} side="top">
+                    <Button variant="outline" size="icon" className="h-7 w-7 shrink-0" onClick={handleResetWindow}>
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </Button>
+                  </WithTooltip>
                 </div>
               </div>
 

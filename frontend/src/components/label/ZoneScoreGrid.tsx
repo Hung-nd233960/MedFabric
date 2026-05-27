@@ -8,6 +8,7 @@ import { useLabelStore } from "@/store/labelStore";
 import type { RegionScore, Zone } from "@/lib/types";
 import { BASAL_ZONES, CORONA_ZONES, SCORE_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { WithTooltip } from "@/components/ui/tooltip";
 
 const SCORE_OPTIONS: Exclude<RegionScore, "Not_Applicable">[] = [
   "Affected",
@@ -20,6 +21,19 @@ const SCORE_STYLES: Record<Exclude<RegionScore, "Not_Applicable">, string> = {
   Not_Affected: "border-green-500 bg-green-500/20 text-green-400 hover:bg-green-500/30",
   Not_In_This_Slice:
     "border-yellow-500 bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30",
+};
+
+const ZONE_TOOLTIPS: Record<string, string> = {
+  c:  "Caudate nucleus",
+  ic: "Internal capsule",
+  l:  "Lentiform nucleus",
+  i:  "Insular ribbon",
+  m1: "MCA cortex — anterior (BG level)",
+  m2: "MCA cortex — lateral (BG level)",
+  m3: "MCA cortex — posterior (BG level)",
+  m4: "MCA cortex — anterior (CR level)",
+  m5: "MCA cortex — lateral (CR level)",
+  m6: "MCA cortex — posterior (CR level)",
 };
 
 function ScoreButton({
@@ -68,12 +82,21 @@ function ZoneRow({ zone, imageUuid, readOnly }: ZoneRowProps) {
 
   return (
     <div className="grid grid-cols-[4%_1fr_1fr] items-center py-1">
-      <span className={cn(
-        "text-sm font-mono uppercase text-center font-semibold",
-        zoneComplete ? "text-green-400" : "text-red-400"
-      )}>
-        {zone}
-      </span>
+      <WithTooltip
+        type="medical"
+        content={ZONE_TOOLTIPS[zone] ?? zone}
+        side="right"
+      >
+        <span
+          tabIndex={0}
+          className={cn(
+            "text-sm font-mono uppercase text-center font-semibold",
+            zoneComplete ? "text-green-400" : "text-red-400"
+          )}
+        >
+          {zone}
+        </span>
+      </WithTooltip>
       <div className="flex gap-1 flex-wrap px-1">
         {SCORE_OPTIONS.map((s) => (
           <ScoreButton

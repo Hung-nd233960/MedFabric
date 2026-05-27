@@ -8,6 +8,7 @@ import { useLabelStore } from "@/store/labelStore";
 import ZoneScoreGrid from "./ZoneScoreGrid";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { WithTooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 const REGIONS: Region[] = ["None", "BasalGanglia", "CoronaRadiata"];
@@ -22,6 +23,12 @@ const REGION_COLORS: Record<Region, string> = {
   None: "border-muted-foreground/50 bg-muted/50 text-muted-foreground",
   BasalGanglia: "border-purple-500 bg-purple-500/10 text-purple-400",
   CoronaRadiata: "border-cyan-500 bg-cyan-500/10 text-cyan-400",
+};
+
+const REGION_TOOLTIPS: Record<Region, string> = {
+  None:          "This slice is neither Basal Ganglia nor Corona Radiata",
+  BasalGanglia:  "This region contains C, IC, L, I, M1, M2, M3",
+  CoronaRadiata: "This region contains M4, M5, M6",
 };
 
 interface SliceEvaluationProps {
@@ -59,21 +66,22 @@ export default function SliceEvaluation({ imageUuid, readOnly }: SliceEvaluation
         <Label className="text-base uppercase tracking-wide text-muted-foreground">Region</Label>
         <div className="flex gap-2">
           {REGIONS.map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={readOnly ? undefined : () => setRegion(imageUuid, r)}
-              disabled={readOnly && region !== r}
-              className={cn(
-                "flex-1 rounded-md border px-2 py-1.5 text-base font-medium transition-all",
-                region === r
-                  ? REGION_COLORS[r]
-                  : "border-border text-muted-foreground hover:bg-muted",
-                readOnly && "cursor-default pointer-events-none"
-              )}
-            >
-              {REGION_LABELS[r]}
-            </button>
+            <WithTooltip key={r} type="medical" content={REGION_TOOLTIPS[r]} side="top">
+              <button
+                type="button"
+                onClick={readOnly ? undefined : () => setRegion(imageUuid, r)}
+                tabIndex={readOnly ? -1 : undefined}
+                className={cn(
+                  "flex-1 rounded-md border px-2 py-1.5 text-base font-medium transition-all",
+                  region === r
+                    ? REGION_COLORS[r]
+                    : cn("border-border text-muted-foreground", !readOnly && "hover:bg-muted"),
+                  readOnly && "cursor-default"
+                )}
+              >
+                {REGION_LABELS[r]}
+              </button>
+            </WithTooltip>
           ))}
         </div>
       </div>

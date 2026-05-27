@@ -6,8 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { dashboardApi, imageSetsApi, annotationSessionsApi, evaluationsApi } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { useLabelStore } from "@/store/labelStore";
 import { useLabelQueueStore } from "@/store/labelQueueStore";
+import { WithTooltip } from "@/components/ui/tooltip";
 import type { DashboardStats, DraftItem, HistoryEvent, ImageSetWithProgress } from "@/lib/types";
 
 type Tab = "image-sets" | "drafts" | "history";
@@ -62,25 +64,40 @@ function Checkbox({ checked, onChange }: { checked: boolean; onChange: () => voi
   );
 }
 
+const STAT_COLORS = {
+  blue:   { card: "border-blue-500/40 bg-blue-500/5",   icon: "text-blue-400",   value: "text-blue-400"   },
+  green:  { card: "border-green-500/40 bg-green-500/5",  icon: "text-green-400",  value: "text-green-400"  },
+  purple: { card: "border-purple-500/40 bg-purple-500/5", icon: "text-purple-400", value: "text-purple-400" },
+  amber:  { card: "border-amber-500/40 bg-amber-500/5",  icon: "text-amber-400",  value: "text-amber-400"  },
+} as const;
+
 function StatCard({
-  icon: Icon, label, value, pct, sub,
+  icon: Icon, label, value, pct, sub, color = "blue", tooltip,
 }: {
   icon: React.ElementType; label: string; value: number; pct?: number; sub?: string;
+  color?: keyof typeof STAT_COLORS; tooltip?: string;
 }) {
-  return (
-    <Card>
+  const c = STAT_COLORS[color];
+  const card = (
+    <Card className={cn("border", c.card)}>
       <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
         <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
+        <Icon className={cn("h-4 w-4", c.icon)} />
       </CardHeader>
       <CardContent>
         <div className="flex items-baseline gap-2">
-          <div className="text-2xl font-bold">{value}</div>
+          <div className={cn("text-2xl font-bold", c.value)}>{value}</div>
           {pct !== undefined && <div className="text-sm font-medium text-muted-foreground">{pct}%</div>}
         </div>
         {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
       </CardContent>
     </Card>
+  );
+  if (!tooltip) return card;
+  return (
+    <WithTooltip content={tooltip} side="bottom">
+      {card}
+    </WithTooltip>
   );
 }
 
@@ -384,13 +401,14 @@ export default function DashboardPage() {
       {/* Stats */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard icon={Layers} label="Total Image Sets" value={stats.total_image_sets} />
+          <StatCard icon={Layers} label="Total Image Sets" value={stats.total_image_sets} color="blue" />
           <StatCard
             icon={Stethoscope}
             label="My Progress"
             value={stats.my_progress}
             pct={stats.total_image_sets > 0 ? parseFloat((stats.my_progress / stats.total_image_sets * 100).toFixed(2)) : 0}
             sub="sets evaluated by you"
+            color="green"
           />
           <StatCard
             icon={Globe}
@@ -398,8 +416,10 @@ export default function DashboardPage() {
             value={stats.global_progress}
             pct={stats.total_image_sets > 0 ? parseFloat((stats.global_progress / stats.total_image_sets * 100).toFixed(2)) : 0}
             sub="unique sets with ≥1 evaluation"
+            color="purple"
+            tooltip="Unique image sets with at least one evaluation from any doctor in the cohort"
           />
-          <StatCard icon={CheckCircle2} label="Remaining" value={Math.max(0, stats.total_image_sets - stats.my_progress)} sub="sets you haven't evaluated" />
+          <StatCard icon={CheckCircle2} label="Remaining" value={Math.max(0, stats.total_image_sets - stats.my_progress)} sub="sets you haven't evaluated" color="amber" />
         </div>
       )}
 
@@ -431,24 +451,34 @@ export default function DashboardPage() {
             {/* Mode toggle — only shown on image-sets and drafts tabs */}
             {(activeTab === "image-sets" || activeTab === "drafts") && (
               <div className="flex items-center gap-1 rounded-lg border border-border p-0.5 mb-1">
-                <button
-                  type="button"
-                  onClick={() => { setMode("annotate"); setSelectedSets(new Set()); setSelectedDrafts(new Set()); }}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                    mode === "annotate" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
+                <WithTooltip
+                  content="Start or continue scoring image sets"
+                  side="bottom"
                 >
-                  <PlayCircle className="h-3.5 w-3.5" /> Annotate
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setMode("read"); setSelectedSets(new Set()); setSelectedDrafts(new Set()); }}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                    mode === "read" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  <button
+                    type="button"
+                    onClick={() => { setMode("annotate"); setSelectedSets(new Set()); setSelectedDrafts(new Set()); }}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                      mode === "annotate" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <PlayCircle className="h-3.5 w-3.5" /> Annotate
+                  </button>
+                </WithTooltip>
+                <WithTooltip
+                  content="Review your submitted or saved annotations (read-only)"
+                  side="bottom"
                 >
-                  <BookOpen className="h-3.5 w-3.5" /> Reader
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => { setMode("read"); setSelectedSets(new Set()); setSelectedDrafts(new Set()); }}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                      mode === "read" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <BookOpen className="h-3.5 w-3.5" /> Reader
+                  </button>
+                </WithTooltip>
               </div>
             )}
           </div>
@@ -475,9 +505,11 @@ export default function DashboardPage() {
                       </Button>
                     ) : (
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="gap-1.5 shrink-0 border-orange-500/60 text-orange-400 hover:bg-orange-500/10" onClick={handlePreviewSets}>
-                          <ScanEye className="h-4 w-4" /> Preview
-                        </Button>
+                        <WithTooltip content="Browse images without starting an annotation session" side="top">
+                          <Button size="sm" variant="outline" className="gap-1.5 shrink-0 border-orange-500/60 text-orange-400 hover:bg-orange-500/10" onClick={handlePreviewSets}>
+                            <ScanEye className="h-4 w-4" /> Preview
+                          </Button>
+                        </WithTooltip>
                         <Button size="sm" className="gap-1.5 shrink-0" disabled={starting} onClick={handleAnnotateSets}>
                           <PlayCircle className="h-4 w-4" />
                           {starting ? "Starting…" : "Annotate"}

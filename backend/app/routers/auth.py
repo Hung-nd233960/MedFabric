@@ -2,12 +2,20 @@
 
 import uuid as _uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.core.security import create_access_token, create_refresh_token, hash_password, verify_password, verify_refresh_token
+from app.core.limiter import limiter
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    decode_access_token_claims,
+    hash_password,
+    verify_password,
+    verify_refresh_token,
+)
 from app.db.models import Doctors
 from app.db.schemas import ChangePasswordRequest, LoginRequest, RegisterRequest, SetupAccountRequest, TokenResponse
 from app.deps import get_current_doctor, get_refresh_token_from_cookie
@@ -24,7 +32,7 @@ from app.services.errors import (
     UserNotFoundError,
 )
 from app.services.invite import registration_enabled, verify_invite_code
-from app.services.login_sessions import create_login_session
+from app.services.login_sessions import create_login_session, deactivate_login_session
 
 settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -44,10 +52,17 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
     )
 
 
-def _build_token_response(doctor: Doctors, response: Response) -> TokenResponse:
+def _build_token_response(doctor: Doctors, response: Response, db: Session) -> TokenResponse:
+    """Issue a new access+refresh token pair and record the login session."""
+    session = create_login_session(db, doctor.uuid)
     access = create_access_token(
         str(doctor.uuid),
-        extra={"role": doctor.role.value, "username": doctor.username, "is_test": doctor.is_test},
+        extra={
+            "role": doctor.role.value,
+            "username": doctor.username,
+            "is_test": doctor.is_test,
+            "sid": str(session.session_uuid),
+        },
     )
     refresh = create_refresh_token(str(doctor.uuid))
     _set_refresh_cookie(response, refresh)
@@ -59,17 +74,12 @@ def _build_token_response(doctor: Doctors, response: Response) -> TokenResponse:
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-def register(body: RegisterRequest, response: Response, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def register(request: Request, body: RegisterRequest, response: Response, db: Session = Depends(get_db)):
     if not registration_enabled():
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Self-registration is disabled.",
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Self-registration is disabled.")
     if not verify_invite_code(body.invitation_code):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid invitation code.",
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid invitation code.")
     try:
         doctor = register_doctor(
             db,
@@ -81,12 +91,12 @@ def register(body: RegisterRequest, response: Response, db: Session = Depends(ge
         )
     except DuplicateEntryError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-    create_login_session(db, doctor.uuid)
-    return _build_token_response(doctor, response)
+    return _build_token_response(doctor, response, db)
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(body: LoginRequest, response: Response, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, body: LoginRequest, response: Response, db: Session = Depends(get_db)):
     try:
         doctor = authenticate_doctor(db, body.username, body.password)
     except (UserNotFoundError, InvalidCredentialsError):
@@ -96,12 +106,13 @@ def login(body: LoginRequest, response: Response, db: Session = Depends(get_db))
         )
     except InactiveAccountError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    create_login_session(db, doctor.uuid)
-    return _build_token_response(doctor, response)
+    return _build_token_response(doctor, response, db)
 
 
 @router.post("/refresh", response_model=TokenResponse)
+@limiter.limit("30/minute")
 def refresh(
+    request: Request,
     response: Response,
     db: Session = Depends(get_db),
     refresh_token: str = Depends(get_refresh_token_from_cookie),
@@ -118,11 +129,20 @@ def refresh(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Doctor not found or inactive",
         )
-    return _build_token_response(doctor, response)
+    return _build_token_response(doctor, response, db)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(response: Response, doctor=Depends(get_current_doctor)):
+def logout(request: Request, response: Response, db: Session = Depends(get_db), doctor=Depends(get_current_doctor)):
+    # Deactivate the specific login session bound to this access token
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        claims = decode_access_token_claims(auth_header[len("Bearer "):])
+        if claims and claims.get("sid"):
+            try:
+                deactivate_login_session(db, _uuid.UUID(claims["sid"]))
+            except (ValueError, Exception):
+                pass
     response.delete_cookie(key=_REFRESH_COOKIE, path="/api/auth/refresh")
 
 
@@ -143,7 +163,9 @@ def setup_account(
 
 
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("5/minute")
 def change_password_endpoint(
+    request: Request,
     body: ChangePasswordRequest,
     db: Session = Depends(get_db),
     doctor: Doctors = Depends(get_current_doctor),

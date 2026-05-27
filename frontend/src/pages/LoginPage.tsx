@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,9 +39,12 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="absolute top-4 right-4 flex items-center gap-1">
-        <AboutDialog />
+        <Button variant="ghost" size="icon" className="h-8 w-8" title="About MedFabric" onClick={() => setAboutOpen(true)}>
+          <Info className="h-4 w-4" />
+        </Button>
         <ThemeToggle />
       </div>
+      <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
 
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">

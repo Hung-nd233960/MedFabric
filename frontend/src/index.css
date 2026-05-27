@@ -23,10 +23,10 @@
 
   /* ── Latte ──────────────────────────────────────── */
   :root {
-    --background:          220 23% 95%;   /* Base     #eff1f5 */
+    --background:          220 22% 89%;   /* Base     ~#dde1eb */
     --foreground:          234 16% 35%;   /* Text     #4c4f69 */
 
-    --card:                220 22% 92%;   /* Mantle   #e6e9ef */
+    --card:                220 21% 85%;   /* Mantle   ~#d1d6e3 */
     --card-foreground:     234 16% 35%;   /* Text     #4c4f69 */
 
     --primary:             231 97% 72%;   /* Lavender #7287fd */

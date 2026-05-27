@@ -1,13 +1,11 @@
 import { useState, useEffect } from "react";
 import * as React from "react";
-import { Info, Mail, ExternalLink, Wrench } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Mail, ExternalLink, Wrench } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { aboutApi } from "@/lib/api";
 
@@ -46,7 +44,13 @@ function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium" });
 }
 
-export default function AboutDialog() {
+export default function AboutDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
   const [info, setInfo] = useState<AboutInfo | null>(null);
   const [devInfo, setDevInfo] = useState<DevInfo | null>(null);
   const [loadingAbout, setLoadingAbout] = useState(false);
@@ -54,7 +58,13 @@ export default function AboutDialog() {
   const [showDev, setShowDev] = useState(false);
   const [uptimeSecs, setUptimeSecs] = useState<number | null>(null);
 
-  // Tick uptime every second from the startup_time reference
+  useEffect(() => {
+    if (!open) { setShowDev(false); return; }
+    if (info) return;
+    setLoadingAbout(true);
+    aboutApi.get().then((res) => setInfo(res.data)).catch(() => setInfo({})).finally(() => setLoadingAbout(false));
+  }, [open]);
+
   useEffect(() => {
     if (!devInfo?.startup_time) return;
     const origin = new Date(devInfo.startup_time).getTime();
@@ -63,20 +73,6 @@ export default function AboutDialog() {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [devInfo?.startup_time]);
-
-  const handleOpen = async (open: boolean) => {
-    if (!open) { setShowDev(false); return; }
-    if (info) return;
-    setLoadingAbout(true);
-    try {
-      const res = await aboutApi.get();
-      setInfo(res.data);
-    } catch {
-      setInfo({});
-    } finally {
-      setLoadingAbout(false);
-    }
-  };
 
   const toggleDev = async () => {
     const next = !showDev;
@@ -95,15 +91,8 @@ export default function AboutDialog() {
   };
 
   return (
-    <Dialog onOpenChange={handleOpen}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8" title="About MedFabric">
-          <Info className="h-4 w-4" />
-        </Button>
-      </DialogTrigger>
-
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={`transition-all duration-300 ${showDev ? "max-w-2xl" : "max-w-sm"}`}>
-        {/* Wrench button — sits to the left of the default close (X) button */}
         <button
           onClick={toggleDev}
           title="Developer information"
@@ -125,18 +114,15 @@ export default function AboutDialog() {
           <p className="text-sm text-muted-foreground py-4 text-center">Loading…</p>
         ) : (
           <div className={`flex gap-6 text-sm ${showDev ? "items-start" : ""}`}>
-            {/* Left column — always visible */}
             <div className="flex-1 min-w-0 space-y-4">
               {info?.description && (
                 <p className="text-muted-foreground">{info.description}</p>
               )}
-
               <div className="space-y-2">
                 {info?.version     && <Row label="Version"     value={info.version} />}
                 {info?.creator     && <Row label="Creator"     value={info.creator} />}
                 {info?.institution && <Row label="Institution" value={info.institution} />}
               </div>
-
               <div className="flex flex-col gap-2 pt-1">
                 {info?.contact_email && (
                   <a
@@ -159,13 +145,11 @@ export default function AboutDialog() {
                   </a>
                 )}
               </div>
-
               <p className="text-xs text-muted-foreground border-t border-border pt-3">
                 For issues or questions, contact the creator via email above.
               </p>
             </div>
 
-            {/* Right column — dev info */}
             {showDev && (
               <>
                 <div className="w-px self-stretch bg-border shrink-0" />
@@ -173,7 +157,6 @@ export default function AboutDialog() {
                   <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
                     Developer Information
                   </p>
-
                   {loadingDev ? (
                     <p className="text-muted-foreground">Loading…</p>
                   ) : (
@@ -186,7 +169,6 @@ export default function AboutDialog() {
                           <Row label="Uptime" value={formatUptime(uptimeSecs)} mono />
                         )}
                       </div>
-
                       <div className="border-t border-border pt-3 space-y-2">
                         {devInfo?.python_version   && <Row label="Python"     value={devInfo.python_version} mono />}
                         {devInfo?.fastapi_version  && <Row label="FastAPI"    value={devInfo.fastapi_version} mono />}

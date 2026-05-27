@@ -7,9 +7,10 @@ from fastapi import Cookie, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import verify_access_token
+from app.core.security import decode_access_token_claims
 from app.db.models import DoctorRole, Doctors
 from app.services.credentials import get_doctor_by_uuid
+from app.services.login_sessions import get_login_session
 
 
 def get_token_from_request(request: Request) -> Optional[str]:
@@ -31,15 +32,32 @@ def get_current_doctor(
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    subject = verify_access_token(token)
-    if not subject:
+    claims = decode_access_token_claims(token)
+    if not claims or not claims.get("sub"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Validate login session is still active.
+    # Tokens issued before session tracking was added won't have "sid" — allow
+    # them through during the transition window (they expire within 120 min).
+    sid = claims.get("sid")
+    if sid:
+        try:
+            login_session = get_login_session(db, uuid.UUID(sid))
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Malformed session ID")
+        if not login_session or not login_session.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session has been revoked. Please log in again.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
     try:
-        doctor_uuid = uuid.UUID(subject)
+        doctor_uuid = uuid.UUID(claims["sub"])
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

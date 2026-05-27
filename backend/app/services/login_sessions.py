@@ -37,6 +37,15 @@ def deactivate_login_session(db: Session, session_uuid: uuid.UUID) -> None:
         db.commit()
 
 
+def deactivate_all_sessions_for_doctor(db: Session, doctor_uuid: uuid.UUID) -> None:
+    """Invalidate all active sessions for a doctor — call on account deactivation."""
+    db.query(LoginSession).filter(
+        LoginSession.doctor_uuid == doctor_uuid,
+        LoginSession.is_active == True,  # noqa: E712
+    ).update({"is_active": False})
+    db.commit()
+
+
 def get_recent_sessions_for_doctor(
     db: Session, doctor_uuid: uuid.UUID, limit: int = 10
 ):

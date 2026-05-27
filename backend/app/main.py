@@ -3,11 +3,15 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import get_settings
 from app.core.about import get_about, set_startup_time
+from app.core.limiter import limiter
 from sqlalchemy import text
 
 from app.core.database import Base, engine
@@ -33,6 +37,17 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s — %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next) -> Response:
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        return response
 
 
 def _add_missing_columns() -> None:
@@ -78,6 +93,13 @@ app = FastAPI(
     openapi_url="/api/openapi.json" if settings.expose_api_docs else None,
     lifespan=lifespan,
 )
+
+# Rate limiter — 429 on exceeded limits
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Security headers on every response
+app.add_middleware(SecurityHeadersMiddleware)
 
 # CORS — allow the React dev server; tighten in production
 app.add_middleware(

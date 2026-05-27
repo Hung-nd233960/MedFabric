@@ -77,3 +77,14 @@ def verify_refresh_token(token: str) -> Optional[str]:
         return payload.get("sub")
     except JWTError:
         return None
+
+
+def decode_access_token_claims(token: str) -> Optional[dict]:
+    """Returns the full claims dict for a valid access token, or None."""
+    try:
+        payload = decode_token(token)
+        if payload.get("type") != "access":
+            return None
+        return payload
+    except JWTError:
+        return None
