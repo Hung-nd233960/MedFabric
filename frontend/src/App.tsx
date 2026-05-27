@@ -1,9 +1,11 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { useAuthStore } from "@/store/authStore";
+import { useAppearanceStore } from "@/store/appearanceStore";
 import MobileGuard from "@/components/MobileGuard";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import AppLayout from "@/components/layout/AppLayout";
+import KeyboardShortcutsPanel from "@/components/layout/KeyboardShortcutsPanel";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
 import DashboardPage from "@/pages/DashboardPage";
@@ -33,10 +35,12 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const dark = useAppearanceStore((s) => s.dark);
   return (
     <MobileGuard>
       <TooltipProvider delayDuration={300}>
-      <Toaster richColors position="top-right" />
+      <Toaster richColors position="top-right" theme={dark ? "dark" : "light"} />
+      <KeyboardShortcutsPanel />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />

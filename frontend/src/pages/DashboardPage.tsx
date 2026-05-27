@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Check, PlayCircle, Trash2, Clock, CheckCircle2, FileEdit, Stethoscope, Globe, Layers, BookOpen, ScanEye, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { PlayCircle, Trash2, Clock, CheckCircle2, FileEdit, Stethoscope, Globe, Layers, BookOpen, ScanEye, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,23 +47,6 @@ const HIST_COLS: { key: HistSortCol; label: string }[] = [
   { key: "time",  label: "Time" },
 ];
 
-function Checkbox({ checked, onChange }: { checked: boolean; onChange: () => void }) {
-  return (
-    <button
-      type="button"
-      role="checkbox"
-      aria-checked={checked}
-      onClick={(e) => { e.stopPropagation(); onChange(); }}
-      className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors shrink-0 ${
-        checked
-          ? "bg-primary border-primary"
-          : "border-muted-foreground/40 bg-transparent hover:border-primary"
-      }`}
-    >
-      {checked && <Check className="w-2.5 h-2.5 text-primary-foreground" strokeWidth={3} />}
-    </button>
-  );
-}
 
 const STAT_COLORS = {
   blue:   { card: "border-blue-500/40 bg-blue-500/5",   icon: "text-blue-400",   value: "text-blue-400"   },
@@ -136,6 +120,7 @@ export default function DashboardPage() {
   const [sortHistCol, setSortHistCol] = useState<HistSortCol>("time");
   const [sortHistDir, setSortHistDir] = useState<SortDir>("desc");
   const { mode, setMode } = useLabelStore();
+  const [kbHighlight, setKbHighlight] = useState(-1);
 
   // In reader mode, only show sets that have data to read
   const readableSets = imageSets.filter((s) => s.evaluated_by_me || s.in_draft_by_me);
@@ -383,6 +368,108 @@ export default function DashboardPage() {
     }
   };
 
+  // Reset keyboard highlight when tab changes
+  useEffect(() => { setKbHighlight(-1); }, [activeTab]);
+
+  // Auto-scroll highlighted row into view
+  useEffect(() => {
+    if (kbHighlight < 0) return;
+    const el = document.querySelector(`[data-kb-row="${kbHighlight}"]`);
+    el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [kbHighlight]);
+
+  // ── Keyboard shortcuts ───────────────────────────────────────────────────────
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.altKey) return;
+
+      const key = e.key;
+      const UP = key.toUpperCase();
+      const shift = e.shiftKey;
+      const ctrl = e.ctrlKey || e.metaKey;
+
+      // Tab switching (no modifier) — clears selections when changing context
+      if (!shift && !ctrl) {
+        if (UP === "I") { setActiveTab("image-sets"); setKbHighlight(-1); setSelectedSets(new Set()); setSelectedDrafts(new Set()); return; }
+        if (UP === "D") { setActiveTab("drafts"); setKbHighlight(-1); setSelectedSets(new Set()); setSelectedDrafts(new Set()); return; }
+        if (UP === "H") { setActiveTab("history"); setKbHighlight(-1); setSelectedSets(new Set()); setSelectedDrafts(new Set()); return; }
+      }
+
+      if (activeTab !== "image-sets") return;
+
+      // Mode toggle — flip the switch only, keep current selections
+      if (!shift && !ctrl) {
+        if (UP === "A") { setMode("annotate"); return; }
+        if (UP === "R") { setMode("read"); return; }
+      }
+
+      // Row navigation
+      if (key === "ArrowUp" && !shift && !ctrl) {
+        e.preventDefault();
+        setKbHighlight((h) => (sortedSets.length === 0 ? -1 : h <= 0 ? sortedSets.length - 1 : h - 1));
+        return;
+      }
+      if (key === "ArrowDown" && !shift && !ctrl) {
+        e.preventDefault();
+        setKbHighlight((h) => (sortedSets.length === 0 ? -1 : h >= sortedSets.length - 1 ? 0 : h + 1));
+        return;
+      }
+
+      // Shift+↑ / Shift+↓ — jump to first / last row
+      if (shift && !ctrl && key === "ArrowUp") {
+        e.preventDefault();
+        if (sortedSets.length > 0) setKbHighlight(0);
+        return;
+      }
+      if (shift && !ctrl && key === "ArrowDown") {
+        e.preventDefault();
+        if (sortedSets.length > 0) setKbHighlight(sortedSets.length - 1);
+        return;
+      }
+
+      // Shift+1-0 — jump to decile (0%–100%) of the table
+      // Uses e.code so it works regardless of keyboard layout (Shift+1 = "Digit1" even though e.key = "!")
+      if (shift && !ctrl && e.code?.startsWith("Digit") && sortedSets.length > 0) {
+        const d = parseInt(e.code.slice(-1)); // 0–9 from "Digit0"–"Digit9"
+        if (!isNaN(d)) {
+          e.preventDefault();
+          const len = sortedSets.length;
+          // Digit 1 → row 0 (top), Digit 0 → last row (bottom), 2–9 → (d-1)*10% into list
+          const idx = d === 1 ? 0 : d === 0 ? len - 1 : Math.min(Math.floor((d - 1) * 0.1 * len), len - 1);
+          setKbHighlight(idx);
+        }
+        return;
+      }
+
+      // Esc: clear highlight and selection
+      if (key === "Escape") {
+        setKbHighlight(-1);
+        setSelectedSets(new Set());
+        return;
+      }
+
+      // Enter: toggle checkbox of highlighted row (like clicking the row)
+      if (key === "Enter" && !shift && !ctrl && kbHighlight >= 0 && kbHighlight < sortedSets.length) {
+        e.preventDefault();
+        toggleSet(sortedSets[kbHighlight].uuid);
+        return;
+      }
+
+      // Shift+A/R/P: launch selected sets — only works when rows are already selected
+      if (shift && !ctrl && selectedSets.size > 0) {
+        if (UP === "A") { e.preventDefault(); handleAnnotateSets(); return; }
+        if (UP === "R") { e.preventDefault(); handleReadSets(); return; }
+        if (UP === "P") { e.preventDefault(); handlePreviewSets(); return; }
+      }
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [activeTab, kbHighlight, sortedSets, selectedSets, toggleSet, // eslint-disable-line react-hooks/exhaustive-deps
+      handleAnnotateSets, handleReadSets, handlePreviewSets]);
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6" style={{ zoom: 1.2 }}>
       {/* Header */}
@@ -526,6 +613,7 @@ export default function DashboardPage() {
                 </p>
               ) : (
                 <div className="rounded-lg border overflow-hidden">
+                  <div className="max-h-[52vh] overflow-y-auto">
                   <table className="w-full text-sm table-fixed">
                     <colgroup>
                       <col className="w-[6%]" />
@@ -537,7 +625,7 @@ export default function DashboardPage() {
                       <col className="w-[10%]" />
                       <col className="w-[5%]" />
                     </colgroup>
-                    <thead className="bg-muted/50">
+                    <thead className="bg-muted sticky top-0 z-10">
                       <tr>
                         {SET_COLS.map(({ key, label }) => (
                           <th key={key} className="text-left px-3 py-2 font-medium">
@@ -558,8 +646,8 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {sortedSets.map((s) => (
-                        <tr key={s.uuid} className={`transition-colors cursor-pointer ${selectedSets.has(s.uuid) ? "bg-primary/5" : "hover:bg-muted/30"}`} onClick={() => toggleSet(s.uuid)}>
+                      {sortedSets.map((s, si) => (
+                        <tr key={s.uuid} data-kb-row={si} className={`transition-colors cursor-pointer ${kbHighlight === si ? "bg-primary/10 ring-1 ring-inset ring-primary/40" : selectedSets.has(s.uuid) ? "bg-primary/5" : "hover:bg-muted/30"}`} onClick={() => { setKbHighlight(-1); toggleSet(s.uuid); }}>
                           <td className="px-3 py-3 font-mono text-muted-foreground overflow-hidden"><span className="block truncate">{s.dataset_index}</span></td>
                           <td className="px-3 py-3 font-medium overflow-hidden"><span className="block truncate" title={s.image_set_name}>{s.image_set_name}</span></td>
                           <td className="px-3 py-3 text-muted-foreground overflow-hidden"><span className="block truncate font-mono text-xs" title={s.patient_id ?? ""}>{s.patient_id ?? "—"}</span></td>
@@ -584,6 +672,7 @@ export default function DashboardPage() {
                       ))}
                     </tbody>
                   </table>
+                  </div>{/* scroll container */}
                 </div>
               )}
             </div>
@@ -640,6 +729,7 @@ export default function DashboardPage() {
                 <p className="text-muted-foreground text-sm">No drafts saved.</p>
               ) : (
                 <div className="rounded-lg border overflow-hidden">
+                  <div className="max-h-[52vh] overflow-y-auto">
                   <table className="w-full text-sm table-fixed">
                     <colgroup>
                       <col className="w-[5%]" />
@@ -651,7 +741,7 @@ export default function DashboardPage() {
                       <col className="w-[18%]" />
                       <col className="w-[5%]" />
                     </colgroup>
-                    <thead className="bg-muted/50">
+                    <thead className="bg-muted sticky top-0 z-10">
                       <tr>
                         {DRAFT_COLS.map(({ key, label }) => (
                           <th key={key} className="text-left px-3 py-2 font-medium">
@@ -700,6 +790,7 @@ export default function DashboardPage() {
                       ))}
                     </tbody>
                   </table>
+                  </div>{/* scroll container */}
                 </div>
               )}
             </div>

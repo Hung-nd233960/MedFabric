@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/store/authStore";
 import { authApi } from "@/lib/api";
+import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 
 export default function AppLayout() {
+  useGlobalShortcuts();
   const { mustChangePassword, mustSetName, setMustChangePassword, setMustSetName } = useAuthStore();
 
   const [fullName, setFullName] = useState("");

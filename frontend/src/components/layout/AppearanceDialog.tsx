@@ -1,10 +1,12 @@
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, Keyboard } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import { WithTooltip } from "@/components/ui/tooltip";
 import { useAppearanceStore, type TooltipMode } from "@/store/appearanceStore";
+import { useUiStore } from "@/store/uiStore";
 import { cn } from "@/lib/utils";
 
 const TOOLTIP_OPTIONS: { value: TooltipMode; label: string; hint: string }[] = [
@@ -38,6 +40,7 @@ export default function AppearanceDialog({
   onOpenChange: (v: boolean) => void;
 }) {
   const { dark, tooltipMode, setDark, setTooltipMode } = useAppearanceStore();
+  const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -93,6 +96,24 @@ export default function AppearanceDialog({
                 ))}
               </div>
             </div>
+          </div>
+
+          <Separator />
+
+          {/* Shortcuts group */}
+          <div className="space-y-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Shortcuts
+            </p>
+            <Button
+              variant="outline"
+              className="w-full gap-2 justify-start"
+              onClick={() => { setShortcutsOpen(true); onOpenChange(false); }}
+            >
+              <Keyboard className="h-4 w-4" />
+              Keyboard Shortcuts
+              <kbd className="ml-auto text-xs font-mono border border-border bg-muted px-1.5 py-0.5 rounded">?</kbd>
+            </Button>
           </div>
         </div>
       </DialogContent>

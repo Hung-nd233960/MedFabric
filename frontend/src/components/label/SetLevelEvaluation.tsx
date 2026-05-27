@@ -30,13 +30,20 @@ const USABILITY_COLORS: Record<ImageSetUsability, string> = {
 const USABILITY_TOOLTIPS: Record<ImageSetUsability, string> = {
   IschemicAssessable:  "ASPECTS scoring applies — ischemic stroke OR healthy patient",
   HemorrhagicPresent:  "Hemorrhage detected — ASPECTS not applicable",
-  Anomaly:             "Other abnormality present — ASPECTS not applicable (eg Brain tumors)",
-  Irrelevant:          "Wrong scan (wrong body part, bone CT,...), wrong patient, or non-diagnostic",
+  Anomaly:             "Other abnormality present — ASPECTS not applicable (eg Brain tumors). Please describe the anomaly in the notes.",
+  Irrelevant:          "Wrong scan (wrong body part, bone CT,...), wrong patient, or non-diagnostic. Please include the reason in the notes.",
 };
 
 export default function SetLevelEvaluation({ readOnly }: { readOnly?: boolean }) {
   const { usability, lowQuality, setNotes, setUsability, setLowQuality, setSetNotes } =
-    useLabelStore();
+    useLabelStore((s) => ({
+      usability: s.usability,
+      lowQuality: s.lowQuality,
+      setNotes: s.setNotes,
+      setUsability: s.setUsability,
+      setLowQuality: s.setLowQuality,
+      setSetNotes: s.setSetNotes,
+    }));
 
   const lqInteractive = !readOnly && usability === "IschemicAssessable";
 
@@ -110,17 +117,25 @@ export default function SetLevelEvaluation({ readOnly }: { readOnly?: boolean })
         </button>
       </div>
 
-      <div className="space-y-1.5">
-        <Label className="text-base text-muted-foreground">Set-level notes (optional)</Label>
-        <Textarea
-          rows={2}
-          placeholder="Any notes about this scan…"
-          value={setNotes}
-          onChange={readOnly ? undefined : (e) => setSetNotes(e.target.value)}
-          readOnly={readOnly}
-          className="text-base resize-none"
-        />
-      </div>
+      {(() => {
+        const notesRequired = !readOnly && (usability === "Anomaly" || usability === "Irrelevant");
+        const notesEmpty = !setNotes?.trim();
+        return (
+          <div className="space-y-1.5">
+            <Label className={cn("text-base", notesRequired ? "text-foreground font-medium" : "text-muted-foreground")}>
+              Set-level notes{notesRequired ? <span className="text-destructive ml-1">*</span> : " (optional)"}
+            </Label>
+            <Textarea
+              rows={2}
+              placeholder={notesRequired ? `Describe the ${usability === "Anomaly" ? "anomaly" : "reason this scan is irrelevant"}…` : "Any notes about this scan…"}
+              value={setNotes}
+              onChange={readOnly ? undefined : (e) => setSetNotes(e.target.value)}
+              readOnly={readOnly}
+              className={cn("text-base resize-none", notesRequired && notesEmpty && "border-destructive focus-visible:ring-destructive")}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }

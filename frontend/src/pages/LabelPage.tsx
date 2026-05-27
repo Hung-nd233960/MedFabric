@@ -69,7 +69,7 @@ export default function LabelPage() {
     setCurrentIndex, setWindow, resetWindow,
     aspectsEnabled, usability, currentImage,
     isSetSubmittable, isSetSubmittableByUuid, buildSubmitPayload, buildSubmitPayloadForUuid,
-    setAutoSaveStatus,
+    setAutoSaveStatus, setUsability, setLowQuality, setRegion,
   } = useLabelStore();
 
   const { logout } = useAuthStore();
@@ -219,12 +219,14 @@ export default function LabelPage() {
     setJumpSetInput(String(queuePos + 1));
   }, [queuePos]);
 
-  // Keyboard navigation (← →)
+  // Keyboard navigation — image (← →, no shift)
+  const jumpImgInputRef = useRef<HTMLInputElement>(null);
   const inputFocusRef = useRef(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.shiftKey) return; // Shift+← / Shift+→ are handled in the comprehensive handler
       if (e.key === "ArrowLeft") setCurrentIndex((currentIndex - 1 + images.length) % images.length);
       if (e.key === "ArrowRight") setCurrentIndex((currentIndex + 1) % images.length);
     };
@@ -426,6 +428,100 @@ export default function LabelPage() {
     }
   };
 
+  // Comprehensive keyboard shortcuts (placed after all handlers are defined)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+      const key = e.key;
+      const shift = e.shiftKey;
+      const ctrl = e.ctrlKey || e.metaKey;
+      const UP = key.toUpperCase();
+
+      // Shift+← / Shift+→ — queue navigation (all modes)
+      if (shift && !ctrl && key === "ArrowLeft") {
+        e.preventDefault();
+        if (queuePos > 0) goToSet(queue[queuePos - 1]);
+        return;
+      }
+      if (shift && !ctrl && key === "ArrowRight") {
+        e.preventDefault();
+        if (queuePos < queue.length - 1) goToSet(queue[queuePos + 1]);
+        return;
+      }
+
+      // M — toggle Management Board (all modes)
+      if (!ctrl && !shift && UP === "M") {
+        setShowManagementBoard((v) => !v);
+        return;
+      }
+
+      // Esc — close Management Board or dismiss open dialogs (all modes)
+      if (key === "Escape") {
+        if (submitDialogMode !== null) { setSubmitDialogMode(null); return; }
+        if (confirmReset) { setConfirmReset(false); return; }
+        if (confirmExit) { setConfirmExit(false); setPendingNavDest(null); return; }
+        if (showManagementBoard) { setShowManagementBoard(false); return; }
+        return;
+      }
+
+      // Ctrl+S — save draft (annotate mode only)
+      if (ctrl && UP === "S" && !isReadMode && !isPreviewMode) {
+        e.preventDefault();
+        handleSaveDraft();
+        return;
+      }
+
+      // Ctrl+Enter — submit (annotate mode, only when valid)
+      if (ctrl && key === "Enter" && !isReadMode && !isPreviewMode) {
+        e.preventDefault();
+        const { isSetSubmittable: valid, isSetSubmittableByUuid: validByUuid } = useLabelStore.getState();
+        if (!valid()) return;
+        const allReady = queue.every((uuid: string) => validByUuid(uuid));
+        if (queue.length === 1) {
+          handleBatchAction("submit-all");
+        } else {
+          setSubmitDialogMode(allReady ? "all-ready" : "partial-ready");
+        }
+        return;
+      }
+
+      // Below shortcuts only in annotate mode, no modifier keys
+      if (isReadMode || isPreviewMode || ctrl || shift) return;
+
+      // 1–4: usability
+      switch (key) {
+        case "1": setUsability("IschemicAssessable"); return;
+        case "2": setUsability("HemorrhagicPresent"); return;
+        case "3": setUsability("Anomaly"); return;
+        case "4": setUsability("Irrelevant"); return;
+      }
+
+      const currentImg = useLabelStore.getState().currentImage();
+
+      // Q: toggle low quality (Ischemic only)
+      if (UP === "Q") {
+        const { usability: u, lowQuality: lq } = useLabelStore.getState();
+        if (u === "IschemicAssessable") setLowQuality(!lq);
+        return;
+      }
+
+      // B / C / N: region (ASPECTS enabled only)
+      if (currentImg && useLabelStore.getState().aspectsEnabled()) {
+        if (UP === "B") { setRegion(currentImg.uuid, "BasalGanglia"); return; }
+        if (UP === "C") { setRegion(currentImg.uuid, "CoronaRadiata"); return; }
+        if (UP === "N") { setRegion(currentImg.uuid, "None"); return; }
+      }
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReadMode, isPreviewMode, queue, queuePos, showManagementBoard, submitDialogMode,
+      confirmReset, confirmExit, handleSaveDraft, handleBatchAction,
+      setUsability, setLowQuality, setRegion]);
+
   const doNavigatePending = async (deleteDraft = false) => {
     const dest = pendingNavDest;
     setPendingNavDest(null);
@@ -484,10 +580,10 @@ export default function LabelPage() {
     : "ASPECTS scoring is disabled for this image set";
 
   // Management Board helpers (closure over store state)
-  type SnapLike = { usability: ImageSetUsability | null; lowQuality: boolean; slices: Record<string, SliceEvalState> };
+  type SnapLike = { usability: ImageSetUsability | null; lowQuality: boolean; setNotes: string; slices: Record<string, SliceEvalState> };
 
   const getSnapForMB = (uuid: string): SnapLike | null => {
-    if (imageSet?.uuid === uuid) return { usability, lowQuality, slices };
+    if (imageSet?.uuid === uuid) return { usability, lowQuality, setNotes, slices };
     return (setRegistry[uuid] as SnapLike) ?? null;
   };
 
@@ -497,6 +593,8 @@ export default function LabelPage() {
     if (!snap.usability) return { color: "gray", text: "Need Usability Classification" };
     const aspects = snap.usability === "IschemicAssessable" && !snap.lowQuality;
     if (!aspects) {
+      if ((snap.usability === "Anomaly" || snap.usability === "Irrelevant") && !snap.setNotes?.trim())
+        return { color: "red", text: `${USABILITY_LABELS[snap.usability]} — Missing Description` };
       const text = snap.usability === "IschemicAssessable" ? "Ischemic Low Quality" : USABILITY_LABELS[snap.usability];
       return { color: "green", text };
     }
@@ -540,7 +638,9 @@ export default function LabelPage() {
             key={blobUrl}
             src={blobUrl}
             alt={`Slice ${currentIndex + 1}`}
-            className="max-h-full max-w-full object-contain"
+            className="max-h-full max-w-full object-contain select-none"
+            draggable={false}
+            onContextMenu={(e) => e.preventDefault()}
           />
         ) : (
           <span className="text-muted-foreground text-sm">No image</span>
@@ -1020,6 +1120,7 @@ export default function LabelPage() {
                       </Button>
                     </WithTooltip>
                     <Input type="number" className={`h-8 w-16 text-center text-base ${NO_SPINNER}`}
+                      ref={jumpImgInputRef}
                       value={jumpImgInput}
                       onChange={(e) => setJumpImgInput(e.target.value)}
                       onBlur={(e) => applyJumpImage(e.target.value)}
@@ -1284,7 +1385,15 @@ export default function LabelPage() {
                           return (
                             <tr key={uuid} className="border-b">
                               <td className="px-3 py-2 font-mono text-muted-foreground">{index + 1}</td>
-                              <td className="px-3 py-2">{s.region}</td>
+                              <td className={`px-3 py-2 font-medium ${
+                                s.region === "BasalGanglia" ? "text-purple-400"
+                                : s.region === "CoronaRadiata" ? "text-cyan-400"
+                                : "text-muted-foreground"
+                              }`}>
+                                {s.region === "BasalGanglia" ? "Basal Ganglia"
+                                  : s.region === "CoronaRadiata" ? "Corona Radiata"
+                                  : s.region}
+                              </td>
                               <td className={`px-3 py-2 font-medium ${missing ? "text-red-500" : "text-green-500"}`}>
                                 {missing ?? "Valid"}
                               </td>

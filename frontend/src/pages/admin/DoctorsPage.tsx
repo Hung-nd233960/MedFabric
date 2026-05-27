@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -96,15 +97,16 @@ export default function DoctorsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Doctors</h1>
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-            <input
-              type="checkbox"
-              className="rounded"
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-inactive"
               checked={showInactive}
-              onChange={(e) => setShowInactive(e.target.checked)}
+              onCheckedChange={setShowInactive}
             />
-            Show inactive
-          </label>
+            <Label htmlFor="show-inactive" className="text-sm text-muted-foreground cursor-pointer">
+              Show inactive
+            </Label>
+          </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1.5">
@@ -138,18 +140,18 @@ export default function DoctorsPage() {
                     <option value="Admin">Admin</option>
                   </select>
                 </div>
-                <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    className="rounded"
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="is-test"
                     checked={form.role === "Admin" ? true : form.is_test}
                     disabled={form.role === "Admin"}
-                    onChange={(e) => setForm((p) => ({ ...p, is_test: e.target.checked }))}
+                    onCheckedChange={(checked) => setForm((p) => ({ ...p, is_test: checked }))}
                   />
-                  <span className={form.role === "Admin" ? "text-muted-foreground" : ""}>
-                    Testing account <span className="text-muted-foreground text-xs">(annotations excluded from global progress)</span>
-                  </span>
-                </label>
+                  <Label htmlFor="is-test" className={`cursor-pointer select-none ${form.role === "Admin" ? "text-muted-foreground" : ""}`}>
+                    Testing account{" "}
+                    <span className="text-muted-foreground text-xs">(annotations excluded from global progress)</span>
+                  </Label>
+                </div>
                 <Button className="w-full mt-2" disabled={saving} onClick={createDoctor}>
                   {saving ? "Creating…" : "Create"}
                 </Button>

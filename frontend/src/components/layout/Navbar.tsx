@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { LogOut, Settings, LayoutDashboard, KeyRound, ChevronDown, User, BookOpen, PenLine, FlaskConical, ScanEye, Palette, Info } from "lucide-react";
+import { LogOut, Settings, LayoutDashboard, KeyRound, ChevronDown, User, BookOpen, PenLine, FlaskConical, ScanEye, Palette, Info, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import AppearanceDialog from "./AppearanceDialog";
@@ -119,13 +119,22 @@ export default function Navbar() {
                 </span>
               </WithTooltip>
             )}
-            {isTest && (
+            {isTest ? (
               <WithTooltip
                 content="Test/admin account — activity may not count toward production statistics"
                 side="bottom"
               >
                 <span className="flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium border-purple-500/40 bg-purple-500/10 text-purple-400">
                   <FlaskConical className="h-3 w-3" /> Testing Account
+                </span>
+              </WithTooltip>
+            ) : role === "Doctor" && (
+              <WithTooltip
+                content="Annotation account — your submissions count toward production statistics"
+                side="bottom"
+              >
+                <span className="flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium border-teal-500/40 bg-teal-500/10 text-teal-400">
+                  <Stethoscope className="h-3 w-3" /> Annotation Account
                 </span>
               </WithTooltip>
             )}

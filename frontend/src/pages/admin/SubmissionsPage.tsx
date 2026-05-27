@@ -4,6 +4,7 @@ import { useLabelQueueStore } from "@/store/labelQueueStore";
 import { toast } from "sonner";
 import { BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { adminApi, datasetsApi } from "@/lib/api";
 import type { DataSet, SubmissionRecord } from "@/lib/types";
 
@@ -105,13 +106,7 @@ export default function SubmissionsPage() {
                 <th className="text-left px-4 py-3 font-medium">Submitted</th>
                 <th className="px-4 py-3 text-right">
                   {submissions.length > 0 && (
-                    <input
-                      type="checkbox"
-                      checked={allChecked}
-                      onChange={toggleAll}
-                      className="accent-primary cursor-pointer"
-                      title="Select all"
-                    />
+                    <Checkbox checked={allChecked} onChange={toggleAll} />
                   )}
                 </th>
               </tr>
@@ -133,12 +128,10 @@ export default function SubmissionsPage() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground text-xs">{formatDateTime(s.submitted_at)}</td>
-                  <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
+                  <td className="px-4 py-3 text-right">
+                    <Checkbox
                       checked={selected.has(s.annotation_session_uuid)}
                       onChange={() => toggle(s.annotation_session_uuid)}
-                      className="accent-primary cursor-pointer"
                     />
                   </td>
                 </tr>

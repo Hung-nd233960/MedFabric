@@ -34,6 +34,7 @@ function emptySlice(): SliceEvalState {
 
 function snapshotSubmittable(snap: SetSnapshot): boolean {
   if (!snap.usability) return false;
+  if ((snap.usability === "Anomaly" || snap.usability === "Irrelevant") && !snap.setNotes?.trim()) return false;
   const aspects = snap.usability === "IschemicAssessable" && !snap.lowQuality;
   if (!aspects) return true;
   const list = Object.values(snap.slices);
@@ -297,8 +298,9 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
   },
 
   isSetSubmittable: () => {
-    const { usability, slices } = get();
+    const { usability, slices, setNotes } = get();
     if (!usability) return false;
+    if ((usability === "Anomaly" || usability === "Irrelevant") && !setNotes?.trim()) return false;
     if (!get().aspectsEnabled()) return true;
     const sliceList = Object.values(slices);
     const hasBasal = sliceList.some((s) => s.region === "BasalGanglia");
@@ -310,6 +312,8 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
   validationMessage: () => {
     const { usability } = get();
     if (!usability) return "Select a usability classification first.";
+    if ((usability === "Anomaly" || usability === "Irrelevant") && !get().setNotes?.trim())
+      return `Notes are required for ${usability} — please describe the reason.`;
     if (!get().aspectsEnabled()) return "Ready to submit.";
     const sliceList = Object.values(get().slices);
     const hasBasal = sliceList.some((s) => s.region === "BasalGanglia");

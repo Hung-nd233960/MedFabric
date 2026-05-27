@@ -70,15 +70,16 @@ function MutedBox({ children }: { children: ReactNode }) {
 }
 
 export default function ValidationStatus() {
-  const { images, slices, aspectsEnabled, isSetSubmittable } = useLabelStore();
+  const { images, slices, aspectsEnabled, usability, setNotes } = useLabelStore();
 
   const aspects = aspectsEnabled();
-  const setReady = isSetSubmittable();
 
   // ── ASPECTS disabled path ────────────────────────────────────────────────
   if (!aspects) {
-    if (setReady) return <GreenBox>Ready to submit.</GreenBox>;
-    return <MutedBox>Select a usability classification first.</MutedBox>;
+    if (!usability) return <MutedBox>Select a usability classification first.</MutedBox>;
+    if ((usability === "Anomaly" || usability === "Irrelevant") && !setNotes?.trim())
+      return <RedBox>Notes required — describe the {usability === "Anomaly" ? "anomaly" : "reason this scan is irrelevant"}.</RedBox>;
+    return <GreenBox>Ready to submit.</GreenBox>;
   }
 
   // ── Class A: missing required slice types ────────────────────────────────
