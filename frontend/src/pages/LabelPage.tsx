@@ -110,6 +110,14 @@ export default function LabelPage() {
   const [jumpImgInput, setJumpImgInput] = useState(String(currentIndex + 1));
   const [jumpSetInput, setJumpSetInput] = useState(String(queuePos + 1));
 
+  const wlInputRef = useRef<HTMLInputElement>(null);
+  const wwInputRef = useRef<HTMLInputElement>(null);
+  const skipWindowApplyRef = useRef(false);
+  const skipJumpImgApplyRef = useRef(false);
+  const skipJumpSetApplyRef = useRef(false);
+  const [mbActiveCol, setMbActiveCol] = useState<"left" | "right">("left");
+  const [selectedMBImageIndex, setSelectedMBImageIndex] = useState<number>(-1);
+
   const currentImg = currentImage();
 
   // Redirect if queue is empty (e.g. page refresh)
@@ -221,19 +229,23 @@ export default function LabelPage() {
 
   // Keyboard navigation — image (← →, no shift)
   const jumpImgInputRef = useRef<HTMLInputElement>(null);
+  const jumpSetInputRef = useRef<HTMLInputElement>(null);
   const inputFocusRef = useRef(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.shiftKey) return; // Shift+← / Shift+→ are handled in the comprehensive handler
+      if (showManagementBoard) return; // MB takes over arrow keys
       if (e.key === "ArrowLeft") setCurrentIndex((currentIndex - 1 + images.length) % images.length);
       if (e.key === "ArrowRight") setCurrentIndex((currentIndex + 1) % images.length);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [currentIndex, images.length]);
+  }, [currentIndex, images.length, showManagementBoard]);
   void inputFocusRef;
+
+  useEffect(() => { setSelectedMBImageIndex(-1); }, [selectedBoardSetUuid]);
 
   // Auto-save draft while in annotate mode — debounced 2.5 s after last change
   useEffect(() => {
@@ -428,100 +440,6 @@ export default function LabelPage() {
     }
   };
 
-  // Comprehensive keyboard shortcuts (placed after all handlers are defined)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
-
-      const key = e.key;
-      const shift = e.shiftKey;
-      const ctrl = e.ctrlKey || e.metaKey;
-      const UP = key.toUpperCase();
-
-      // Shift+← / Shift+→ — queue navigation (all modes)
-      if (shift && !ctrl && key === "ArrowLeft") {
-        e.preventDefault();
-        if (queuePos > 0) goToSet(queue[queuePos - 1]);
-        return;
-      }
-      if (shift && !ctrl && key === "ArrowRight") {
-        e.preventDefault();
-        if (queuePos < queue.length - 1) goToSet(queue[queuePos + 1]);
-        return;
-      }
-
-      // M — toggle Management Board (all modes)
-      if (!ctrl && !shift && UP === "M") {
-        setShowManagementBoard((v) => !v);
-        return;
-      }
-
-      // Esc — close Management Board or dismiss open dialogs (all modes)
-      if (key === "Escape") {
-        if (submitDialogMode !== null) { setSubmitDialogMode(null); return; }
-        if (confirmReset) { setConfirmReset(false); return; }
-        if (confirmExit) { setConfirmExit(false); setPendingNavDest(null); return; }
-        if (showManagementBoard) { setShowManagementBoard(false); return; }
-        return;
-      }
-
-      // Ctrl+S — save draft (annotate mode only)
-      if (ctrl && UP === "S" && !isReadMode && !isPreviewMode) {
-        e.preventDefault();
-        handleSaveDraft();
-        return;
-      }
-
-      // Ctrl+Enter — submit (annotate mode, only when valid)
-      if (ctrl && key === "Enter" && !isReadMode && !isPreviewMode) {
-        e.preventDefault();
-        const { isSetSubmittable: valid, isSetSubmittableByUuid: validByUuid } = useLabelStore.getState();
-        if (!valid()) return;
-        const allReady = queue.every((uuid: string) => validByUuid(uuid));
-        if (queue.length === 1) {
-          handleBatchAction("submit-all");
-        } else {
-          setSubmitDialogMode(allReady ? "all-ready" : "partial-ready");
-        }
-        return;
-      }
-
-      // Below shortcuts only in annotate mode, no modifier keys
-      if (isReadMode || isPreviewMode || ctrl || shift) return;
-
-      // 1–4: usability
-      switch (key) {
-        case "1": setUsability("IschemicAssessable"); return;
-        case "2": setUsability("HemorrhagicPresent"); return;
-        case "3": setUsability("Anomaly"); return;
-        case "4": setUsability("Irrelevant"); return;
-      }
-
-      const currentImg = useLabelStore.getState().currentImage();
-
-      // Q: toggle low quality (Ischemic only)
-      if (UP === "Q") {
-        const { usability: u, lowQuality: lq } = useLabelStore.getState();
-        if (u === "IschemicAssessable") setLowQuality(!lq);
-        return;
-      }
-
-      // B / C / N: region (ASPECTS enabled only)
-      if (currentImg && useLabelStore.getState().aspectsEnabled()) {
-        if (UP === "B") { setRegion(currentImg.uuid, "BasalGanglia"); return; }
-        if (UP === "C") { setRegion(currentImg.uuid, "CoronaRadiata"); return; }
-        if (UP === "N") { setRegion(currentImg.uuid, "None"); return; }
-      }
-    };
-
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReadMode, isPreviewMode, queue, queuePos, showManagementBoard, submitDialogMode,
-      confirmReset, confirmExit, handleSaveDraft, handleBatchAction,
-      setUsability, setLowQuality, setRegion]);
-
   const doNavigatePending = async (deleteDraft = false) => {
     const dest = pendingNavDest;
     setPendingNavDest(null);
@@ -568,6 +486,195 @@ export default function LabelPage() {
       setLoading(false);
     }
   };
+
+  // Comprehensive keyboard shortcuts (placed after all handlers are defined)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+      const key = e.key;
+      const shift = e.shiftKey;
+      const ctrl = e.ctrlKey || e.metaKey;
+      const UP = key.toUpperCase();
+
+      // Y/N keyboard answer for confirmReset dialog
+      if (confirmReset && !ctrl) {
+        if (UP === "Y") { e.preventDefault(); setConfirmReset(false); handleResetAll(); return; }
+        if (UP === "N") { e.preventDefault(); setConfirmReset(false); return; }
+      }
+
+      // Shift+Esc — return to Dashboard (all modes, same as the Exit button)
+      if (shift && key === "Escape") {
+        e.preventDefault();
+        handleExit();
+        return;
+      }
+
+      // Shift+Del — open Reset All Annotations prompt (annotate mode only)
+      if (shift && !ctrl && key === "Delete" && !isReadMode && !isPreviewMode) {
+        e.preventDefault();
+        setConfirmReset(true);
+        return;
+      }
+
+      // Shift+← / Shift+→ — queue navigation (all modes)
+      if (shift && !ctrl && key === "ArrowLeft") {
+        e.preventDefault();
+        if (queuePos > 0) goToSet(queue[queuePos - 1]);
+        return;
+      }
+      if (shift && !ctrl && key === "ArrowRight") {
+        e.preventDefault();
+        if (queuePos < queue.length - 1) goToSet(queue[queuePos + 1]);
+        return;
+      }
+
+      // Shift+Tab — cycle through Image Set Evaluation tabs (non-preview only)
+      if (shift && key === "Tab" && !ctrl && !isPreviewMode) {
+        e.preventDefault();
+        const tabs = (isReadMode
+          ? ["set-info", "patient-info", "annotation-info"]
+          : ["set-info", "patient-info"]) as Array<"set-info" | "patient-info" | "annotation-info">;
+        const cur = tabs.indexOf(rightTab);
+        setRightTab(tabs[(cur + 1) % tabs.length]);
+        return;
+      }
+
+      // J — focus Jump to Image input | Shift+J — focus Jump to Set input (all modes)
+      if (!ctrl && UP === "J") {
+        e.preventDefault();
+        if (shift) {
+          jumpSetInputRef.current?.focus();
+          jumpSetInputRef.current?.select();
+        } else {
+          jumpImgInputRef.current?.focus();
+          jumpImgInputRef.current?.select();
+        }
+        return;
+      }
+
+      // W / Shift+W — focus WL input / reset windowing (all label modes)
+      if (!ctrl && UP === "W") {
+        e.preventDefault();
+        if (shift) { handleResetWindow(); }
+        else { wlInputRef.current?.focus(); wlInputRef.current?.select(); }
+        return;
+      }
+
+      // Management Board keyboard navigation (when open, no modifier)
+      if (showManagementBoard && !ctrl && !shift) {
+        if (key === "ArrowLeft" || key === "ArrowRight") {
+          if (!isPreviewMode) {
+            e.preventDefault();
+            setMbActiveCol(c => c === "left" ? "right" : "left");
+          }
+          return;
+        }
+        if (key === "ArrowUp" || key === "ArrowDown") {
+          e.preventDefault();
+          const dir = key === "ArrowUp" ? -1 : 1;
+          if (mbActiveCol === "left") {
+            const cur = selectedBoardSetUuid ? queue.indexOf(selectedBoardSetUuid) : -1;
+            const next = cur < 0
+              ? (dir > 0 ? 0 : queue.length - 1)
+              : Math.max(0, Math.min(queue.length - 1, cur + dir));
+            setSelectedBoardSetUuid(queue[next] ?? null);
+          } else if (selectedBoardSetUuid) {
+            const imgList = getMBImagesForUuid(selectedBoardSetUuid);
+            const snap = getSnapForMB(selectedBoardSetUuid);
+            if (snap?.usability === "IschemicAssessable" && !snap.lowQuality) {
+              const mbSlicesNow = getMBSlicesForUuid(selectedBoardSetUuid);
+              const annotated = imgList.filter(({ uuid }) => {
+                const s = mbSlicesNow[uuid];
+                return s && s.region !== "None";
+              });
+              if (annotated.length > 0) {
+                setSelectedMBImageIndex(prev => {
+                  const start = prev < 0 ? (dir > 0 ? 0 : annotated.length - 1) : prev;
+                  return Math.max(0, Math.min(annotated.length - 1, start + dir));
+                });
+              }
+            }
+          }
+          return;
+        }
+      }
+
+      // M — toggle Management Board (all modes)
+      if (!ctrl && !shift && UP === "M") {
+        setShowManagementBoard((v) => !v);
+        setMbActiveCol("left");
+        setSelectedMBImageIndex(-1);
+        return;
+      }
+
+      // Esc — close Management Board or dismiss open dialogs (all modes)
+      if (key === "Escape") {
+        if (submitDialogMode !== null) { setSubmitDialogMode(null); return; }
+        if (confirmReset) { setConfirmReset(false); return; }
+        if (confirmExit) { setConfirmExit(false); setPendingNavDest(null); return; }
+        if (showManagementBoard) { setShowManagementBoard(false); return; }
+        return;
+      }
+
+      // Ctrl+S — save draft (annotate mode only)
+      if (ctrl && UP === "S" && !isReadMode && !isPreviewMode) {
+        e.preventDefault();
+        handleSaveDraft();
+        return;
+      }
+
+      // Ctrl+Enter — submit (annotate mode, only when valid)
+      if (ctrl && key === "Enter" && !isReadMode && !isPreviewMode) {
+        e.preventDefault();
+        const { isSetSubmittable: valid, isSetSubmittableByUuid: validByUuid } = useLabelStore.getState();
+        if (!valid()) return;
+        const allReady = queue.every((uuid: string) => validByUuid(uuid));
+        if (queue.length === 1) {
+          handleBatchAction("submit-all");
+        } else {
+          setSubmitDialogMode(allReady ? "all-ready" : "partial-ready");
+        }
+        return;
+      }
+
+      // Shift+1–4: usability (annotate mode only)
+      if (shift && !ctrl && !isReadMode && !isPreviewMode) {
+        switch (e.code) {
+          case "Digit1": e.preventDefault(); setUsability("IschemicAssessable"); return;
+          case "Digit2": e.preventDefault(); setUsability("HemorrhagicPresent"); return;
+          case "Digit3": e.preventDefault(); setUsability("Anomaly"); return;
+          case "Digit4": e.preventDefault(); setUsability("Irrelevant"); return;
+        }
+      }
+
+      // Shift+Q: toggle low quality (annotate mode, Ischemic only)
+      if (shift && !ctrl && UP === "Q" && !isReadMode && !isPreviewMode) {
+        const { usability: u, lowQuality: lq } = useLabelStore.getState();
+        if (u === "IschemicAssessable") setLowQuality(!lq);
+        return;
+      }
+
+      // Below shortcuts only in annotate mode, no modifier keys
+      if (isReadMode || isPreviewMode || ctrl || shift) return;
+
+      const currentImg = useLabelStore.getState().currentImage();
+
+      // B / C / N: region (ASPECTS enabled only)
+      if (currentImg && useLabelStore.getState().aspectsEnabled()) {
+        if (UP === "B") { setRegion(currentImg.uuid, "BasalGanglia"); return; }
+        if (UP === "C") { setRegion(currentImg.uuid, "CoronaRadiata"); return; }
+        if (UP === "N") { setRegion(currentImg.uuid, "None"); return; }
+      }
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReadMode, isPreviewMode, queue, queuePos, showManagementBoard, submitDialogMode,
+      confirmReset, confirmExit, handleSaveDraft, handleBatchAction, handleExit, handleResetAll,
+      setUsability, setLowQuality, setRegion, mbActiveCol, selectedBoardSetUuid, rightTab]);
 
   void isSetSubmittable; // used internally by ValidationStatus
   const queueReady = queue.map((uuid: string) => isSetSubmittableByUuid(uuid));
@@ -687,12 +794,16 @@ export default function LabelPage() {
                     </Button>
                   </WithTooltip>
                   <Input
+                    ref={jumpImgInputRef}
                     type="number"
                     className={`h-8 w-16 text-center text-base ${NO_SPINNER}`}
                     value={jumpImgInput}
                     onChange={(e) => setJumpImgInput(e.target.value)}
-                    onBlur={(e) => applyJumpImage(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && applyJumpImage(jumpImgInput)}
+                    onBlur={(e) => { if (!skipJumpImgApplyRef.current) applyJumpImage(e.target.value); skipJumpImgApplyRef.current = false; }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { applyJumpImage(jumpImgInput); e.currentTarget.blur(); }
+                      else if (e.key === "Escape") { skipJumpImgApplyRef.current = true; setJumpImgInput(String(currentIndex + 1)); e.currentTarget.blur(); }
+                    }}
                     min={1} max={images.length}
                   />
                   <span className="text-base text-muted-foreground shrink-0">of {images.length}</span>
@@ -729,21 +840,31 @@ export default function LabelPage() {
               <div className="flex items-center gap-2">
                 <Label className="text-base text-muted-foreground shrink-0">WL</Label>
                 <Input
+                  ref={wlInputRef}
                   type="number"
                   className={`h-7 w-16 text-base ${NO_SPINNER}`}
                   value={wlInput}
                   onChange={(e) => setWlInput(e.target.value)}
-                  onBlur={applyWindow}
-                  onKeyDown={(e) => e.key === "Enter" && applyWindow()}
+                  onBlur={() => { if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
+                    else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWlInput(String(windowLevel)); e.currentTarget.blur(); }
+                    else if (e.key === "Tab") { e.preventDefault(); wwInputRef.current?.focus(); wwInputRef.current?.select(); }
+                  }}
                 />
                 <Label className="text-base text-muted-foreground shrink-0">WW</Label>
                 <Input
+                  ref={wwInputRef}
                   type="number"
                   className={`h-7 w-16 text-base ${NO_SPINNER}`}
                   value={wwInput}
                   onChange={(e) => setWwInput(e.target.value)}
-                  onBlur={applyWindow}
-                  onKeyDown={(e) => e.key === "Enter" && applyWindow()}
+                  onBlur={() => { if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
+                    else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWwInput(String(windowWidth)); e.currentTarget.blur(); }
+                    else if (e.key === "Tab") { e.preventDefault(); wlInputRef.current?.focus(); wlInputRef.current?.select(); }
+                  }}
                 />
                 <WithTooltip content={`Reset to WL ${defaultWindowLevel} / WW ${defaultWindowWidth}`} side="top">
                   <Button
@@ -802,12 +923,16 @@ export default function LabelPage() {
                     </Button>
                   </WithTooltip>
                   <Input
+                    ref={jumpSetInputRef}
                     type="number"
                     className={`h-8 w-14 text-center text-base ${NO_SPINNER}`}
                     value={jumpSetInput}
                     onChange={(e) => setJumpSetInput(e.target.value)}
-                    onBlur={(e) => applyJumpSet(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && applyJumpSet(jumpSetInput)}
+                    onBlur={(e) => { if (!skipJumpSetApplyRef.current) applyJumpSet(e.target.value); skipJumpSetApplyRef.current = false; }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { applyJumpSet(jumpSetInput); e.currentTarget.blur(); }
+                      else if (e.key === "Escape") { skipJumpSetApplyRef.current = true; setJumpSetInput(String(queuePos + 1)); e.currentTarget.blur(); }
+                    }}
                     min={1} max={queue.length}
                   />
                   <span className="text-sm text-muted-foreground shrink-0">of {queue.length}</span>
@@ -1061,11 +1186,14 @@ export default function LabelPage() {
                         <ChevronLeft className="h-4 w-4" />
                       </Button>
                     </WithTooltip>
-                    <Input type="number" className={`h-8 w-14 text-center text-base ${NO_SPINNER}`}
+                    <Input ref={jumpSetInputRef} type="number" className={`h-8 w-14 text-center text-base ${NO_SPINNER}`}
                       value={jumpSetInput}
                       onChange={(e) => setJumpSetInput(e.target.value)}
-                      onBlur={(e) => applyJumpSet(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && applyJumpSet(jumpSetInput)}
+                      onBlur={(e) => { if (!skipJumpSetApplyRef.current) applyJumpSet(e.target.value); skipJumpSetApplyRef.current = false; }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { applyJumpSet(jumpSetInput); e.currentTarget.blur(); }
+                        else if (e.key === "Escape") { skipJumpSetApplyRef.current = true; setJumpSetInput(String(queuePos + 1)); e.currentTarget.blur(); }
+                      }}
                       min={1} max={queue.length} />
                     <span className="text-sm text-muted-foreground shrink-0">of {queue.length}</span>
                     <WithTooltip content="Next image set" side="top">
@@ -1123,8 +1251,11 @@ export default function LabelPage() {
                       ref={jumpImgInputRef}
                       value={jumpImgInput}
                       onChange={(e) => setJumpImgInput(e.target.value)}
-                      onBlur={(e) => applyJumpImage(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && applyJumpImage(jumpImgInput)}
+                      onBlur={(e) => { if (!skipJumpImgApplyRef.current) applyJumpImage(e.target.value); skipJumpImgApplyRef.current = false; }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { applyJumpImage(jumpImgInput); e.currentTarget.blur(); }
+                        else if (e.key === "Escape") { skipJumpImgApplyRef.current = true; setJumpImgInput(String(currentIndex + 1)); e.currentTarget.blur(); }
+                      }}
                       min={1} max={images.length} />
                     <span className="text-base text-muted-foreground shrink-0">of {images.length}</span>
                     <WithTooltip content="Next image (→ key)" side="top">
@@ -1143,13 +1274,23 @@ export default function LabelPage() {
                 )}
                 <div className="flex items-center gap-2">
                   <Label className="text-base text-muted-foreground shrink-0">WL</Label>
-                  <Input type="number" className={`h-7 w-16 text-base ${NO_SPINNER}`} value={wlInput}
-                    onChange={(e) => setWlInput(e.target.value)} onBlur={applyWindow}
-                    onKeyDown={(e) => e.key === "Enter" && applyWindow()} />
+                  <Input ref={wlInputRef} type="number" className={`h-7 w-16 text-base ${NO_SPINNER}`} value={wlInput}
+                    onChange={(e) => setWlInput(e.target.value)}
+                    onBlur={() => { if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
+                      else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWlInput(String(windowLevel)); e.currentTarget.blur(); }
+                      else if (e.key === "Tab") { e.preventDefault(); wwInputRef.current?.focus(); wwInputRef.current?.select(); }
+                    }} />
                   <Label className="text-base text-muted-foreground shrink-0">WW</Label>
-                  <Input type="number" className={`h-7 w-16 text-base ${NO_SPINNER}`} value={wwInput}
-                    onChange={(e) => setWwInput(e.target.value)} onBlur={applyWindow}
-                    onKeyDown={(e) => e.key === "Enter" && applyWindow()} />
+                  <Input ref={wwInputRef} type="number" className={`h-7 w-16 text-base ${NO_SPINNER}`} value={wwInput}
+                    onChange={(e) => setWwInput(e.target.value)}
+                    onBlur={() => { if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
+                      else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWwInput(String(windowWidth)); e.currentTarget.blur(); }
+                      else if (e.key === "Tab") { e.preventDefault(); wlInputRef.current?.focus(); wlInputRef.current?.select(); }
+                    }} />
                   <WithTooltip content={`Reset to WL ${defaultWindowLevel} / WW ${defaultWindowWidth}`} side="top">
                     <Button variant="outline" size="icon" className="h-7 w-7 shrink-0" onClick={handleResetWindow}>
                       <RotateCcw className="h-3.5 w-3.5" />
@@ -1232,13 +1373,13 @@ export default function LabelPage() {
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white"
                 onClick={() => { setConfirmReset(false); handleResetAll(); }}
               >
-                Yes. Delete
+                Yes, Delete <kbd className="ml-1.5 rounded border border-red-300/40 bg-red-500/20 px-1 py-0.5 font-mono text-xs">Y</kbd>
               </Button>
               <Button
                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={() => setConfirmReset(false)}
               >
-                Cancel
+                No, Cancel <kbd className="ml-1.5 rounded border border-blue-300/40 bg-blue-500/20 px-1 py-0.5 font-mono text-xs">N</kbd>
               </Button>
             </div>
           </div>
@@ -1308,7 +1449,7 @@ export default function LabelPage() {
               {/* Left: Image Set Statuses */}
               <div className={`${isPreviewMode ? "w-full" : "w-1/2 border-r"} overflow-y-auto`}>
                 <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-background border-b z-10">
+                  <thead className={`sticky top-0 bg-background border-b z-10 ${mbActiveCol === "left" ? "border-t-2 border-t-primary" : ""}`}>
                     <tr>
                       <th className="px-3 py-2 text-left font-medium text-muted-foreground w-12">Set #</th>
                       <th className="px-3 py-2 text-left font-medium text-muted-foreground w-16">Index</th>
@@ -1371,7 +1512,7 @@ export default function LabelPage() {
                   }
                   return (
                     <table className="w-full text-sm">
-                      <thead className="sticky top-0 bg-background border-b z-10">
+                      <thead className={`sticky top-0 bg-background border-b z-10 ${mbActiveCol === "right" ? "border-t-2 border-t-primary" : ""}`}>
                         <tr>
                           <th className="px-3 py-2 text-left font-medium text-muted-foreground w-16">Image</th>
                           <th className="px-3 py-2 text-left font-medium text-muted-foreground w-28">Zone</th>
@@ -1379,11 +1520,11 @@ export default function LabelPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {annotated.map(({ uuid, index }) => {
+                        {annotated.map(({ uuid, index }, rowIdx) => {
                           const s = mbSlices[uuid];
                           const missing = getMissingZones(s);
                           return (
-                            <tr key={uuid} className="border-b">
+                            <tr key={uuid} className={`border-b ${rowIdx === selectedMBImageIndex ? "bg-muted" : ""}`}>
                               <td className="px-3 py-2 font-mono text-muted-foreground">{index + 1}</td>
                               <td className={`px-3 py-2 font-medium ${
                                 s.region === "BasalGanglia" ? "text-purple-400"

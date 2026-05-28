@@ -16,15 +16,19 @@ const COLUMNS: Column[] = [
   {
     title: "Dashboard",
     rows: [
-      { combo: "I / D / H", desc: "Image Sets / Drafts / History tab" },
+      { combo: "Tab / Shift+Tab", desc: "Cycle tabs forward / backward" },
+      { combo: "V", desc: "Enter / exit Visual selection mode" },
+      { combo: "I / D / H", desc: "Jump to Image Sets / Drafts / History" },
+      { combo: "Ctrl+A", desc: "Select / deselect all in current tab" },
       { combo: "↑ / ↓", desc: "Move row highlight" },
       { combo: "Shift+↑ / ↓", desc: "Jump to first / last row" },
       { combo: "Shift+1 … 0", desc: "Jump to 0% … 100% of table" },
-      { combo: "Enter", desc: "Select / deselect highlighted row" },
+      { combo: "Enter / Space", desc: "Select / deselect highlighted row" },
       { combo: "A / R", desc: "Switch to Annotate / Reader mode" },
       { combo: "Shift+A", desc: "Launch selected sets — Annotate" },
       { combo: "Shift+R", desc: "Launch selected sets — Reader" },
       { combo: "Shift+P", desc: "Launch selected sets — Preview" },
+      { combo: "Del / Shift+D", desc: "Delete selected drafts (Drafts tab)" },
       { combo: "Esc", desc: "Clear highlight & deselect" },
     ],
   },
@@ -33,12 +37,20 @@ const COLUMNS: Column[] = [
     rows: [
       { combo: "← / →", desc: "Previous / next image" },
       { combo: "Shift+← / →", desc: "Previous / next set in queue" },
-      { combo: "1 / 2 / 3 / 4", desc: "Ischemic / Hemorrhagic / Anomaly / Irrelevant" },
-      { combo: "Q", desc: "Toggle Low Quality (Ischemic only)" },
+      { combo: "Shift+1/2/3/4", desc: "Ischemic / Hemorrhagic / Anomaly / Irrelevant" },
+      { combo: "Shift+Q", desc: "Toggle Low Quality (Ischemic only)" },
       { combo: "B / C / N", desc: "Region: Basal / Corona / None" },
+      { combo: "J", desc: "Jump to image number input" },
+      { combo: "Shift+J", desc: "Jump to set number input" },
+      { combo: "W", desc: "Jump to WL input" },
+      { combo: "Shift+W", desc: "Reset windowing" },
+      { combo: "Shift+Tab", desc: "Cycle Image Set Evaluation tabs" },
       { combo: "M", desc: "Toggle Management Board" },
       { combo: "Ctrl+S", desc: "Save draft" },
       { combo: "Ctrl+Enter", desc: "Submit (when ready)" },
+      { combo: "Shift+Del", desc: "Open Reset All Annotations prompt" },
+      { combo: "Y / N", desc: "Confirm / cancel reset prompt" },
+      { combo: "Shift+Esc", desc: "Return to Dashboard" },
       { combo: "Esc", desc: "Close dialog / Management Board" },
     ],
   },
@@ -47,8 +59,19 @@ const COLUMNS: Column[] = [
     rows: [
       { combo: "← / →", desc: "Previous / next image" },
       { combo: "Shift+← / →", desc: "Previous / next set in queue" },
+      { combo: "J / Shift+J", desc: "Jump to image / set number input" },
+      { combo: "W / Shift+W", desc: "Jump to WL input / Reset windowing" },
+      { combo: "Shift+Tab", desc: "Cycle Image Set Evaluation tabs" },
       { combo: "M", desc: "Toggle Management Board" },
+      { combo: "Shift+Esc", desc: "Return to Dashboard" },
       { combo: "Esc", desc: "Close Management Board" },
+    ],
+  },
+  {
+    title: "Management Board",
+    rows: [
+      { combo: "↑ / ↓", desc: "Navigate rows in active panel" },
+      { combo: "← / →", desc: "Switch active panel" },
     ],
   },
 ];
@@ -71,7 +94,7 @@ export default function KeyboardShortcutsPanel() {
           <DialogTitle className="text-xl">Keyboard Shortcuts</DialogTitle>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto pr-1">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-10 gap-y-8 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-x-10 gap-y-8 pt-2">
             {COLUMNS.map((col) => (
               <div key={col.title} className="space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground pb-1.5 border-b border-border mb-3">

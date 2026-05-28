@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { PlayCircle, Trash2, Clock, CheckCircle2, FileEdit, Stethoscope, Globe, Layers, BookOpen, ScanEye, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { PlayCircle, Trash2, Clock, CheckCircle2, FileEdit, Stethoscope, Globe, Layers, BookOpen, ScanEye, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -18,6 +18,8 @@ type SortDir = "asc" | "desc";
 type SortCol     = "index" | "name" | "patient_id" | "icd" | "slices" | "evaluators" | "status";
 type DraftSortCol = "index" | "name" | "patient_id" | "icd" | "slices" | "annotated" | "draft_time";
 type HistSortCol  = "index" | "name" | "icd" | "event" | "time";
+
+const TABS: Tab[] = ["image-sets", "drafts", "history"];
 
 const SET_COLS: { key: SortCol; label: string }[] = [
   { key: "index",      label: "Index" },
@@ -47,9 +49,8 @@ const HIST_COLS: { key: HistSortCol; label: string }[] = [
   { key: "time",  label: "Time" },
 ];
 
-
 const STAT_COLORS = {
-  blue:   { card: "border-blue-500/40 bg-blue-500/5",   icon: "text-blue-400",   value: "text-blue-400"   },
+  blue:   { card: "border-blue-500/40 bg-blue-500/5",    icon: "text-blue-400",   value: "text-blue-400"   },
   green:  { card: "border-green-500/40 bg-green-500/5",  icon: "text-green-400",  value: "text-green-400"  },
   purple: { card: "border-purple-500/40 bg-purple-500/5", icon: "text-purple-400", value: "text-purple-400" },
   amber:  { card: "border-amber-500/40 bg-amber-500/5",  icon: "text-amber-400",  value: "text-amber-400"  },
@@ -95,6 +96,25 @@ const EVENT_VARIANTS: Record<string, "success" | "warning" | "destructive" | "ou
   draft_saved: "warning",
   draft_deleted: "destructive",
 };
+function compressIds(ids: number[]): string {
+  if (ids.length === 0) return "";
+  const sorted = [...ids].sort((a, b) => a - b);
+  const ranges: string[] = [];
+  let start = sorted[0];
+  let end = sorted[0];
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] === end + 1) {
+      end = sorted[i];
+    } else {
+      ranges.push(end > start ? `${start}-${end}` : `${start}`);
+      start = sorted[i];
+      end = sorted[i];
+    }
+  }
+  ranges.push(end > start ? `${start}-${end}` : `${start}`);
+  return ranges.join(", ");
+}
+
 const EVENT_LABELS: Record<string, string> = {
   submitted: "Submitted",
   draft_saved: "Draft Saved",
@@ -111,6 +131,7 @@ export default function DashboardPage() {
   const [starting, setStarting] = useState(false);
   const [deletingDrafts, setDeletingDrafts] = useState(false);
   const [confirmDeleteDrafts, setConfirmDeleteDrafts] = useState(false);
+  const [confirmLaunch, setConfirmLaunch] = useState<{ type: "annotate" | "read" | "preview"; count: number } | null>(null);
   const [selectedSets, setSelectedSets] = useState<Set<string>>(new Set());
   const [selectedDrafts, setSelectedDrafts] = useState<Set<string>>(new Set());
   const [sortCol, setSortCol] = useState<SortCol>("index");
@@ -121,8 +142,9 @@ export default function DashboardPage() {
   const [sortHistDir, setSortHistDir] = useState<SortDir>("desc");
   const { mode, setMode } = useLabelStore();
   const [kbHighlight, setKbHighlight] = useState(-1);
+  const [visualMode, setVisualMode] = useState(false);
+  const [visualAnchor, setVisualAnchor] = useState(-1);
 
-  // In reader mode, only show sets that have data to read
   const readableSets = imageSets.filter((s) => s.evaluated_by_me || s.in_draft_by_me);
   const visibleSets = mode === "read" ? readableSets : imageSets;
   const chosenIndices = [...visibleSets.filter((s: ImageSetWithProgress) => selectedSets.has(s.uuid))]
@@ -185,7 +207,6 @@ export default function DashboardPage() {
   const statusRank = (s: ImageSetWithProgress) => s.evaluated_by_me ? 2 : s.in_draft_by_me ? 1 : 0;
 
   const sortedSets = [...visibleSets].sort((a, b) => {
-    // Selected rows float to top
     const sel = (selectedSets.has(b.uuid) ? 1 : 0) - (selectedSets.has(a.uuid) ? 1 : 0);
     if (sel !== 0) return sel;
     let cmp = 0;
@@ -240,7 +261,8 @@ export default function DashboardPage() {
   const SortIconDraft = mkSortIcon(sortDraftCol, sortDraftDir);
   const SortIconHist  = mkSortIcon(sortHistCol,  sortHistDir);
 
-  const handleAnnotateSets = async () => {
+  // ── Launch helpers — split into doX (actual launch) and handleX (count guard) ──
+  const doAnnotateSets = async () => {
     const chosen = [...imageSets.filter((s) => selectedSets.has(s.uuid))].sort(
       (a, b) => a.dataset_index - b.dataset_index
     );
@@ -268,7 +290,12 @@ export default function DashboardPage() {
     }
   };
 
-  const handleReadSets = () => {
+  const handleAnnotateSets = () => {
+    if (selectedSets.size >= 50) { setConfirmLaunch({ type: "annotate", count: selectedSets.size }); return; }
+    doAnnotateSets();
+  };
+
+  const doReadSets = () => {
     const chosen = [...readableSets.filter((s) => selectedSets.has(s.uuid))].sort(
       (a, b) => a.dataset_index - b.dataset_index
     );
@@ -286,7 +313,12 @@ export default function DashboardPage() {
     navigate("/label");
   };
 
-  const handlePreviewSets = () => {
+  const handleReadSets = () => {
+    if (selectedSets.size >= 50) { setConfirmLaunch({ type: "read", count: selectedSets.size }); return; }
+    doReadSets();
+  };
+
+  const doPreviewSets = () => {
     const chosen = [...imageSets.filter((s) => selectedSets.has(s.uuid))].sort(
       (a, b) => a.dataset_index - b.dataset_index
     );
@@ -302,6 +334,11 @@ export default function DashboardPage() {
       isPreviewMode: true,
     });
     navigate("/label");
+  };
+
+  const handlePreviewSets = () => {
+    if (selectedSets.size >= 50) { setConfirmLaunch({ type: "preview", count: selectedSets.size }); return; }
+    doPreviewSets();
   };
 
   const handleReadDraft = (draft: { image_set_uuid: string; dataset_index: number }) => {
@@ -368,14 +405,14 @@ export default function DashboardPage() {
     }
   };
 
-  // Reset keyboard highlight when tab changes
-  useEffect(() => { setKbHighlight(-1); }, [activeTab]);
+  // Reset keyboard highlight and visual mode when tab changes
+  useEffect(() => { setKbHighlight(-1); setVisualMode(false); setVisualAnchor(-1); }, [activeTab]);
 
   // Auto-scroll highlighted row into view
   useEffect(() => {
     if (kbHighlight < 0) return;
     const el = document.querySelector(`[data-kb-row="${kbHighlight}"]`);
-    el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [kbHighlight]);
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────────
@@ -390,16 +427,79 @@ export default function DashboardPage() {
       const shift = e.shiftKey;
       const ctrl = e.ctrlKey || e.metaKey;
 
-      // Tab switching (no modifier) — clears selections when changing context
+      // Confirm dialogs consume all keys; handle Y / N / Esc
+      if (confirmDeleteDrafts) {
+        if (!ctrl && UP === "Y") { e.preventDefault(); handleDeleteDrafts(); return; }
+        if ((!ctrl && UP === "N") || key === "Escape") { e.preventDefault(); setConfirmDeleteDrafts(false); return; }
+        e.preventDefault(); return;
+      }
+      if (confirmLaunch) {
+        if (!ctrl && UP === "Y") {
+          e.preventDefault();
+          const type = confirmLaunch.type;
+          setConfirmLaunch(null);
+          if (type === "annotate") doAnnotateSets();
+          else if (type === "read") doReadSets();
+          else doPreviewSets();
+          return;
+        }
+        if ((!ctrl && UP === "N") || key === "Escape") { e.preventDefault(); setConfirmLaunch(null); return; }
+        e.preventDefault(); return;
+      }
+
+      // Tab — cycle tabs forward (Shift+Tab backward)
+      if (key === "Tab" && !ctrl) {
+        e.preventDefault();
+        const idx = TABS.indexOf(activeTab);
+        const next = shift ? (idx - 1 + TABS.length) % TABS.length : (idx + 1) % TABS.length;
+        setActiveTab(TABS[next]);
+        setKbHighlight(-1);
+        setSelectedSets(new Set());
+        setSelectedDrafts(new Set());
+        return;
+      }
+
+      // Ctrl+A — select / deselect all in current tab
+      if (ctrl && !shift && UP === "A") {
+        e.preventDefault();
+        if (activeTab === "image-sets") toggleAllSets();
+        else if (activeTab === "drafts") toggleAllDrafts();
+        return;
+      }
+
+      // I / D / H — switch tabs directly
       if (!shift && !ctrl) {
         if (UP === "I") { setActiveTab("image-sets"); setKbHighlight(-1); setSelectedSets(new Set()); setSelectedDrafts(new Set()); return; }
-        if (UP === "D") { setActiveTab("drafts"); setKbHighlight(-1); setSelectedSets(new Set()); setSelectedDrafts(new Set()); return; }
-        if (UP === "H") { setActiveTab("history"); setKbHighlight(-1); setSelectedSets(new Set()); setSelectedDrafts(new Set()); return; }
+        if (UP === "D") { setActiveTab("drafts");     setKbHighlight(-1); setSelectedSets(new Set()); setSelectedDrafts(new Set()); return; }
+        if (UP === "H") { setActiveTab("history");    setKbHighlight(-1); setSelectedSets(new Set()); setSelectedDrafts(new Set()); return; }
+      }
+
+      // Drafts tab: Del (no shift) or Shift+D — open delete confirm
+      if (activeTab === "drafts" && selectedDrafts.size > 0 && mode !== "read") {
+        if ((key === "Delete" && !shift && !ctrl) || (shift && !ctrl && UP === "D")) {
+          e.preventDefault();
+          setConfirmDeleteDrafts(true);
+          return;
+        }
       }
 
       if (activeTab !== "image-sets") return;
 
-      // Mode toggle — flip the switch only, keep current selections
+      // V — enter / exit Visual Mode
+      if (!ctrl && !shift && UP === "V" && sortedSets.length > 0) {
+        if (visualMode) {
+          setVisualMode(false);
+          setVisualAnchor(-1);
+        } else {
+          const anchor = kbHighlight >= 0 ? kbHighlight : 0;
+          if (kbHighlight < 0) setKbHighlight(0);
+          setVisualAnchor(anchor);
+          setVisualMode(true);
+        }
+        return;
+      }
+
+      // Mode toggle
       if (!shift && !ctrl) {
         if (UP === "A") { setMode("annotate"); return; }
         if (UP === "R") { setMode("read"); return; }
@@ -416,8 +516,6 @@ export default function DashboardPage() {
         setKbHighlight((h) => (sortedSets.length === 0 ? -1 : h >= sortedSets.length - 1 ? 0 : h + 1));
         return;
       }
-
-      // Shift+↑ / Shift+↓ — jump to first / last row
       if (shift && !ctrl && key === "ArrowUp") {
         e.preventDefault();
         if (sortedSets.length > 0) setKbHighlight(0);
@@ -429,437 +527,495 @@ export default function DashboardPage() {
         return;
       }
 
-      // Shift+1-0 — jump to decile (0%–100%) of the table
-      // Uses e.code so it works regardless of keyboard layout (Shift+1 = "Digit1" even though e.key = "!")
+      // Shift+1–0 — jump to decile
       if (shift && !ctrl && e.code?.startsWith("Digit") && sortedSets.length > 0) {
-        const d = parseInt(e.code.slice(-1)); // 0–9 from "Digit0"–"Digit9"
+        const d = parseInt(e.code.slice(-1));
         if (!isNaN(d)) {
           e.preventDefault();
           const len = sortedSets.length;
-          // Digit 1 → row 0 (top), Digit 0 → last row (bottom), 2–9 → (d-1)*10% into list
           const idx = d === 1 ? 0 : d === 0 ? len - 1 : Math.min(Math.floor((d - 1) * 0.1 * len), len - 1);
           setKbHighlight(idx);
         }
         return;
       }
 
-      // Esc: clear highlight and selection
+      // Esc — exit Visual Mode, or clear highlight and selection
       if (key === "Escape") {
+        if (visualMode) { setVisualMode(false); setVisualAnchor(-1); return; }
         setKbHighlight(-1);
         setSelectedSets(new Set());
         return;
       }
 
-      // Enter: toggle checkbox of highlighted row (like clicking the row)
-      if (key === "Enter" && !shift && !ctrl && kbHighlight >= 0 && kbHighlight < sortedSets.length) {
+      // Enter / Space — confirm Visual Mode range, or toggle highlighted row
+      if ((key === "Enter" || key === " ") && !shift && !ctrl && kbHighlight >= 0 && kbHighlight < sortedSets.length) {
         e.preventDefault();
-        toggleSet(sortedSets[kbHighlight].uuid);
+        if (visualMode) {
+          const lo = Math.min(visualAnchor, kbHighlight);
+          const hi = Math.max(visualAnchor, kbHighlight);
+          setSelectedSets((prev) => {
+            const next = new Set(prev);
+            for (let i = lo; i <= hi; i++) {
+              if (i < sortedSets.length) {
+                const uuid = sortedSets[i].uuid;
+                if (next.has(uuid)) next.delete(uuid); else next.add(uuid);
+              }
+            }
+            return next;
+          });
+          setVisualMode(false);
+          setVisualAnchor(-1);
+        } else {
+          toggleSet(sortedSets[kbHighlight].uuid);
+        }
         return;
       }
 
-      // Shift+A/R/P: launch selected sets — only works when rows are already selected
+      // Shift+A/R/P — launch selected sets
       if (shift && !ctrl && selectedSets.size > 0) {
         if (UP === "A") { e.preventDefault(); handleAnnotateSets(); return; }
-        if (UP === "R") { e.preventDefault(); handleReadSets(); return; }
-        if (UP === "P") { e.preventDefault(); handlePreviewSets(); return; }
+        if (UP === "R") { e.preventDefault(); handleReadSets();     return; }
+        if (UP === "P") { e.preventDefault(); handlePreviewSets();  return; }
       }
     };
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activeTab, kbHighlight, sortedSets, selectedSets, toggleSet, // eslint-disable-line react-hooks/exhaustive-deps
-      handleAnnotateSets, handleReadSets, handlePreviewSets]);
+  }, [activeTab, kbHighlight, sortedSets, selectedSets, selectedDrafts, toggleSet, toggleAllSets, toggleAllDrafts, // eslint-disable-line react-hooks/exhaustive-deps
+      confirmDeleteDrafts, confirmLaunch, handleAnnotateSets, handleReadSets, handlePreviewSets,
+      doAnnotateSets, doReadSets, doPreviewSets, handleDeleteDrafts, mode, visualMode, visualAnchor]);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6" style={{ zoom: 1.2 }}>
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        {stats?.assigned_dataset ? (
-          <p className="text-muted-foreground text-sm mt-1">
-            Assigned dataset:{" "}
-            <span className="text-foreground font-medium">{stats.assigned_dataset.name}</span>
-          </p>
-        ) : (
-          <p className="text-muted-foreground text-sm mt-1">No dataset assigned — contact an admin.</p>
-        )}
-      </div>
+    <div className="flex flex-col overflow-hidden" style={{ zoom: 1.2, height: "calc(100vh / 1.2)" }}>
+      <div className="flex-1 overflow-hidden flex flex-col max-w-6xl mx-auto w-full px-6 pt-5 pb-4 gap-4">
 
-      {/* Stats */}
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard icon={Layers} label="Total Image Sets" value={stats.total_image_sets} color="blue" />
-          <StatCard
-            icon={Stethoscope}
-            label="My Progress"
-            value={stats.my_progress}
-            pct={stats.total_image_sets > 0 ? parseFloat((stats.my_progress / stats.total_image_sets * 100).toFixed(2)) : 0}
-            sub="sets evaluated by you"
-            color="green"
-          />
-          <StatCard
-            icon={Globe}
-            label="Global Progress"
-            value={stats.global_progress}
-            pct={stats.total_image_sets > 0 ? parseFloat((stats.global_progress / stats.total_image_sets * 100).toFixed(2)) : 0}
-            sub="unique sets with ≥1 evaluation"
-            color="purple"
-            tooltip="Unique image sets with at least one evaluation from any doctor in the cohort"
-          />
-          <StatCard icon={CheckCircle2} label="Remaining" value={Math.max(0, stats.total_image_sets - stats.my_progress)} sub="sets you haven't evaluated" color="amber" />
+        {/* Header */}
+        <div className="shrink-0">
+          <h1 className="text-2xl font-semibold">Dashboard</h1>
+          {stats?.assigned_dataset ? (
+            <p className="text-muted-foreground text-sm mt-1">
+              Assigned dataset:{" "}
+              <span className="text-foreground font-medium">{stats.assigned_dataset.name}</span>
+            </p>
+          ) : (
+            <p className="text-muted-foreground text-sm mt-1">No dataset assigned — contact an admin.</p>
+          )}
         </div>
-      )}
 
-      {/* Tabs */}
-      {stats?.assigned_dataset && (
-        <div className="space-y-4">
-          {/* Mode toggle + Tab bar */}
-          <div className="flex items-center justify-between gap-4 border-b border-border pb-0">
-            <div className="flex gap-1">
-
-              {(["image-sets", "drafts", "history"] as Tab[]).map((tab) => {
-                const labels: Record<Tab, string> = { "image-sets": "Image Sets", drafts: `Drafts (${drafts.length})`, history: "History" };
-                return (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => { setActiveTab(tab); setSelectedSets(new Set()); setSelectedDrafts(new Set()); }}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                      activeTab === tab
-                        ? "border-primary text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {labels[tab]}
-                  </button>
-                );
-              })}
-            </div>
-            {/* Mode toggle — only shown on image-sets and drafts tabs */}
-            {(activeTab === "image-sets" || activeTab === "drafts") && (
-              <div className="flex items-center gap-1 rounded-lg border border-border p-0.5 mb-1">
-                <WithTooltip
-                  content="Start or continue scoring image sets"
-                  side="bottom"
-                >
-                  <button
-                    type="button"
-                    onClick={() => { setMode("annotate"); setSelectedSets(new Set()); setSelectedDrafts(new Set()); }}
-                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                      mode === "annotate" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <PlayCircle className="h-3.5 w-3.5" /> Annotate
-                  </button>
-                </WithTooltip>
-                <WithTooltip
-                  content="Review your submitted or saved annotations (read-only)"
-                  side="bottom"
-                >
-                  <button
-                    type="button"
-                    onClick={() => { setMode("read"); setSelectedSets(new Set()); setSelectedDrafts(new Set()); }}
-                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                      mode === "read" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <BookOpen className="h-3.5 w-3.5" /> Reader
-                  </button>
-                </WithTooltip>
-              </div>
-            )}
+        {/* Stats */}
+        {stats && (
+          <div className="shrink-0 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <StatCard icon={Layers} label="Total Image Sets" value={stats.total_image_sets} color="blue" />
+            <StatCard
+              icon={Stethoscope}
+              label="My Progress"
+              value={stats.my_progress}
+              pct={stats.total_image_sets > 0 ? parseFloat((stats.my_progress / stats.total_image_sets * 100).toFixed(2)) : 0}
+              sub="sets evaluated by you"
+              color="green"
+            />
+            <StatCard
+              icon={Globe}
+              label="Global Progress"
+              value={stats.global_progress}
+              pct={stats.total_image_sets > 0 ? parseFloat((stats.global_progress / stats.total_image_sets * 100).toFixed(2)) : 0}
+              sub="unique sets with ≥1 evaluation"
+              color="purple"
+              tooltip="Unique image sets with at least one evaluation from any doctor in the cohort"
+            />
+            <StatCard icon={CheckCircle2} label="Remaining" value={Math.max(0, stats.total_image_sets - stats.my_progress)} sub="sets you haven't evaluated" color="amber" />
           </div>
+        )}
 
-          {/* ── Image Sets tab ── */}
-          {activeTab === "image-sets" && (
-            <div className="space-y-3">
-              <div className={`rounded-lg border px-4 py-3 text-sm flex items-center justify-between gap-4 transition-colors ${
-                selectedSets.size > 0 ? "border-primary bg-primary/5" : "border-border bg-muted/30"
-              }`}>
-                {selectedSets.size === 0 ? (
-                  <span className="text-muted-foreground">
-                    {mode === "read" ? "Choose annotated or drafted sets to read" : "Choose image sets to annotate"}
-                  </span>
-                ) : (
-                  <>
-                    <span>
-                      You have chosen sets:{" "}
-                      <span className="font-mono font-medium">{chosenIndices.join(", ")}</span>
-                    </span>
-                    {mode === "read" ? (
-                      <Button size="sm" className="gap-1.5 shrink-0" onClick={handleReadSets}>
-                        <BookOpen className="h-4 w-4" /> Read
-                      </Button>
-                    ) : (
-                      <div className="flex gap-2">
-                        <WithTooltip content="Browse images without starting an annotation session" side="top">
-                          <Button size="sm" variant="outline" className="gap-1.5 shrink-0 border-orange-500/60 text-orange-400 hover:bg-orange-500/10" onClick={handlePreviewSets}>
-                            <ScanEye className="h-4 w-4" /> Preview
-                          </Button>
-                        </WithTooltip>
-                        <Button size="sm" className="gap-1.5 shrink-0" disabled={starting} onClick={handleAnnotateSets}>
-                          <PlayCircle className="h-4 w-4" />
-                          {starting ? "Starting…" : "Annotate"}
-                        </Button>
-                      </div>
-                    )}
-                  </>
-                )}
+        {/* Tabs */}
+        {stats?.assigned_dataset && (
+          <div className="flex-1 overflow-hidden flex flex-col gap-3">
+
+            {/* Tab bar + mode toggle */}
+            <div className="shrink-0 flex items-center justify-between gap-4 border-b border-border pb-0">
+              <div className="flex gap-1">
+                {(["image-sets", "drafts", "history"] as Tab[]).map((tab) => {
+                  const labels: Record<Tab, string> = { "image-sets": "Image Sets", drafts: `Drafts (${drafts.length})`, history: "History" };
+                  return (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => { setActiveTab(tab); setSelectedSets(new Set()); setSelectedDrafts(new Set()); }}
+                      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                        activeTab === tab
+                          ? "border-primary text-foreground"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {labels[tab]}
+                    </button>
+                  );
+                })}
               </div>
-
-              {visibleSets.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
-                  {mode === "read" ? "No annotated or drafted sets to read." : "No image sets found."}
-                </p>
-              ) : (
-                <div className="rounded-lg border overflow-hidden">
-                  <div className="max-h-[52vh] overflow-y-auto">
-                  <table className="w-full text-sm table-fixed">
-                    <colgroup>
-                      <col className="w-[6%]" />
-                      <col className="w-[25%]" />
-                      <col className="w-[25%]" />
-                      <col className="w-[8%]" />
-                      <col className="w-[7%]" />
-                      <col className="w-[10%]" />
-                      <col className="w-[10%]" />
-                      <col className="w-[5%]" />
-                    </colgroup>
-                    <thead className="bg-muted sticky top-0 z-10">
-                      <tr>
-                        {SET_COLS.map(({ key, label }) => (
-                          <th key={key} className="text-left px-3 py-2 font-medium">
-                            <button
-                              type="button"
-                              onClick={() => handleSort(key)}
-                              className="flex items-center gap-1 hover:text-foreground transition-colors text-muted-foreground data-[active]:text-foreground"
-                              data-active={sortCol === key ? "" : undefined}
-                            >
-                              {label}
-                              {SortIcon(key)}
-                            </button>
-                          </th>
-                        ))}
-                        <th className="px-3 py-2 flex justify-end">
-                          <Checkbox checked={selectedSets.size === visibleSets.length && visibleSets.length > 0} onChange={toggleAllSets} />
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {sortedSets.map((s, si) => (
-                        <tr key={s.uuid} data-kb-row={si} className={`transition-colors cursor-pointer ${kbHighlight === si ? "bg-primary/10 ring-1 ring-inset ring-primary/40" : selectedSets.has(s.uuid) ? "bg-primary/5" : "hover:bg-muted/30"}`} onClick={() => { setKbHighlight(-1); toggleSet(s.uuid); }}>
-                          <td className="px-3 py-3 font-mono text-muted-foreground overflow-hidden"><span className="block truncate">{s.dataset_index}</span></td>
-                          <td className="px-3 py-3 font-medium overflow-hidden"><span className="block truncate" title={s.image_set_name}>{s.image_set_name}</span></td>
-                          <td className="px-3 py-3 text-muted-foreground overflow-hidden"><span className="block truncate font-mono text-xs" title={s.patient_id ?? ""}>{s.patient_id ?? "—"}</span></td>
-                          <td className="px-3 py-3 text-muted-foreground overflow-hidden"><span className="block truncate">{s.icd_code ?? "—"}</span></td>
-                          <td className="px-3 py-3 overflow-hidden"><span className="block truncate">{s.num_images}</span></td>
-                          <td className="px-3 py-3 overflow-hidden"><span className="block truncate">{s.total_evaluators}</span></td>
-                          <td className="px-3 py-3 overflow-hidden">
-                            {s.evaluated_by_me ? (
-                              <Badge variant="success">Done</Badge>
-                            ) : s.in_draft_by_me ? (
-                              <Badge variant="warning">In Draft</Badge>
-                            ) : (
-                              <Badge variant="outline">Pending</Badge>
-                            )}
-                          </td>
-                          <td className="px-3 py-3">
-                            <div className="flex justify-end">
-                              <Checkbox checked={selectedSets.has(s.uuid)} onChange={() => toggleSet(s.uuid)} />
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  </div>{/* scroll container */}
+              {(activeTab === "image-sets" || activeTab === "drafts") && (
+                <div className="flex items-center gap-1 rounded-lg border border-border p-0.5 mb-1">
+                  <WithTooltip content="Start or continue scoring image sets" side="bottom">
+                    <button
+                      type="button"
+                      onClick={() => { setMode("annotate"); setSelectedSets(new Set()); setSelectedDrafts(new Set()); }}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                        mode === "annotate" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <PlayCircle className="h-3.5 w-3.5" /> Annotate
+                    </button>
+                  </WithTooltip>
+                  <WithTooltip content="Review your submitted or saved annotations (read-only)" side="bottom">
+                    <button
+                      type="button"
+                      onClick={() => { setMode("read"); setSelectedSets(new Set()); setSelectedDrafts(new Set()); }}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                        mode === "read" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <BookOpen className="h-3.5 w-3.5" /> Reader
+                    </button>
+                  </WithTooltip>
                 </div>
               )}
             </div>
-          )}
 
-          {/* ── Drafts tab ── */}
-          {activeTab === "drafts" && (
-            <div className="space-y-3">
-              {/* Action bar */}
-              <div className={`rounded-lg border px-4 py-3 text-sm flex items-center justify-between gap-4 transition-colors ${
-                selectedDrafts.size > 0 ? "border-primary bg-primary/5" : "border-border bg-muted/30"
-              }`}>
-                {selectedDrafts.size === 0 ? (
-                  <span className="text-muted-foreground">
-                    {mode === "read" ? "Select a draft to read" : "Select drafts to annotate or delete"}
-                  </span>
-                ) : (
-                  <>
-                    <span><span className="font-medium">{selectedDrafts.size}</span> draft(s) selected</span>
-                    <div className="flex gap-2">
-                      {mode !== "read" && (
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="gap-1.5"
-                          disabled={deletingDrafts}
-                          onClick={() => setConfirmDeleteDrafts(true)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Delete Draft
-                        </Button>
-                      )}
-                      {selectedDrafts.size === 1 && (() => {
-                        const draft = drafts.find((d) => selectedDrafts.has(d.annotation_session_uuid));
-                        return draft ? (
-                          mode === "read" ? (
-                            <Button size="sm" className="gap-1.5" onClick={() => handleReadDraft(draft)}>
-                              <BookOpen className="h-4 w-4" /> Read
-                            </Button>
-                          ) : (
-                            <Button size="sm" className="gap-1.5" disabled={starting} onClick={() => handleAnnotateDraft(draft)}>
+            {/* Tab content */}
+            <div className="flex-1 overflow-hidden">
+
+              {/* ── Image Sets tab ── */}
+              {activeTab === "image-sets" && (
+                <div className="h-full flex flex-col gap-3">
+                  <div className={`shrink-0 rounded-lg border px-4 py-3 text-sm flex items-center justify-between gap-4 transition-colors ${
+                    selectedSets.size > 0 ? "border-primary bg-primary/5" : "border-border bg-muted/30"
+                  }`}>
+                    {selectedSets.size === 0 ? (
+                      <span className="text-muted-foreground">
+                        {mode === "read" ? "Choose annotated or drafted sets to read" : "Choose image sets to annotate"}
+                      </span>
+                    ) : (
+                      <>
+                        <span>
+                          You have chosen {chosenIndices.length === 1 ? "set" : "sets"}:{" "}
+                          <span className="font-mono font-medium">{compressIds(chosenIndices)}</span>
+                        </span>
+                        {mode === "read" ? (
+                          <Button size="sm" className="gap-1.5 shrink-0" onClick={handleReadSets}>
+                            <BookOpen className="h-4 w-4" /> Read
+                          </Button>
+                        ) : (
+                          <div className="flex gap-2">
+                            <WithTooltip content="Browse images without starting an annotation session" side="top">
+                              <Button size="sm" variant="outline" className="gap-1.5 shrink-0 border-orange-500/60 text-orange-400 hover:bg-orange-500/10" onClick={handlePreviewSets}>
+                                <ScanEye className="h-4 w-4" /> Preview
+                              </Button>
+                            </WithTooltip>
+                            <Button size="sm" className="gap-1.5 shrink-0" disabled={starting} onClick={handleAnnotateSets}>
                               <PlayCircle className="h-4 w-4" />
                               {starting ? "Starting…" : "Annotate"}
                             </Button>
-                          )
-                        ) : null;
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {visibleSets.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">
+                      {mode === "read" ? "No annotated or drafted sets to read." : "No image sets found."}
+                    </p>
+                  ) : (
+                    <div className="flex-1 overflow-hidden rounded-lg border flex flex-col">
+                      <div className="flex-1 overflow-y-auto">
+                        <table className="w-full text-sm table-fixed">
+                          <colgroup>
+                            <col className="w-[6%]" />
+                            <col className="w-[25%]" />
+                            <col className="w-[25%]" />
+                            <col className="w-[8%]" />
+                            <col className="w-[7%]" />
+                            <col className="w-[10%]" />
+                            <col className="w-[10%]" />
+                            <col className="w-[5%]" />
+                          </colgroup>
+                          <thead className="bg-muted sticky top-0 z-10">
+                            <tr>
+                              {SET_COLS.map(({ key, label }) => (
+                                <th key={key} className="text-left px-3 py-2 font-medium">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSort(key)}
+                                    className="flex items-center gap-1 hover:text-foreground transition-colors text-muted-foreground data-[active]:text-foreground"
+                                    data-active={sortCol === key ? "" : undefined}
+                                  >
+                                    {label}
+                                    {SortIcon(key)}
+                                  </button>
+                                </th>
+                              ))}
+                              <th className="px-3 py-2 flex justify-end">
+                                <Checkbox checked={selectedSets.size === visibleSets.length && visibleSets.length > 0} onChange={toggleAllSets} />
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {sortedSets.map((s, si) => (
+                              <tr
+                                key={s.uuid}
+                                data-kb-row={si}
+                                className={`transition-colors cursor-pointer ${
+                                  visualMode && si >= Math.min(visualAnchor, kbHighlight) && si <= Math.max(visualAnchor, kbHighlight)
+                                    ? si === kbHighlight
+                                      ? "bg-blue-500/25 ring-2 ring-inset ring-blue-500/50"
+                                      : "bg-blue-500/15 ring-1 ring-inset ring-blue-500/25"
+                                    : kbHighlight === si
+                                      ? "bg-primary/10 ring-1 ring-inset ring-primary/40"
+                                      : selectedSets.has(s.uuid)
+                                        ? "bg-primary/5"
+                                        : "hover:bg-muted/30"
+                                }`}
+                                onClick={() => { setVisualMode(false); setVisualAnchor(-1); setKbHighlight(-1); toggleSet(s.uuid); }}
+                              >
+                                <td className="px-3 py-3 font-mono text-muted-foreground overflow-hidden"><span className="block truncate">{s.dataset_index}</span></td>
+                                <td className="px-3 py-3 font-medium overflow-hidden"><span className="block truncate" title={s.image_set_name}>{s.image_set_name}</span></td>
+                                <td className="px-3 py-3 text-muted-foreground overflow-hidden"><span className="block truncate font-mono text-xs" title={s.patient_id ?? ""}>{s.patient_id ?? "—"}</span></td>
+                                <td className="px-3 py-3 text-muted-foreground overflow-hidden"><span className="block truncate">{s.icd_code ?? "—"}</span></td>
+                                <td className="px-3 py-3 overflow-hidden"><span className="block truncate">{s.num_images}</span></td>
+                                <td className="px-3 py-3 overflow-hidden"><span className="block truncate">{s.total_evaluators}</span></td>
+                                <td className="px-3 py-3 overflow-hidden">
+                                  {s.evaluated_by_me ? (
+                                    <Badge variant="success">Done</Badge>
+                                  ) : s.in_draft_by_me ? (
+                                    <Badge variant="warning">In Draft</Badge>
+                                  ) : (
+                                    <Badge variant="outline">Pending</Badge>
+                                  )}
+                                </td>
+                                <td className="px-3 py-3">
+                                  <div className="flex justify-end">
+                                    <Checkbox checked={selectedSets.has(s.uuid)} onChange={() => toggleSet(s.uuid)} />
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {visualMode && (() => {
+                        const lo = Math.min(visualAnchor, kbHighlight);
+                        const hi = Math.max(visualAnchor, kbHighlight);
+                        const total = hi - lo + 1;
+                        let chosen = 0;
+                        for (let i = lo; i <= hi; i++) {
+                          if (i < sortedSets.length && selectedSets.has(sortedSets[i].uuid)) chosen++;
+                        }
+                        const notChosen = total - chosen;
+                        return (
+                          <div className="shrink-0 border-t border-blue-500/20 bg-blue-500/5 px-3 py-1.5 text-xs font-mono select-none flex items-center gap-2">
+                            <span className="text-blue-400">-- VISUAL --</span>
+                            <span className="text-muted-foreground">
+                              {total} row{total !== 1 ? "s" : ""},{"  "}
+                              <span className="text-primary">{chosen} chosen</span>,{"  "}
+                              {notChosen} not chosen
+                            </span>
+                          </div>
+                        );
                       })()}
                     </div>
-                  </>
-                )}
-              </div>
-
-              {drafts.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No drafts saved.</p>
-              ) : (
-                <div className="rounded-lg border overflow-hidden">
-                  <div className="max-h-[52vh] overflow-y-auto">
-                  <table className="w-full text-sm table-fixed">
-                    <colgroup>
-                      <col className="w-[5%]" />
-                      <col className="w-[24%]" />
-                      <col className="w-[20%]" />
-                      <col className="w-[7%]" />
-                      <col className="w-[6%]" />
-                      <col className="w-[10%]" />
-                      <col className="w-[18%]" />
-                      <col className="w-[5%]" />
-                    </colgroup>
-                    <thead className="bg-muted sticky top-0 z-10">
-                      <tr>
-                        {DRAFT_COLS.map(({ key, label }) => (
-                          <th key={key} className="text-left px-3 py-2 font-medium">
-                            <button
-                              type="button"
-                              onClick={() => handleSortDraft(key)}
-                              className="flex items-center gap-1 hover:text-foreground transition-colors text-muted-foreground data-[active]:text-foreground"
-                              data-active={sortDraftCol === key ? "" : undefined}
-                            >
-                              {label}
-                              {SortIconDraft(key)}
-                            </button>
-                          </th>
-                        ))}
-                        <th className="px-3 py-2 flex justify-end">
-                          <Checkbox checked={selectedDrafts.size === drafts.length && drafts.length > 0} onChange={toggleAllDrafts} />
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {sortedDrafts.map((d) => (
-                        <tr key={d.annotation_session_uuid} className={`transition-colors cursor-pointer ${selectedDrafts.has(d.annotation_session_uuid) ? "bg-primary/5" : "hover:bg-muted/30"}`} onClick={() => toggleDraft(d.annotation_session_uuid)}>
-                          <td className="px-3 py-3 font-mono text-muted-foreground overflow-hidden"><span className="block truncate">{d.dataset_index}</span></td>
-                          <td className="px-3 py-3 font-medium overflow-hidden"><span className="block truncate" title={d.image_set_name}>{d.image_set_name}</span></td>
-                          <td className="px-3 py-3 text-muted-foreground overflow-hidden"><span className="block truncate font-mono text-xs">{d.patient_id ?? "—"}</span></td>
-                          <td className="px-3 py-3 text-muted-foreground overflow-hidden"><span className="block truncate">{d.icd_code ?? "—"}</span></td>
-                          <td className="px-3 py-3 overflow-hidden"><span className="block truncate">{d.num_images}</span></td>
-                          <td className="px-3 py-3 overflow-hidden">
-                            {d.evaluated_by_me ? <Badge variant="success">Done</Badge> : <Badge variant="outline">Pending</Badge>}
-                          </td>
-                          <td className="px-3 py-3 overflow-hidden">
-                            <span className="flex items-center gap-1 text-muted-foreground text-xs">
-                              <Clock className="h-3 w-3 shrink-0" />
-                              <span className={d.draft_source === "manual" ? "text-yellow-400" : "text-muted-foreground"}>
-                                {d.draft_source === "manual" ? "Manual" : "Auto"}
-                              </span>
-                              {formatDateTime(d.draft_saved_at)}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3">
-                            <div className="flex justify-end">
-                              <Checkbox checked={selectedDrafts.has(d.annotation_session_uuid)} onChange={() => toggleDraft(d.annotation_session_uuid)} />
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  </div>{/* scroll container */}
+                  )}
                 </div>
               )}
-            </div>
-          )}
 
-          {/* ── History tab ── */}
-          {activeTab === "history" && (
-            <div className="space-y-3">
-              {history.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No activity yet.</p>
-              ) : (
-                <div className="rounded-lg border overflow-hidden">
-                  <table className="w-full text-sm table-fixed">
-                    <colgroup>
-                      <col className="w-[5%]" />
-                      <col className="w-[28%]" />
-                      <col className="w-[8%]" />
-                      <col className="w-[14%]" />
-                      <col className="w-[20%]" />
-                    </colgroup>
-                    <thead className="bg-muted/50">
-                      <tr>
-                        {HIST_COLS.map(({ key, label }) => (
-                          <th key={key} className="text-left px-3 py-2 font-medium">
-                            <button
-                              type="button"
-                              onClick={() => handleSortHist(key)}
-                              className="flex items-center gap-1 hover:text-foreground transition-colors text-muted-foreground data-[active]:text-foreground"
-                              data-active={sortHistCol === key ? "" : undefined}
+              {/* ── Drafts tab ── */}
+              {activeTab === "drafts" && (
+                <div className="h-full flex flex-col gap-3">
+                  <div className={`shrink-0 rounded-lg border px-4 py-3 text-sm flex items-center justify-between gap-4 transition-colors ${
+                    selectedDrafts.size > 0 ? "border-primary bg-primary/5" : "border-border bg-muted/30"
+                  }`}>
+                    {selectedDrafts.size === 0 ? (
+                      <span className="text-muted-foreground">
+                        {mode === "read" ? "Select a draft to read" : "Select drafts to annotate or delete"}
+                      </span>
+                    ) : (
+                      <>
+                        <span><span className="font-medium">{selectedDrafts.size}</span> draft(s) selected</span>
+                        <div className="flex gap-2">
+                          {mode !== "read" && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="gap-1.5"
+                              disabled={deletingDrafts}
+                              onClick={() => setConfirmDeleteDrafts(true)}
                             >
-                              {label}
-                              {SortIconHist(key)}
-                            </button>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {sortedHistory.map((e) => (
-                        <tr key={`${e.annotation_session_uuid}-${e.event_type}`} className="hover:bg-muted/30">
-                          <td className="px-3 py-3 font-mono text-muted-foreground"><span className="block truncate">{e.dataset_index}</span></td>
-                          <td className="px-3 py-3 font-medium overflow-hidden"><span className="block truncate" title={e.image_set_name}>{e.image_set_name}</span></td>
-                          <td className="px-3 py-3 text-muted-foreground overflow-hidden"><span className="block truncate">{e.icd_code ?? "—"}</span></td>
-                          <td className="px-3 py-3 overflow-hidden">
-                            <Badge variant={EVENT_VARIANTS[e.event_type] ?? "outline"}>
-                              {e.event_type === "submitted" && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                              {e.event_type === "draft_saved" && <FileEdit className="h-3 w-3 mr-1" />}
-                              {e.event_type === "draft_deleted" && <Trash2 className="h-3 w-3 mr-1" />}
-                              {EVENT_LABELS[e.event_type]}
-                            </Badge>
-                          </td>
-                          <td className="px-3 py-3 text-muted-foreground text-xs overflow-hidden">
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3 shrink-0" />
-                              {formatDateTime(e.timestamp)}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                              <Trash2 className="h-4 w-4" />
+                              Delete Draft
+                            </Button>
+                          )}
+                          {selectedDrafts.size === 1 && (() => {
+                            const draft = drafts.find((d) => selectedDrafts.has(d.annotation_session_uuid));
+                            return draft ? (
+                              mode === "read" ? (
+                                <Button size="sm" className="gap-1.5" onClick={() => handleReadDraft(draft)}>
+                                  <BookOpen className="h-4 w-4" /> Read
+                                </Button>
+                              ) : (
+                                <Button size="sm" className="gap-1.5" disabled={starting} onClick={() => handleAnnotateDraft(draft)}>
+                                  <PlayCircle className="h-4 w-4" />
+                                  {starting ? "Starting…" : "Annotate"}
+                                </Button>
+                              )
+                            ) : null;
+                          })()}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {drafts.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">No drafts saved.</p>
+                  ) : (
+                    <div className="flex-1 overflow-hidden rounded-lg border">
+                      <div className="h-full overflow-y-auto">
+                        <table className="w-full text-sm table-fixed">
+                          <colgroup>
+                            <col className="w-[5%]" />
+                            <col className="w-[24%]" />
+                            <col className="w-[20%]" />
+                            <col className="w-[7%]" />
+                            <col className="w-[6%]" />
+                            <col className="w-[10%]" />
+                            <col className="w-[18%]" />
+                            <col className="w-[5%]" />
+                          </colgroup>
+                          <thead className="bg-muted sticky top-0 z-10">
+                            <tr>
+                              {DRAFT_COLS.map(({ key, label }) => (
+                                <th key={key} className="text-left px-3 py-2 font-medium">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSortDraft(key)}
+                                    className="flex items-center gap-1 hover:text-foreground transition-colors text-muted-foreground data-[active]:text-foreground"
+                                    data-active={sortDraftCol === key ? "" : undefined}
+                                  >
+                                    {label}
+                                    {SortIconDraft(key)}
+                                  </button>
+                                </th>
+                              ))}
+                              <th className="px-3 py-2 flex justify-end">
+                                <Checkbox checked={selectedDrafts.size === drafts.length && drafts.length > 0} onChange={toggleAllDrafts} />
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {sortedDrafts.map((d) => (
+                              <tr
+                                key={d.annotation_session_uuid}
+                                className={`transition-colors cursor-pointer ${selectedDrafts.has(d.annotation_session_uuid) ? "bg-primary/5" : "hover:bg-muted/30"}`}
+                                onClick={() => toggleDraft(d.annotation_session_uuid)}
+                              >
+                                <td className="px-3 py-3 font-mono text-muted-foreground overflow-hidden"><span className="block truncate">{d.dataset_index}</span></td>
+                                <td className="px-3 py-3 font-medium overflow-hidden"><span className="block truncate" title={d.image_set_name}>{d.image_set_name}</span></td>
+                                <td className="px-3 py-3 text-muted-foreground overflow-hidden"><span className="block truncate font-mono text-xs">{d.patient_id ?? "—"}</span></td>
+                                <td className="px-3 py-3 text-muted-foreground overflow-hidden"><span className="block truncate">{d.icd_code ?? "—"}</span></td>
+                                <td className="px-3 py-3 overflow-hidden"><span className="block truncate">{d.num_images}</span></td>
+                                <td className="px-3 py-3 overflow-hidden">
+                                  {d.evaluated_by_me ? <Badge variant="success">Done</Badge> : <Badge variant="outline">Pending</Badge>}
+                                </td>
+                                <td className="px-3 py-3 overflow-hidden">
+                                  <span className="flex items-center gap-1 text-muted-foreground text-xs">
+                                    <Clock className="h-3 w-3 shrink-0" />
+                                    <span className={d.draft_source === "manual" ? "text-yellow-400" : "text-muted-foreground"}>
+                                      {d.draft_source === "manual" ? "Manual" : "Auto"}
+                                    </span>
+                                    {formatDateTime(d.draft_saved_at)}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-3">
+                                  <div className="flex justify-end">
+                                    <Checkbox checked={selectedDrafts.has(d.annotation_session_uuid)} onChange={() => toggleDraft(d.annotation_session_uuid)} />
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-          )}
-        </div>
-      )}
 
-      {/* ── Delete draft confirm dialog ── */}
+              {/* ── History tab ── */}
+              {activeTab === "history" && (
+                <div className="h-full flex flex-col gap-3">
+                  {history.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">No activity yet.</p>
+                  ) : (
+                    <div className="flex-1 overflow-hidden rounded-lg border">
+                      <div className="h-full overflow-y-auto">
+                        <table className="w-full text-sm table-fixed">
+                          <colgroup>
+                            <col className="w-[5%]" />
+                            <col className="w-[28%]" />
+                            <col className="w-[8%]" />
+                            <col className="w-[14%]" />
+                            <col className="w-[20%]" />
+                          </colgroup>
+                          <thead className="bg-muted/50 sticky top-0 z-10">
+                            <tr>
+                              {HIST_COLS.map(({ key, label }) => (
+                                <th key={key} className="text-left px-3 py-2 font-medium">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSortHist(key)}
+                                    className="flex items-center gap-1 hover:text-foreground transition-colors text-muted-foreground data-[active]:text-foreground"
+                                    data-active={sortHistCol === key ? "" : undefined}
+                                  >
+                                    {label}
+                                    {SortIconHist(key)}
+                                  </button>
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {sortedHistory.map((ev) => (
+                              <tr key={`${ev.annotation_session_uuid}-${ev.event_type}`} className="hover:bg-muted/30">
+                                <td className="px-3 py-3 font-mono text-muted-foreground"><span className="block truncate">{ev.dataset_index}</span></td>
+                                <td className="px-3 py-3 font-medium overflow-hidden"><span className="block truncate" title={ev.image_set_name}>{ev.image_set_name}</span></td>
+                                <td className="px-3 py-3 text-muted-foreground overflow-hidden"><span className="block truncate">{ev.icd_code ?? "—"}</span></td>
+                                <td className="px-3 py-3 overflow-hidden">
+                                  <Badge variant={EVENT_VARIANTS[ev.event_type] ?? "outline"}>
+                                    {ev.event_type === "submitted" && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                                    {ev.event_type === "draft_saved" && <FileEdit className="h-3 w-3 mr-1" />}
+                                    {ev.event_type === "draft_deleted" && <Trash2 className="h-3 w-3 mr-1" />}
+                                    {EVENT_LABELS[ev.event_type]}
+                                  </Badge>
+                                </td>
+                                <td className="px-3 py-3 text-muted-foreground text-xs overflow-hidden">
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="h-3 w-3 shrink-0" />
+                                    {formatDateTime(ev.timestamp)}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Delete drafts confirm dialog ── */}
       {confirmDeleteDrafts && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-background border border-border rounded-lg p-6 w-80 space-y-4 shadow-xl">
@@ -870,7 +1026,43 @@ export default function DashboardPage() {
                 Yes. Delete
               </Button>
               <Button variant="outline" className="flex-1" onClick={() => setConfirmDeleteDrafts(false)}>
-                Cancel
+                No. Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Large selection warning dialog ── */}
+      {confirmLaunch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-background border border-border rounded-lg p-6 w-96 space-y-4 shadow-xl">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-base font-semibold">Large selection</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  You are about to open{" "}
+                  <span className="font-medium text-foreground">{confirmLaunch.count}</span>{" "}
+                  image sets. This may affect system stability.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => {
+                  const type = confirmLaunch.type;
+                  setConfirmLaunch(null);
+                  if (type === "annotate") doAnnotateSets();
+                  else if (type === "read") doReadSets();
+                  else doPreviewSets();
+                }}
+              >
+                Yes. Proceed
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => setConfirmLaunch(null)}>
+                No. Cancel
               </Button>
             </div>
           </div>

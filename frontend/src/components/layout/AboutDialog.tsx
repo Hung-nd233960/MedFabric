@@ -92,7 +92,10 @@ export default function AboutDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`transition-all duration-300 ${showDev ? "max-w-2xl" : "max-w-sm"}`}>
+      <DialogContent
+        className={`transition-all duration-300 ${showDev ? "max-w-2xl" : "max-w-sm"}`}
+        onKeyDown={(e) => { if (e.key === "Tab") { e.preventDefault(); e.nativeEvent.stopPropagation(); toggleDev(); } }}
+      >
         <button
           onClick={toggleDev}
           title="Developer information"

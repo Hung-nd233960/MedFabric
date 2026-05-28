@@ -20,11 +20,14 @@
 - Timing count of each image set annotation
 - Update Pop-Up
 - Telemetry? (If doctors use which kind of tooltip, timing count for each annotation of image set, how many images do they see?, ...)
-- Keyboard Shortcut highlights in each button/important buttons, simple highlight in some, in tooltips in some
-- Shift + ESC to return to Dashboard
-- Shift + Del to Reset All Annotations(this include in the Keyboard Shortcuts Panel) (The pop up would have answered via keyboard with Y(Yes, Delete) or N (No, Cancel), so the button rename from Cancel to No, Cancel)
-- Tab on About box to toggle Developer Information (this is hidden in Keyboard Shortcuts Panel)
-- Arrow-based keyboard navigation for the Management Board. You move up, down. Left/Right to switch left/right table cursor.
+- Keyboard Shortcut highlights in each button/important buttons, simple highlight in some, in tooltips in some (in idea development)
+- Shift + ESC to return to Dashboard (Of course still with warnings, as if you press the button) (Done)
+- Shift + Del to Reset All Annotations(this include in the Keyboard Shortcuts Panel) (The pop up would have answered via keyboard with Y(Yes, Delete) or N (No, Cancel), so the button rename from Cancel to No, Cancel) (Done)
+- Tab on About box to toggle Developer Information (this is hidden in Keyboard Shortcuts Panel) (Done)
+- Arrow-based keyboard navigation for the Management Board. You move up, down. Left/Right to switch left/right table cursor. (Done)
+- Press W would jump you into WL number input, press Tab if you are in WL to jump to WW input, press Tab from WW to jump back to WL, in either, press Enter to apply new windowing while Shift+W resets the windowing (Done)
+- Shift + Tab cycles through Image Set Evaluation tabs (Done)
+- Press J to go to Jump to Image number input while Shift+J go to Jump to Image Set Number input (Done)
 
 ## Hard Features
 

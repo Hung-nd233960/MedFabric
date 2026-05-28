@@ -2,6 +2,7 @@
  * Per-slice evaluation: region selector + zone score grid + slice notes + slice status.
  * Only rendered when ASPECTS scoring is enabled at set level.
  */
+import { useRef } from "react";
 import { CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import type { Region } from "@/lib/types";
 import { useLabelStore } from "@/store/labelStore";
@@ -38,6 +39,7 @@ interface SliceEvaluationProps {
 
 export default function SliceEvaluation({ imageUuid, readOnly }: SliceEvaluationProps) {
   const { slices, setRegion, setSliceNotes, isCurrentSliceValid } = useLabelStore();
+  const savedNotesRef = useRef("");
   const slice = slices[imageUuid];
   const region = slice?.region ?? "None";
   const sliceValid = isCurrentSliceValid();
@@ -94,7 +96,14 @@ export default function SliceEvaluation({ imageUuid, readOnly }: SliceEvaluation
           rows={2}
           placeholder="Notes for this slice…"
           value={slice?.notes ?? ""}
+          onFocus={() => { savedNotesRef.current = slice?.notes ?? ""; }}
           onChange={readOnly ? undefined : (e) => setSliceNotes(imageUuid, e.target.value)}
+          onKeyDown={readOnly ? undefined : (e) => {
+            if (e.key === "Escape") {
+              setSliceNotes(imageUuid, savedNotesRef.current);
+              e.currentTarget.blur();
+            }
+          }}
           readOnly={readOnly}
           className="text-base resize-none"
         />
