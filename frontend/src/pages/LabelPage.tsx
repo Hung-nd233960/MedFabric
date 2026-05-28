@@ -8,6 +8,7 @@
  * Keyboard: ← / → navigate images (blocked when focus is on an input).
  */
 import { useEffect, useRef, useState } from "react";
+import type { RegionScore } from "@/lib/types";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, RotateCcw, Send, ArrowLeft, Trash2, Save, X, ClipboardList, Loader2 } from "lucide-react";
@@ -26,6 +27,17 @@ import { useAuthStore } from "@/store/authStore";
 import { useNavGuardStore } from "@/store/navGuardStore";
 import type { ImageRecord, ImageSet, SliceEvalState, ImageSetUsability } from "@/lib/types";
 import { USABILITY_LABELS, BASAL_ZONES, CORONA_ZONES } from "@/lib/types";
+
+type ZoneCell = { row: number; col: "left" | "right" };
+
+function findSmartStart(zones: readonly string[], scores: Record<string, RegionScore | null>): ZoneCell {
+  for (let i = 0; i < zones.length * 2; i++) {
+    const row = Math.floor(i / 2);
+    const col: "left" | "right" = i % 2 === 0 ? "left" : "right";
+    if (!scores[`${zones[row]}_${col}_score`]) return { row, col };
+  }
+  return { row: 0, col: "left" };
+}
 
 /** Tailwind classes that hide the browser number-input spinner arrows */
 const NO_SPINNER =
@@ -69,7 +81,7 @@ export default function LabelPage() {
     setCurrentIndex, setWindow, resetWindow,
     aspectsEnabled, usability, currentImage,
     isSetSubmittable, isSetSubmittableByUuid, buildSubmitPayload, buildSubmitPayloadForUuid,
-    setAutoSaveStatus, setUsability, setLowQuality, setRegion,
+    setAutoSaveStatus, setUsability, setLowQuality, setRegion, setScore,
   } = useLabelStore();
 
   const { logout } = useAuthStore();
@@ -117,6 +129,16 @@ export default function LabelPage() {
   const skipJumpSetApplyRef = useRef(false);
   const [mbActiveCol, setMbActiveCol] = useState<"left" | "right">("left");
   const [selectedMBImageIndex, setSelectedMBImageIndex] = useState<number>(-1);
+  const [zoneModeActive, setZoneModeActive] = useState(false);
+  const [zoneModeCursor, setZoneModeCursor] = useState<ZoneCell | null>(null);
+  const [zoneModeVisual, setZoneModeVisual] = useState(false);
+  const [zoneModeAnchor, setZoneModeAnchor] = useState<ZoneCell | null>(null);
+  const sliceNotesRef = useRef<HTMLTextAreaElement>(null);
+
+  const exitZoneMode = () => {
+    setZoneModeActive(false); setZoneModeCursor(null);
+    setZoneModeVisual(false); setZoneModeAnchor(null);
+  };
 
   const currentImg = currentImage();
 
@@ -237,15 +259,39 @@ export default function LabelPage() {
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.shiftKey) return; // Shift+← / Shift+→ are handled in the comprehensive handler
       if (showManagementBoard) return; // MB takes over arrow keys
+      if (zoneModeActive) return; // Zone Mode takes over arrow keys
       if (e.key === "ArrowLeft") setCurrentIndex((currentIndex - 1 + images.length) % images.length);
       if (e.key === "ArrowRight") setCurrentIndex((currentIndex + 1) % images.length);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [currentIndex, images.length, showManagementBoard]);
+  }, [currentIndex, images.length, showManagementBoard, zoneModeActive]);
   void inputFocusRef;
 
   useEffect(() => { setSelectedMBImageIndex(-1); }, [selectedBoardSetUuid]);
+
+  const activateZoneMode = (imageUuid: string, region: "BasalGanglia" | "CoronaRadiata") => {
+    const zones = region === "BasalGanglia" ? BASAL_ZONES : CORONA_ZONES;
+    const scores = useLabelStore.getState().slices[imageUuid]?.scores ?? {};
+    setZoneModeCursor(findSmartStart(zones, scores as Record<string, RegionScore | null>));
+    setZoneModeActive(true);
+  };
+
+  // Auto-exit Zone Mode when ASPECTS scoring becomes unavailable
+  useEffect(() => {
+    if (!zoneModeActive) return;
+    if (!aspectsEnabled()) exitZoneMode();
+  }, [usability, lowQuality, zoneModeActive]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-exit or clamp cursor when current image region changes
+  useEffect(() => {
+    if (!zoneModeActive || !currentImg) return;
+    const region = slices[currentImg.uuid]?.region ?? "None";
+    if (region !== "BasalGanglia" && region !== "CoronaRadiata") { exitZoneMode(); return; }
+    const zones = region === "BasalGanglia" ? BASAL_ZONES : CORONA_ZONES;
+    setZoneModeCursor((c) => c ? { row: Math.min(c.row, zones.length - 1), col: c.col } : null);
+    setZoneModeAnchor((c) => c ? { row: Math.min(c.row, zones.length - 1), col: c.col } : null);
+  }, [currentImg?.uuid, slices, zoneModeActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-save draft while in annotate mode — debounced 2.5 s after last change
   useEffect(() => {
@@ -521,11 +567,13 @@ export default function LabelPage() {
       // Shift+← / Shift+→ — queue navigation (all modes)
       if (shift && !ctrl && key === "ArrowLeft") {
         e.preventDefault();
+        if (zoneModeActive) exitZoneMode();
         if (queuePos > 0) goToSet(queue[queuePos - 1]);
         return;
       }
       if (shift && !ctrl && key === "ArrowRight") {
         e.preventDefault();
+        if (zoneModeActive) exitZoneMode();
         if (queuePos < queue.length - 1) goToSet(queue[queuePos + 1]);
         return;
       }
@@ -615,6 +663,8 @@ export default function LabelPage() {
         if (confirmReset) { setConfirmReset(false); return; }
         if (confirmExit) { setConfirmExit(false); setPendingNavDest(null); return; }
         if (showManagementBoard) { setShowManagementBoard(false); return; }
+        if (zoneModeVisual) { setZoneModeVisual(false); setZoneModeAnchor(null); return; }
+        if (zoneModeActive) { exitZoneMode(); return; }
         return;
       }
 
@@ -656,16 +706,115 @@ export default function LabelPage() {
         return;
       }
 
+      // Shift+B/C/N: set region (annotate mode, ASPECTS enabled)
+      if (shift && !ctrl && !isReadMode && !isPreviewMode) {
+        const zmImg2 = useLabelStore.getState().currentImage();
+        if (zmImg2 && useLabelStore.getState().aspectsEnabled()) {
+          if (UP === "B" || UP === "C" || UP === "N") {
+            e.preventDefault();
+            const targetRegion = UP === "B" ? "BasalGanglia" : UP === "C" ? "CoronaRadiata" : "None";
+            const curRegion = useLabelStore.getState().slices[zmImg2.uuid]?.region ?? "None";
+            if (targetRegion !== "None" && curRegion === targetRegion) {
+              // Re-press same zone — activate Zone Mode instead of resetting
+              activateZoneMode(zmImg2.uuid, targetRegion);
+            } else {
+              setRegion(zmImg2.uuid, targetRegion as "None" | "BasalGanglia" | "CoronaRadiata");
+              if (zoneModeActive) exitZoneMode();
+            }
+            return;
+          }
+        }
+      }
+
+      // Zone Mode keyboard handling
+      if (zoneModeActive && !isReadMode && !isPreviewMode && !showManagementBoard) {
+        const zmImg = useLabelStore.getState().currentImage();
+        const zmSlice = zmImg ? useLabelStore.getState().slices[zmImg.uuid] : null;
+        const zmRegion = zmSlice?.region;
+        const zmZones = zmRegion === "BasalGanglia" ? BASAL_ZONES :
+                        zmRegion === "CoronaRadiata" ? CORONA_ZONES : null;
+
+        if (zmImg && zmZones && zoneModeCursor) {
+          // 1 / 2 / 3 — score and advance (visual: score entire selection)
+          if (!shift && !ctrl && (key === "1" || key === "2" || key === "3")) {
+            e.preventDefault();
+            const SCORE_MAP: Record<string, RegionScore> = {
+              "1": "Affected", "2": "Not_Affected", "3": "Not_In_This_Slice",
+            };
+            const score = SCORE_MAP[key];
+            const totalCells = zmZones.length * 2;
+
+            if (zoneModeVisual && zoneModeAnchor) {
+              // Score entire visual selection rectangle
+              const rMin = Math.min(zoneModeAnchor.row, zoneModeCursor.row);
+              const rMax = Math.max(zoneModeAnchor.row, zoneModeCursor.row);
+              const selCols = new Set([zoneModeAnchor.col, zoneModeCursor.col]);
+              const cols = (["left", "right"] as const).filter((c) => selCols.has(c));
+              for (let r = rMin; r <= rMax; r++) {
+                for (const col of cols) {
+                  setScore(zmImg.uuid, `${zmZones[r]}_${col}_score`, score);
+                }
+              }
+              setZoneModeVisual(false); setZoneModeAnchor(null);
+              // Advance past last cell of selection
+              const lastIdx = rMax * 2 + (selCols.has("right") ? 1 : 0);
+              if (lastIdx < totalCells - 1) {
+                const ni = lastIdx + 1;
+                setZoneModeCursor({ row: Math.floor(ni / 2), col: ni % 2 === 0 ? "left" : "right" });
+              } else {
+                exitZoneMode(); toast.success("Zone scoring complete.");
+              }
+            } else {
+              // Single cell
+              const sk = `${zmZones[zoneModeCursor.row]}_${zoneModeCursor.col}_score`;
+              setScore(zmImg.uuid, sk, score);
+              const ci = zoneModeCursor.row * 2 + (zoneModeCursor.col === "left" ? 0 : 1);
+              if (ci < totalCells - 1) {
+                const ni = ci + 1;
+                setZoneModeCursor({ row: Math.floor(ni / 2), col: ni % 2 === 0 ? "left" : "right" });
+              } else {
+                exitZoneMode(); toast.success("Zone scoring complete.");
+              }
+            }
+            return;
+          }
+
+          // V — toggle visual selection (anchor = current cursor)
+          if (!shift && !ctrl && UP === "V") {
+            e.preventDefault();
+            if (zoneModeVisual) { setZoneModeVisual(false); setZoneModeAnchor(null); }
+            else { setZoneModeAnchor(zoneModeCursor); setZoneModeVisual(true); }
+            return;
+          }
+
+          // Arrow navigation (moves cursor; in visual mode extends selection from anchor)
+          if (!ctrl && !shift && key === "ArrowUp")    { e.preventDefault(); setZoneModeCursor(c => c && c.row > 0 ? { ...c, row: c.row - 1 } : c); return; }
+          if (!ctrl && !shift && key === "ArrowDown")  { e.preventDefault(); setZoneModeCursor(c => c && c.row < zmZones.length - 1 ? { ...c, row: c.row + 1 } : c); return; }
+          if (!ctrl && !shift && key === "ArrowLeft")  { e.preventDefault(); setZoneModeCursor(c => c ? { ...c, col: "left" } : c); return; }
+          if (!ctrl && !shift && key === "ArrowRight") { e.preventDefault(); setZoneModeCursor(c => c ? { ...c, col: "right" } : c); return; }
+          if (!ctrl && shift && key === "ArrowUp")     { e.preventDefault(); setZoneModeCursor(c => c ? { ...c, row: 0 } : c); return; }
+          if (!ctrl && shift && key === "ArrowDown")   { e.preventDefault(); setZoneModeCursor(c => c ? { ...c, row: zmZones.length - 1 } : c); return; }
+
+          // N — focus slice notes (Zone Mode stays active)
+          if (!shift && !ctrl && UP === "N") { e.preventDefault(); sliceNotesRef.current?.focus(); return; }
+          // Z — exit Zone Mode entirely
+          if (!shift && !ctrl && UP === "Z") { e.preventDefault(); exitZoneMode(); return; }
+        }
+        return; // consume unrecognized keys while in Zone Mode
+      }
+
       // Below shortcuts only in annotate mode, no modifier keys
       if (isReadMode || isPreviewMode || ctrl || shift) return;
 
       const currentImg = useLabelStore.getState().currentImage();
 
-      // B / C / N: region (ASPECTS enabled only)
-      if (currentImg && useLabelStore.getState().aspectsEnabled()) {
-        if (UP === "B") { setRegion(currentImg.uuid, "BasalGanglia"); return; }
-        if (UP === "C") { setRegion(currentImg.uuid, "CoronaRadiata"); return; }
-        if (UP === "N") { setRegion(currentImg.uuid, "None"); return; }
+      // Z — activate Zone Mode (when conditions are met)
+      if (UP === "Z" && currentImg && useLabelStore.getState().aspectsEnabled()) {
+        const region = useLabelStore.getState().slices[currentImg.uuid]?.region;
+        if (region === "BasalGanglia" || region === "CoronaRadiata") {
+          activateZoneMode(currentImg.uuid, region);
+          return;
+        }
       }
     };
 
@@ -674,7 +823,8 @@ export default function LabelPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReadMode, isPreviewMode, queue, queuePos, showManagementBoard, submitDialogMode,
       confirmReset, confirmExit, handleSaveDraft, handleBatchAction, handleExit, handleResetAll,
-      setUsability, setLowQuality, setRegion, mbActiveCol, selectedBoardSetUuid, rightTab]);
+      setUsability, setLowQuality, setRegion, mbActiveCol, selectedBoardSetUuid, rightTab,
+      zoneModeActive, zoneModeCursor]);
 
   void isSetSubmittable; // used internally by ValidationStatus
   const queueReady = queue.map((uuid: string) => isSetSubmittableByUuid(uuid));
@@ -889,7 +1039,13 @@ export default function LabelPage() {
                   </p>
                 </div>
               ) : currentImg ? (
-                <SliceEvaluation imageUuid={currentImg.uuid} readOnly={isReadMode} />
+                <SliceEvaluation
+                  imageUuid={currentImg.uuid}
+                  readOnly={isReadMode}
+                  zoneModeCell={zoneModeActive ? zoneModeCursor : null}
+                  zoneModeAnchor={zoneModeActive && zoneModeVisual ? zoneModeAnchor : null}
+                  sliceNotesRef={sliceNotesRef}
+                />
               ) : (
                 <p className="text-base text-muted-foreground">No image loaded</p>
               )}

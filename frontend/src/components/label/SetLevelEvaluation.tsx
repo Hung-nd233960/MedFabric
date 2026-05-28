@@ -46,7 +46,6 @@ export default function SetLevelEvaluation({ readOnly }: { readOnly?: boolean })
       setSetNotes: s.setSetNotes,
     }));
 
-  const savedSetNotesRef = useRef("");
   const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
   const lqInteractive = !readOnly && usability === "IschemicAssessable";
 
@@ -140,13 +139,9 @@ export default function SetLevelEvaluation({ readOnly }: { readOnly?: boolean })
               rows={2}
               placeholder={notesRequired ? `Describe the ${usability === "Anomaly" ? "anomaly" : "reason this scan is irrelevant"}…` : "Any notes about this scan…"}
               value={setNotes}
-              onFocus={() => { savedSetNotesRef.current = setNotes; }}
               onChange={readOnly ? undefined : (e) => setSetNotes(e.target.value)}
               onKeyDown={readOnly ? undefined : (e) => {
-                if (e.key === "Escape") {
-                  setSetNotes(savedSetNotesRef.current);
-                  e.currentTarget.blur();
-                }
+                if (e.key === "Escape") e.currentTarget.blur();
               }}
               readOnly={readOnly}
               className={cn("text-base resize-none", notesRequired && notesEmpty && "border-destructive focus-visible:ring-destructive")}

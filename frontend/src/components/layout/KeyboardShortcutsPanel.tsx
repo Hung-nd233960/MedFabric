@@ -39,7 +39,7 @@ const COLUMNS: Column[] = [
       { combo: "Shift+← / →", desc: "Previous / next set in queue" },
       { combo: "Shift+1/2/3/4", desc: "Ischemic / Hemorrhagic / Anomaly / Irrelevant" },
       { combo: "Shift+Q", desc: "Toggle Low Quality (Ischemic only)" },
-      { combo: "B / C / N", desc: "Region: Basal / Corona / None" },
+      { combo: "Shift+B / C / N", desc: "Region: Basal / Corona / None" },
       { combo: "J", desc: "Jump to image number input" },
       { combo: "Shift+J", desc: "Jump to set number input" },
       { combo: "W", desc: "Jump to WL input" },
@@ -52,6 +52,20 @@ const COLUMNS: Column[] = [
       { combo: "Y / N", desc: "Confirm / cancel reset prompt" },
       { combo: "Shift+Esc", desc: "Return to Dashboard" },
       { combo: "Esc", desc: "Close dialog / Management Board" },
+    ],
+  },
+  {
+    title: "Zone Mode",
+    rows: [
+      { combo: "Z", desc: "Enter Zone Mode (Basal/Corona image)" },
+      { combo: "Shift+B / C", desc: "Re-press current zone to enter Zone Mode" },
+      { combo: "1 / 2 / 3", desc: "Damaged / OK / Not Visible → advance" },
+      { combo: "V", desc: "Enter / exit Visual selection" },
+      { combo: "↑ / ↓", desc: "Move row" },
+      { combo: "← / →", desc: "Switch column (Left / Right)" },
+      { combo: "Shift+↑ / ↓", desc: "Jump to first / last row in column" },
+      { combo: "N", desc: "Focus slice notes (Zone Mode stays on)" },
+      { combo: "Z / Esc", desc: "Exit Zone Mode" },
     ],
   },
   {
@@ -94,7 +108,7 @@ export default function KeyboardShortcutsPanel() {
           <DialogTitle className="text-xl">Keyboard Shortcuts</DialogTitle>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto pr-1">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-x-10 gap-y-8 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-x-10 gap-y-8 pt-2">
             {COLUMNS.map((col) => (
               <div key={col.title} className="space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground pb-1.5 border-b border-border mb-3">

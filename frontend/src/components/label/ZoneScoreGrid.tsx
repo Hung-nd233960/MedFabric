@@ -64,13 +64,18 @@ function ScoreButton({
   );
 }
 
+type ZoneCell = { row: number; col: "left" | "right" };
+
 interface ZoneRowProps {
   zone: Zone;
   imageUuid: string;
   readOnly?: boolean;
+  rowIndex: number;
+  zoneModeCell?: ZoneCell | null;
+  zoneModeAnchor?: ZoneCell | null;
 }
 
-function ZoneRow({ zone, imageUuid, readOnly }: ZoneRowProps) {
+function ZoneRow({ zone, imageUuid, readOnly, rowIndex, zoneModeCell, zoneModeAnchor }: ZoneRowProps) {
   const { slices, setScore } = useLabelStore();
   const slice = slices[imageUuid];
   const leftKey = `${zone}_left_score`;
@@ -79,6 +84,18 @@ function ZoneRow({ zone, imageUuid, readOnly }: ZoneRowProps) {
   const rightScore = (slice?.scores[rightKey] as RegionScore) ?? null;
 
   const zoneComplete = leftScore !== null && rightScore !== null;
+  const hlLeft  = zoneModeCell?.row === rowIndex && zoneModeCell?.col === "left";
+  const hlRight = zoneModeCell?.row === rowIndex && zoneModeCell?.col === "right";
+
+  const inSel = (col: "left" | "right") => {
+    if (!zoneModeAnchor || !zoneModeCell) return false;
+    const rMin = Math.min(zoneModeAnchor.row, zoneModeCell.row);
+    const rMax = Math.max(zoneModeAnchor.row, zoneModeCell.row);
+    if (rowIndex < rMin || rowIndex > rMax) return false;
+    return new Set([zoneModeAnchor.col, zoneModeCell.col]).has(col);
+  };
+  const selLeft  = inSel("left")  && !hlLeft;
+  const selRight = inSel("right") && !hlRight;
 
   return (
     <div className="grid grid-cols-[4%_1fr_1fr] items-center py-1">
@@ -97,7 +114,11 @@ function ZoneRow({ zone, imageUuid, readOnly }: ZoneRowProps) {
           {zone}
         </span>
       </WithTooltip>
-      <div className="flex gap-1 flex-wrap px-1">
+      <div className={cn(
+        "flex gap-1 flex-wrap px-1 rounded transition-all",
+        hlLeft  && "ring-2 ring-amber-400/70 bg-amber-400/10",
+        selLeft && "ring-1 ring-amber-400/40 bg-amber-400/5",
+      )}>
         {SCORE_OPTIONS.map((s) => (
           <ScoreButton
             key={s}
@@ -108,7 +129,11 @@ function ZoneRow({ zone, imageUuid, readOnly }: ZoneRowProps) {
           />
         ))}
       </div>
-      <div className="flex gap-1 flex-wrap px-1">
+      <div className={cn(
+        "flex gap-1 flex-wrap px-1 rounded transition-all",
+        hlRight  && "ring-2 ring-amber-400/70 bg-amber-400/10",
+        selRight && "ring-1 ring-amber-400/40 bg-amber-400/5",
+      )}>
         {SCORE_OPTIONS.map((s) => (
           <ScoreButton
             key={s}
@@ -126,9 +151,11 @@ function ZoneRow({ zone, imageUuid, readOnly }: ZoneRowProps) {
 interface ZoneScoreGridProps {
   imageUuid: string;
   readOnly?: boolean;
+  zoneModeCell?: ZoneCell | null;
+  zoneModeAnchor?: ZoneCell | null;
 }
 
-export default function ZoneScoreGrid({ imageUuid, readOnly }: ZoneScoreGridProps) {
+export default function ZoneScoreGrid({ imageUuid, readOnly, zoneModeCell, zoneModeAnchor }: ZoneScoreGridProps) {
   const { slices } = useLabelStore();
   const slice = slices[imageUuid];
   const region = slice?.region ?? "None";
@@ -139,6 +166,20 @@ export default function ZoneScoreGrid({ imageUuid, readOnly }: ZoneScoreGridProp
 
   const leftComplete = zones.every((z) => (slice?.scores[`${z}_left_score`] ?? null) !== null);
   const rightComplete = zones.every((z) => (slice?.scores[`${z}_right_score`] ?? null) !== null);
+
+  const activeZoneName = zoneModeCell ? zones[zoneModeCell.row]?.toUpperCase() : null;
+  const activeCol = zoneModeCell?.col === "left" ? "Left" : "Right";
+
+  const isVisual = zoneModeAnchor != null && zoneModeCell != null;
+  const visRMin = isVisual ? Math.min(zoneModeAnchor!.row, zoneModeCell!.row) : 0;
+  const visRMax = isVisual ? Math.max(zoneModeAnchor!.row, zoneModeCell!.row) : 0;
+  const visCols = isVisual ? new Set([zoneModeAnchor!.col, zoneModeCell!.col]) : new Set<string>();
+  const visColLabel = isVisual
+    ? (visCols.has("left") && visCols.has("right") ? "Both" : visCols.has("left") ? "Left" : "Right")
+    : "";
+  const visRangeLabel = isVisual
+    ? `${zones[visRMin]?.toUpperCase()}–${zones[visRMax]?.toUpperCase()} · ${visColLabel}`
+    : "";
 
   return (
     <div className="space-y-1">
@@ -163,9 +204,19 @@ export default function ZoneScoreGrid({ imageUuid, readOnly }: ZoneScoreGridProp
         </div>
       </div>
 
-      {zones.map((z) => (
-        <ZoneRow key={z} zone={z as Zone} imageUuid={imageUuid} readOnly={readOnly} />
+      {zones.map((z, i) => (
+        <ZoneRow key={z} zone={z as Zone} imageUuid={imageUuid} readOnly={readOnly} rowIndex={i} zoneModeCell={zoneModeCell} zoneModeAnchor={zoneModeAnchor} />
       ))}
+
+      {zoneModeCell != null && (
+        <div className="border-t border-amber-500/20 bg-amber-500/5 px-2 py-1 text-xs font-mono select-none flex items-center gap-2 rounded-b mt-1">
+          <span className="text-amber-400">{isVisual ? "-- ZONE VIS --" : "-- ZONE --"}</span>
+          <span className="text-muted-foreground">
+            {region === "BasalGanglia" ? "Basal" : "Corona"} · {isVisual ? visRangeLabel : `${activeZoneName} · ${activeCol}`}
+          </span>
+          <span className="ml-auto text-muted-foreground/60">1=DMG  2=OK  3=NV</span>
+        </div>
+      )}
     </div>
   );
 }

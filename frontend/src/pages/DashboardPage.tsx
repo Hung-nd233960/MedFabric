@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { PlayCircle, Trash2, Clock, CheckCircle2, FileEdit, Stethoscope, Globe, Layers, BookOpen, ScanEye, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
@@ -121,6 +121,8 @@ const EVENT_LABELS: Record<string, string> = {
   draft_deleted: "Draft Deleted",
 };
 
+const statusRank = (s: ImageSetWithProgress) => s.evaluated_by_me ? 2 : s.in_draft_by_me ? 1 : 0;
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("image-sets");
@@ -144,6 +146,7 @@ export default function DashboardPage() {
   const [kbHighlight, setKbHighlight] = useState(-1);
   const [visualMode, setVisualMode] = useState(false);
   const [visualAnchor, setVisualAnchor] = useState(-1);
+  const kbHighlightTargetRef = useRef<{ uuid: string; setAnchor: boolean } | null>(null);
 
   const readableSets = imageSets.filter((s) => s.evaluated_by_me || s.in_draft_by_me);
   const visibleSets = mode === "read" ? readableSets : imageSets;
@@ -204,11 +207,9 @@ export default function DashboardPage() {
   const handleSortDraft = (col: DraftSortCol) => { if (sortDraftCol === col) setSortDraftDir((d) => d === "asc" ? "desc" : "asc"); else { setSortDraftCol(col); setSortDraftDir("asc"); } };
   const handleSortHist  = (col: HistSortCol)  => { if (sortHistCol === col)  setSortHistDir((d) => d === "asc" ? "desc" : "asc"); else { setSortHistCol(col);  setSortHistDir("asc"); } };
 
-  const statusRank = (s: ImageSetWithProgress) => s.evaluated_by_me ? 2 : s.in_draft_by_me ? 1 : 0;
-
-  const sortedSets = [...visibleSets].sort((a, b) => {
+  const sortedSets = useMemo(() => [...visibleSets].sort((a, b) => {
     const sel = (selectedSets.has(b.uuid) ? 1 : 0) - (selectedSets.has(a.uuid) ? 1 : 0);
-    if (sel !== 0) return sel;
+    if (!visualMode && sel !== 0) return sel;
     let cmp = 0;
     switch (sortCol) {
       case "index":      cmp = a.dataset_index - b.dataset_index; break;
@@ -220,7 +221,7 @@ export default function DashboardPage() {
       case "status":     cmp = statusRank(a) - statusRank(b); break;
     }
     return sortDir === "asc" ? cmp : -cmp;
-  });
+  }), [visibleSets, selectedSets, sortCol, sortDir, visualMode]);
 
   const sortedDrafts = [...drafts].sort((a, b) => {
     const sel = (selectedDrafts.has(b.annotation_session_uuid) ? 1 : 0) - (selectedDrafts.has(a.annotation_session_uuid) ? 1 : 0);
@@ -415,6 +416,18 @@ export default function DashboardPage() {
     el?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [kbHighlight]);
 
+  // Restore cursor position by UUID after sort order changes (e.g. entering/exiting Visual Mode)
+  useLayoutEffect(() => {
+    const target = kbHighlightTargetRef.current;
+    if (!target) return;
+    kbHighlightTargetRef.current = null;
+    const idx = sortedSets.findIndex((s) => s.uuid === target.uuid);
+    if (idx >= 0) {
+      setKbHighlight(idx);
+      if (target.setAnchor) setVisualAnchor(idx);
+    }
+  }, [sortedSets]);
+
   // ── Keyboard shortcuts ───────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -488,10 +501,14 @@ export default function DashboardPage() {
       // V — enter / exit Visual Mode
       if (!ctrl && !shift && UP === "V" && sortedSets.length > 0) {
         if (visualMode) {
+          if (kbHighlight >= 0 && kbHighlight < sortedSets.length)
+            kbHighlightTargetRef.current = { uuid: sortedSets[kbHighlight].uuid, setAnchor: false };
           setVisualMode(false);
           setVisualAnchor(-1);
         } else {
           const anchor = kbHighlight >= 0 ? kbHighlight : 0;
+          if (anchor < sortedSets.length)
+            kbHighlightTargetRef.current = { uuid: sortedSets[anchor].uuid, setAnchor: true };
           if (kbHighlight < 0) setKbHighlight(0);
           setVisualAnchor(anchor);
           setVisualMode(true);
@@ -541,7 +558,13 @@ export default function DashboardPage() {
 
       // Esc — exit Visual Mode, or clear highlight and selection
       if (key === "Escape") {
-        if (visualMode) { setVisualMode(false); setVisualAnchor(-1); return; }
+        if (visualMode) {
+          if (kbHighlight >= 0 && kbHighlight < sortedSets.length)
+            kbHighlightTargetRef.current = { uuid: sortedSets[kbHighlight].uuid, setAnchor: false };
+          setVisualMode(false);
+          setVisualAnchor(-1);
+          return;
+        }
         setKbHighlight(-1);
         setSelectedSets(new Set());
         return;
@@ -553,6 +576,7 @@ export default function DashboardPage() {
         if (visualMode) {
           const lo = Math.min(visualAnchor, kbHighlight);
           const hi = Math.max(visualAnchor, kbHighlight);
+          kbHighlightTargetRef.current = { uuid: sortedSets[kbHighlight].uuid, setAnchor: false };
           setSelectedSets((prev) => {
             const next = new Set(prev);
             for (let i = lo; i <= hi; i++) {

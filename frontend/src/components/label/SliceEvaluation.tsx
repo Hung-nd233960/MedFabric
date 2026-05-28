@@ -2,6 +2,7 @@
  * Per-slice evaluation: region selector + zone score grid + slice notes + slice status.
  * Only rendered when ASPECTS scoring is enabled at set level.
  */
+import type { RefObject } from "react";
 import { useRef } from "react";
 import { CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import type { Region } from "@/lib/types";
@@ -11,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { WithTooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+
+type ZoneCell = { row: number; col: "left" | "right" };
 
 const REGIONS: Region[] = ["None", "BasalGanglia", "CoronaRadiata"];
 
@@ -35,11 +38,15 @@ const REGION_TOOLTIPS: Record<Region, string> = {
 interface SliceEvaluationProps {
   imageUuid: string;
   readOnly?: boolean;
+  zoneModeCell?: ZoneCell | null;
+  zoneModeAnchor?: ZoneCell | null;
+  sliceNotesRef?: RefObject<HTMLTextAreaElement>;
 }
 
-export default function SliceEvaluation({ imageUuid, readOnly }: SliceEvaluationProps) {
+export default function SliceEvaluation({ imageUuid, readOnly, zoneModeCell, zoneModeAnchor, sliceNotesRef }: SliceEvaluationProps) {
   const { slices, setRegion, setSliceNotes, isCurrentSliceValid } = useLabelStore();
-  const savedNotesRef = useRef("");
+  const internalNotesRef = useRef<HTMLTextAreaElement>(null);
+  const notesRef = sliceNotesRef ?? internalNotesRef;
   const slice = slices[imageUuid];
   const region = slice?.region ?? "None";
   const sliceValid = isCurrentSliceValid();
@@ -88,21 +95,18 @@ export default function SliceEvaluation({ imageUuid, readOnly }: SliceEvaluation
         </div>
       </div>
 
-      {region !== "None" && <ZoneScoreGrid imageUuid={imageUuid} readOnly={readOnly} />}
+      {region !== "None" && <ZoneScoreGrid imageUuid={imageUuid} readOnly={readOnly} zoneModeCell={zoneModeCell} zoneModeAnchor={zoneModeAnchor} />}
 
       <div className="space-y-1.5">
         <Label className="text-base text-muted-foreground">Slice notes (optional)</Label>
         <Textarea
+          ref={notesRef}
           rows={2}
           placeholder="Notes for this slice…"
           value={slice?.notes ?? ""}
-          onFocus={() => { savedNotesRef.current = slice?.notes ?? ""; }}
           onChange={readOnly ? undefined : (e) => setSliceNotes(imageUuid, e.target.value)}
           onKeyDown={readOnly ? undefined : (e) => {
-            if (e.key === "Escape") {
-              setSliceNotes(imageUuid, savedNotesRef.current);
-              e.currentTarget.blur();
-            }
+            if (e.key === "Escape") e.currentTarget.blur();
           }}
           readOnly={readOnly}
           className="text-base resize-none"
