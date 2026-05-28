@@ -178,6 +178,9 @@ class Doctors(Base):
         default=lambda: datetime.now(timezone.utc),
         server_default=text("CURRENT_TIMESTAMP"),
     )
+    last_seen: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None,
+    )
 
     login_sessions: Mapped[List["LoginSession"]] = relationship(
         "LoginSession", back_populates="doctor"

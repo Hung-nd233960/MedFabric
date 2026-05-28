@@ -40,7 +40,7 @@ export default function AppearanceDialog({
   onOpenChange: (v: boolean) => void;
 }) {
   const { dark, tooltipMode, setDark, setTooltipMode } = useAppearanceStore();
-  const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
+  const openShortcuts = useUiStore((s) => s.openShortcuts);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -108,7 +108,7 @@ export default function AppearanceDialog({
             <Button
               variant="outline"
               className="w-full gap-2 justify-start"
-              onClick={() => { setShortcutsOpen(true); onOpenChange(false); }}
+              onClick={() => { openShortcuts("general"); onOpenChange(false); }}
             >
               <Keyboard className="h-4 w-4" />
               Keyboard Shortcuts

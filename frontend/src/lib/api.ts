@@ -63,6 +63,7 @@ export const authApi = {
     api.post("/auth/change-password", data),
   setupAccount: (data: { full_name?: string; new_password?: string }) =>
     api.post("/auth/setup-account", data),
+  heartbeat: () => api.post("/auth/heartbeat"),
 };
 
 export const dashboardApi = {

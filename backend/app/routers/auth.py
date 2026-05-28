@@ -1,6 +1,7 @@
 """Authentication router — register, login, refresh, logout, change-password."""
 
 import uuid as _uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
@@ -182,3 +183,10 @@ def change_password_endpoint(
                 detail="Current password is incorrect.",
             )
     change_password(db, doctor.uuid, body.new_password, must_change_password=False)
+
+
+@router.post("/heartbeat", status_code=status.HTTP_204_NO_CONTENT)
+def heartbeat(db: Session = Depends(get_db), doctor: Doctors = Depends(get_current_doctor)):
+    """Update last_seen timestamp for the authenticated doctor."""
+    doctor.last_seen = datetime.now(timezone.utc)
+    db.commit()

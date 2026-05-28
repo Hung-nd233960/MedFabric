@@ -123,6 +123,7 @@ class DoctorRead(_ORM):
     must_set_name: bool = False
     registration_source: str = "admin_created"
     created_at: datetime
+    last_seen: Optional[datetime] = None
 
 
 class DoctorCreate(BaseModel):

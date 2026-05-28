@@ -5,6 +5,7 @@
  *   - Optional notes
  */
 import { useEffect, useRef } from "react";
+import type { RefObject } from "react";
 import { useLabelStore } from "@/store/labelStore";
 import type { ImageSetUsability } from "@/lib/types";
 import { USABILITY_LABELS } from "@/lib/types";
@@ -35,7 +36,7 @@ const USABILITY_TOOLTIPS: Record<ImageSetUsability, string> = {
   Irrelevant:          "Wrong scan (wrong body part, bone CT,...), wrong patient, or non-diagnostic. Please include the reason in the notes.",
 };
 
-export default function SetLevelEvaluation({ readOnly }: { readOnly?: boolean }) {
+export default function SetLevelEvaluation({ readOnly, notesRef: externalNotesRef }: { readOnly?: boolean; notesRef?: RefObject<HTMLTextAreaElement> }) {
   const { usability, lowQuality, setNotes, setUsability, setLowQuality, setSetNotes } =
     useLabelStore((s) => ({
       usability: s.usability,
@@ -46,7 +47,8 @@ export default function SetLevelEvaluation({ readOnly }: { readOnly?: boolean })
       setSetNotes: s.setSetNotes,
     }));
 
-  const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const internalNotesRef = useRef<HTMLTextAreaElement>(null);
+  const notesTextareaRef = externalNotesRef ?? internalNotesRef;
   const lqInteractive = !readOnly && usability === "IschemicAssessable";
 
   // Auto-focus notes textarea when Anomaly/Irrelevant is selected (notes are required)

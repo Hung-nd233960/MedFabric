@@ -7,7 +7,9 @@ const DISABLED_PATHS = ["/change-password"];
 
 export function useGlobalShortcuts() {
   const { pathname } = useLocation();
-  const toggleShortcuts = useUiStore((s) => s.toggleShortcuts);
+  const shortcutsOpen = useUiStore((s) => s.shortcutsOpen);
+  const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
+  const openShortcuts = useUiStore((s) => s.openShortcuts);
 
   useEffect(() => {
     if (DISABLED_PATHS.includes(pathname)) return;
@@ -18,7 +20,11 @@ export function useGlobalShortcuts() {
 
       if (e.key === "?") {
         e.preventDefault();
-        toggleShortcuts();
+        if (shortcutsOpen) {
+          setShortcutsOpen(false);
+        } else {
+          openShortcuts(pathname === "/label" ? "label" : "general");
+        }
         return;
       }
 
@@ -34,5 +40,5 @@ export function useGlobalShortcuts() {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pathname, toggleShortcuts]);
+  }, [pathname, shortcutsOpen, setShortcutsOpen, openShortcuts]);
 }

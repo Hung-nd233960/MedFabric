@@ -73,9 +73,10 @@ interface ZoneRowProps {
   rowIndex: number;
   zoneModeCell?: ZoneCell | null;
   zoneModeAnchor?: ZoneCell | null;
+  onExitZoneMode?: () => void;
 }
 
-function ZoneRow({ zone, imageUuid, readOnly, rowIndex, zoneModeCell, zoneModeAnchor }: ZoneRowProps) {
+function ZoneRow({ zone, imageUuid, readOnly, rowIndex, zoneModeCell, zoneModeAnchor, onExitZoneMode }: ZoneRowProps) {
   const { slices, setScore } = useLabelStore();
   const slice = slices[imageUuid];
   const leftKey = `${zone}_left_score`;
@@ -124,7 +125,7 @@ function ZoneRow({ zone, imageUuid, readOnly, rowIndex, zoneModeCell, zoneModeAn
             key={s}
             value={s}
             current={leftScore}
-            onClick={() => setScore(imageUuid, leftKey, s)}
+            onClick={() => { setScore(imageUuid, leftKey, s); onExitZoneMode?.(); }}
             readOnly={readOnly}
           />
         ))}
@@ -139,7 +140,7 @@ function ZoneRow({ zone, imageUuid, readOnly, rowIndex, zoneModeCell, zoneModeAn
             key={s}
             value={s}
             current={rightScore}
-            onClick={() => setScore(imageUuid, rightKey, s)}
+            onClick={() => { setScore(imageUuid, rightKey, s); onExitZoneMode?.(); }}
             readOnly={readOnly}
           />
         ))}
@@ -153,9 +154,10 @@ interface ZoneScoreGridProps {
   readOnly?: boolean;
   zoneModeCell?: ZoneCell | null;
   zoneModeAnchor?: ZoneCell | null;
+  onExitZoneMode?: () => void;
 }
 
-export default function ZoneScoreGrid({ imageUuid, readOnly, zoneModeCell, zoneModeAnchor }: ZoneScoreGridProps) {
+export default function ZoneScoreGrid({ imageUuid, readOnly, zoneModeCell, zoneModeAnchor, onExitZoneMode }: ZoneScoreGridProps) {
   const { slices } = useLabelStore();
   const slice = slices[imageUuid];
   const region = slice?.region ?? "None";
@@ -205,12 +207,12 @@ export default function ZoneScoreGrid({ imageUuid, readOnly, zoneModeCell, zoneM
       </div>
 
       {zones.map((z, i) => (
-        <ZoneRow key={z} zone={z as Zone} imageUuid={imageUuid} readOnly={readOnly} rowIndex={i} zoneModeCell={zoneModeCell} zoneModeAnchor={zoneModeAnchor} />
+        <ZoneRow key={z} zone={z as Zone} imageUuid={imageUuid} readOnly={readOnly} rowIndex={i} zoneModeCell={zoneModeCell} zoneModeAnchor={zoneModeAnchor} onExitZoneMode={onExitZoneMode} />
       ))}
 
       {zoneModeCell != null && (
         <div className="border-t border-amber-500/20 bg-amber-500/5 px-2 py-1 text-xs font-mono select-none flex items-center gap-2 rounded-b mt-1">
-          <span className="text-amber-400">{isVisual ? "-- ZONE VIS --" : "-- ZONE --"}</span>
+          <span className="text-amber-400">{isVisual ? "-- Zone Mode -- -- Vis --" : "-- Zone Mode --"}</span>
           <span className="text-muted-foreground">
             {region === "BasalGanglia" ? "Basal" : "Corona"} · {isVisual ? visRangeLabel : `${activeZoneName} · ${activeCol}`}
           </span>

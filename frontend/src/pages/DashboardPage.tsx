@@ -12,6 +12,7 @@ import { useLabelStore } from "@/store/labelStore";
 import { useLabelQueueStore } from "@/store/labelQueueStore";
 import { WithTooltip } from "@/components/ui/tooltip";
 import type { DashboardStats, DraftItem, HistoryEvent, ImageSetWithProgress } from "@/lib/types";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 type Tab = "image-sets" | "drafts" | "history";
 type SortDir = "asc" | "desc";
@@ -440,25 +441,9 @@ export default function DashboardPage() {
       const shift = e.shiftKey;
       const ctrl = e.ctrlKey || e.metaKey;
 
-      // Confirm dialogs consume all keys; handle Y / N / Esc
-      if (confirmDeleteDrafts) {
-        if (!ctrl && UP === "Y") { e.preventDefault(); handleDeleteDrafts(); return; }
-        if ((!ctrl && UP === "N") || key === "Escape") { e.preventDefault(); setConfirmDeleteDrafts(false); return; }
-        e.preventDefault(); return;
-      }
-      if (confirmLaunch) {
-        if (!ctrl && UP === "Y") {
-          e.preventDefault();
-          const type = confirmLaunch.type;
-          setConfirmLaunch(null);
-          if (type === "annotate") doAnnotateSets();
-          else if (type === "read") doReadSets();
-          else doPreviewSets();
-          return;
-        }
-        if ((!ctrl && UP === "N") || key === "Escape") { e.preventDefault(); setConfirmLaunch(null); return; }
-        e.preventDefault(); return;
-      }
+      // Confirm dialogs handle their own keys via ConfirmDialog's capture listener;
+      // consume any remaining keys here so they don't leak to table navigation.
+      if (confirmDeleteDrafts || confirmLaunch) { e.preventDefault(); return; }
 
       // Tab — cycle tabs forward (Shift+Tab backward)
       if (key === "Tab" && !ctrl) {
@@ -1041,56 +1026,51 @@ export default function DashboardPage() {
 
       {/* ── Delete drafts confirm dialog ── */}
       {confirmDeleteDrafts && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-background border border-border rounded-lg p-6 w-80 space-y-4 shadow-xl">
-            <p className="text-base font-semibold">Delete {selectedDrafts.size} draft(s)?</p>
-            <p className="text-sm text-muted-foreground">This will permanently remove the saved annotation data. This cannot be undone.</p>
-            <div className="flex gap-3">
-              <Button className="flex-1 bg-red-600 hover:bg-red-700 text-white" onClick={handleDeleteDrafts}>
-                Yes. Delete
-              </Button>
-              <Button variant="outline" className="flex-1" onClick={() => setConfirmDeleteDrafts(false)}>
-                No. Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title={`Delete ${selectedDrafts.size} draft(s)?`}
+          body="This will permanently remove the saved annotation data. This cannot be undone."
+          layout="horizontal"
+          defaultFocusIndex={1}
+          buttons={[
+            { label: "Yes. Delete", onClick: handleDeleteDrafts, className: "bg-red-600 hover:bg-red-700 text-white" },
+            { label: "No. Cancel", onClick: () => setConfirmDeleteDrafts(false), className: "" },
+          ]}
+        />
       )}
 
       {/* ── Large selection warning dialog ── */}
       {confirmLaunch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-background border border-border rounded-lg p-6 w-96 space-y-4 shadow-xl">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-base font-semibold">Large selection</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  You are about to open{" "}
-                  <span className="font-medium text-foreground">{confirmLaunch.count}</span>{" "}
-                  image sets. This may affect system stability.
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <Button
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={() => {
-                  const type = confirmLaunch.type;
-                  setConfirmLaunch(null);
-                  if (type === "annotate") doAnnotateSets();
-                  else if (type === "read") doReadSets();
-                  else doPreviewSets();
-                }}
-              >
-                Yes. Proceed
-              </Button>
-              <Button variant="outline" className="flex-1" onClick={() => setConfirmLaunch(null)}>
-                No. Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title={
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-400 shrink-0" />
+              Large selection
+            </span>
+          }
+          body={
+            <>
+              You are about to open{" "}
+              <span className="font-medium text-foreground">{confirmLaunch.count}</span>{" "}
+              image sets. This may affect system stability.
+            </>
+          }
+          layout="horizontal"
+          defaultFocusIndex={1}
+          buttons={[
+            {
+              label: "Yes. Proceed",
+              className: "bg-blue-600 hover:bg-blue-700 text-white",
+              onClick: () => {
+                const type = confirmLaunch.type;
+                setConfirmLaunch(null);
+                if (type === "annotate") doAnnotateSets();
+                else if (type === "read") doReadSets();
+                else doPreviewSets();
+              },
+            },
+            { label: "No. Cancel", onClick: () => setConfirmLaunch(null), className: "" },
+          ]}
+        />
       )}
     </div>
   );

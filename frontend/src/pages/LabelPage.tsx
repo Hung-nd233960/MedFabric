@@ -27,6 +27,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useNavGuardStore } from "@/store/navGuardStore";
 import type { ImageRecord, ImageSet, SliceEvalState, ImageSetUsability } from "@/lib/types";
 import { USABILITY_LABELS, BASAL_ZONES, CORONA_ZONES } from "@/lib/types";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 type ZoneCell = { row: number; col: "left" | "right" };
 
@@ -134,6 +135,7 @@ export default function LabelPage() {
   const [zoneModeVisual, setZoneModeVisual] = useState(false);
   const [zoneModeAnchor, setZoneModeAnchor] = useState<ZoneCell | null>(null);
   const sliceNotesRef = useRef<HTMLTextAreaElement>(null);
+  const setLevelNotesRef = useRef<HTMLTextAreaElement>(null);
 
   const exitZoneMode = () => {
     setZoneModeActive(false); setZoneModeCursor(null);
@@ -270,11 +272,13 @@ export default function LabelPage() {
 
   useEffect(() => { setSelectedMBImageIndex(-1); }, [selectedBoardSetUuid]);
 
-  const activateZoneMode = (imageUuid: string, region: "BasalGanglia" | "CoronaRadiata") => {
+  const activateZoneMode = (imageUuid: string, region: "BasalGanglia" | "CoronaRadiata", visual = false) => {
     const zones = region === "BasalGanglia" ? BASAL_ZONES : CORONA_ZONES;
     const scores = useLabelStore.getState().slices[imageUuid]?.scores ?? {};
-    setZoneModeCursor(findSmartStart(zones, scores as Record<string, RegionScore | null>));
+    const start = findSmartStart(zones, scores as Record<string, RegionScore | null>);
+    setZoneModeCursor(start);
     setZoneModeActive(true);
+    if (visual) { setZoneModeAnchor(start); setZoneModeVisual(true); }
   };
 
   // Auto-exit Zone Mode when ASPECTS scoring becomes unavailable
@@ -544,11 +548,14 @@ export default function LabelPage() {
       const ctrl = e.ctrlKey || e.metaKey;
       const UP = key.toUpperCase();
 
-      // Y/N keyboard answer for confirmReset dialog
+      // Y/N keyboard answer for confirmReset dialog (fires before the guard below)
       if (confirmReset && !ctrl) {
         if (UP === "Y") { e.preventDefault(); setConfirmReset(false); handleResetAll(); return; }
         if (UP === "N") { e.preventDefault(); setConfirmReset(false); return; }
       }
+
+      // Block all other keys while any confirm dialog is open (ConfirmDialog handles them via capture)
+      if (confirmReset || submitDialogMode !== null || confirmExit) { e.preventDefault(); return; }
 
       // Shift+Esc — return to Dashboard (all modes, same as the Exit button)
       if (shift && key === "Escape") {
@@ -657,11 +664,8 @@ export default function LabelPage() {
         return;
       }
 
-      // Esc — close Management Board or dismiss open dialogs (all modes)
+      // Esc — close Management Board or Zone Mode (dialogs handle their own Esc via ConfirmDialog capture listener)
       if (key === "Escape") {
-        if (submitDialogMode !== null) { setSubmitDialogMode(null); return; }
-        if (confirmReset) { setConfirmReset(false); return; }
-        if (confirmExit) { setConfirmExit(false); setPendingNavDest(null); return; }
         if (showManagementBoard) { setShowManagementBoard(false); return; }
         if (zoneModeVisual) { setZoneModeVisual(false); setZoneModeAnchor(null); return; }
         if (zoneModeActive) { exitZoneMode(); return; }
@@ -689,8 +693,8 @@ export default function LabelPage() {
         return;
       }
 
-      // Shift+1–4: usability (annotate mode only)
-      if (shift && !ctrl && !isReadMode && !isPreviewMode) {
+      // Shift+1–4: usability (annotate mode only, not while Zone Mode is active)
+      if (shift && !ctrl && !isReadMode && !isPreviewMode && !zoneModeActive) {
         switch (e.code) {
           case "Digit1": e.preventDefault(); setUsability("IschemicAssessable"); return;
           case "Digit2": e.preventDefault(); setUsability("HemorrhagicPresent"); return;
@@ -716,7 +720,7 @@ export default function LabelPage() {
             const curRegion = useLabelStore.getState().slices[zmImg2.uuid]?.region ?? "None";
             if (targetRegion !== "None" && curRegion === targetRegion) {
               // Re-press same zone — activate Zone Mode instead of resetting
-              activateZoneMode(zmImg2.uuid, targetRegion);
+              activateZoneMode(zmImg2.uuid, targetRegion as "BasalGanglia" | "CoronaRadiata");
             } else {
               setRegion(zmImg2.uuid, targetRegion as "None" | "BasalGanglia" | "CoronaRadiata");
               if (zoneModeActive) exitZoneMode();
@@ -787,6 +791,43 @@ export default function LabelPage() {
             return;
           }
 
+          // Ctrl+A — select all cells
+          if (ctrl && !shift && UP === "A") {
+            e.preventDefault();
+            setZoneModeAnchor({ row: 0, col: "left" });
+            setZoneModeCursor({ row: zmZones.length - 1, col: "right" });
+            setZoneModeVisual(true);
+            return;
+          }
+
+          // Shift+1…N — select entire row N (both columns)
+          if (shift && !ctrl && e.code.startsWith("Digit")) {
+            const row = parseInt(e.code.slice(5)) - 1;
+            if (row >= 0 && row < zmZones.length) {
+              e.preventDefault();
+              setZoneModeAnchor({ row, col: "left" });
+              setZoneModeCursor({ row, col: "right" });
+              setZoneModeVisual(true);
+              return;
+            }
+          }
+
+          // < — select all Left column, > — select all Right column
+          if (!ctrl && key === "<") {
+            e.preventDefault();
+            setZoneModeAnchor({ row: 0, col: "left" });
+            setZoneModeCursor({ row: zmZones.length - 1, col: "left" });
+            setZoneModeVisual(true);
+            return;
+          }
+          if (!ctrl && key === ">") {
+            e.preventDefault();
+            setZoneModeAnchor({ row: 0, col: "right" });
+            setZoneModeCursor({ row: zmZones.length - 1, col: "right" });
+            setZoneModeVisual(true);
+            return;
+          }
+
           // Arrow navigation (moves cursor; in visual mode extends selection from anchor)
           if (!ctrl && !shift && key === "ArrowUp")    { e.preventDefault(); setZoneModeCursor(c => c && c.row > 0 ? { ...c, row: c.row - 1 } : c); return; }
           if (!ctrl && !shift && key === "ArrowDown")  { e.preventDefault(); setZoneModeCursor(c => c && c.row < zmZones.length - 1 ? { ...c, row: c.row + 1 } : c); return; }
@@ -808,11 +849,14 @@ export default function LabelPage() {
 
       const currentImg = useLabelStore.getState().currentImage();
 
-      // Z — activate Zone Mode (when conditions are met)
-      if (UP === "Z" && currentImg && useLabelStore.getState().aspectsEnabled()) {
+      // N — focus Image Set Notes
+      if (UP === "N") { e.preventDefault(); setLevelNotesRef.current?.focus(); return; }
+
+      // Z — activate Zone Mode | V — activate Zone Mode directly in Visual
+      if ((UP === "Z" || UP === "V") && currentImg && useLabelStore.getState().aspectsEnabled()) {
         const region = useLabelStore.getState().slices[currentImg.uuid]?.region;
         if (region === "BasalGanglia" || region === "CoronaRadiata") {
-          activateZoneMode(currentImg.uuid, region);
+          activateZoneMode(currentImg.uuid, region, UP === "V");
           return;
         }
       }
@@ -1044,6 +1088,7 @@ export default function LabelPage() {
                   readOnly={isReadMode}
                   zoneModeCell={zoneModeActive ? zoneModeCursor : null}
                   zoneModeAnchor={zoneModeActive && zoneModeVisual ? zoneModeAnchor : null}
+                  onExitZoneMode={zoneModeActive ? exitZoneMode : undefined}
                   sliceNotesRef={sliceNotesRef}
                 />
               ) : (
@@ -1243,7 +1288,7 @@ export default function LabelPage() {
             {/* Set classification */}
             <div className="space-y-3">
               <p className="text-base font-medium text-muted-foreground">Set Classification</p>
-              <SetLevelEvaluation readOnly={isReadMode} />
+              <SetLevelEvaluation readOnly={isReadMode} notesRef={setLevelNotesRef} />
             </div>
           </div>
         </div>
@@ -1473,109 +1518,78 @@ export default function LabelPage() {
 
       {/* ── Submit dialog — all ready ── */}
       {submitDialogMode === "all-ready" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-background border border-border rounded-lg p-6 w-80 space-y-4 shadow-xl">
-            <p className="text-base font-semibold">How do you want to save?</p>
-            <p className="text-sm text-muted-foreground">All {queue.length} image set(s) are ready to submit.</p>
-            <div className="flex flex-col gap-2">
-              <Button className="w-full bg-green-600 hover:bg-green-700 text-white" onClick={() => handleBatchAction("submit-all")}>
-                Yes, submit all
-              </Button>
-              <Button className="w-full bg-yellow-500 hover:bg-yellow-600 text-black" onClick={() => handleBatchAction("draft-all")}>
-                Save Draft All
-              </Button>
-              <Button className="w-full bg-red-600 hover:bg-red-700 text-white" onClick={() => setSubmitDialogMode(null)}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="How do you want to save?"
+          body={`All ${queue.length} image set(s) are ready to submit.`}
+          buttons={[
+            { label: "Yes, submit all",  onClick: () => handleBatchAction("submit-all"),  className: "bg-green-600 hover:bg-green-700 text-white" },
+            { label: "Save Draft All",   onClick: () => handleBatchAction("draft-all"),   className: "bg-yellow-500 hover:bg-yellow-600 text-black" },
+            { label: "Cancel",           onClick: () => setSubmitDialogMode(null),        className: "bg-red-600 hover:bg-red-700 text-white" },
+          ]}
+        />
       )}
 
       {/* ── Submit dialog — partial ready ── */}
       {submitDialogMode === "partial-ready" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-background border border-border rounded-lg p-6 w-80 space-y-4 shadow-xl">
-            <p className="text-base font-semibold">How do you want to save?</p>
-            <p className="text-sm text-muted-foreground">
-              {queueReady.filter(Boolean).length} of {queue.length} image set(s) ready.
-            </p>
-            <div className="flex flex-col gap-2">
-              <Button className="w-full bg-green-600 hover:bg-green-700 text-white" onClick={() => handleBatchAction("submit-ready-draft-incomplete")}>
-                Submit Ready, Draft Incompleted
-              </Button>
-              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleBatchAction("submit-ready-drop-incomplete")}>
-                Submit Ready, Drop Incompleted
-              </Button>
-              <Button className="w-full bg-yellow-500 hover:bg-yellow-600 text-black" onClick={() => handleBatchAction("draft-all")}>
-                Draft All
-              </Button>
-              <Button className="w-full bg-red-600 hover:bg-red-700 text-white" onClick={() => setSubmitDialogMode(null)}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="How do you want to save?"
+          body={`${queueReady.filter(Boolean).length} of ${queue.length} image set(s) ready.`}
+          buttons={[
+            { label: "Submit Ready, Draft Incompleted",  onClick: () => handleBatchAction("submit-ready-draft-incomplete"),  className: "bg-green-600 hover:bg-green-700 text-white" },
+            { label: "Submit Ready, Drop Incompleted",   onClick: () => handleBatchAction("submit-ready-drop-incomplete"),   className: "bg-blue-600 hover:bg-blue-700 text-white" },
+            { label: "Draft All",                        onClick: () => handleBatchAction("draft-all"),                      className: "bg-yellow-500 hover:bg-yellow-600 text-black" },
+            { label: "Cancel",                           onClick: () => setSubmitDialogMode(null),                           className: "bg-red-600 hover:bg-red-700 text-white" },
+          ]}
+        />
       )}
 
       {/* ── Reset confirmation ── */}
       {confirmReset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-background border border-border rounded-lg p-6 w-80 space-y-4 shadow-xl">
-            <p className="text-base font-semibold">Reset all annotations?</p>
-            <p className="text-sm text-muted-foreground">All scored zones, region selections, and notes for this session will be cleared. This cannot be undone.</p>
-            <div className="flex gap-3">
-              <Button
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-                onClick={() => { setConfirmReset(false); handleResetAll(); }}
-              >
-                Yes, Delete <kbd className="ml-1.5 rounded border border-red-300/40 bg-red-500/20 px-1 py-0.5 font-mono text-xs">Y</kbd>
-              </Button>
-              <Button
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={() => setConfirmReset(false)}
-              >
-                No, Cancel <kbd className="ml-1.5 rounded border border-blue-300/40 bg-blue-500/20 px-1 py-0.5 font-mono text-xs">N</kbd>
-              </Button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="Reset all annotations?"
+          body="All scored zones, region selections, and notes for this session will be cleared. This cannot be undone."
+          layout="horizontal"
+          defaultFocusIndex={1}
+          buttons={[
+            {
+              label: <span>Yes, Delete <kbd className="ml-1.5 rounded border border-red-300/40 bg-red-500/20 px-1 py-0.5 font-mono text-xs">Y</kbd></span>,
+              onClick: () => { setConfirmReset(false); handleResetAll(); },
+              className: "bg-red-600 hover:bg-red-700 text-white",
+            },
+            {
+              label: <span>No, Cancel <kbd className="ml-1.5 rounded border border-blue-300/40 bg-blue-500/20 px-1 py-0.5 font-mono text-xs">N</kbd></span>,
+              onClick: () => setConfirmReset(false),
+              className: "bg-blue-600 hover:bg-blue-700 text-white",
+            },
+          ]}
+        />
       )}
 
       {/* ── Exit / Nav intercept confirmation ── */}
       {confirmExit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-background border border-border rounded-lg p-6 w-80 space-y-4 shadow-xl">
-            <p className="text-base font-semibold">Leave annotation?</p>
-            <p className="text-sm text-muted-foreground">
-              Your latest changes have been auto-saved. You can keep or discard them.
-            </p>
-            <div className="flex flex-col gap-2">
-              <Button
-                className="w-full gap-2 bg-yellow-500 hover:bg-yellow-600 text-black"
-                disabled={savingDraft}
-                onClick={async () => { setConfirmExit(false); await handleSaveDraft(); doNavigatePending(); }}
-              >
-                <Save className="h-4 w-4" />
-                {savingDraft ? "Saving…" : "Draft the latest changes"}
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => { setConfirmExit(false); doNavigatePending(true); }}
-              >
-                Don't keep the latest changes
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full text-muted-foreground"
-                onClick={() => { setConfirmExit(false); setPendingNavDest(null); }}
-              >
-                Back to Annotation
-              </Button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="Leave annotation?"
+          body="Your latest changes have been auto-saved. You can keep or discard them."
+          escIndex={2}
+          buttons={[
+            {
+              label: <span className="flex items-center gap-2"><Save className="h-4 w-4" />{savingDraft ? "Saving…" : "Draft the latest changes"}</span>,
+              onClick: async () => { setConfirmExit(false); await handleSaveDraft(); doNavigatePending(); },
+              disabled: savingDraft,
+              className: "bg-yellow-500 hover:bg-yellow-600 text-black",
+            },
+            {
+              label: "Don't keep the latest changes",
+              onClick: () => { setConfirmExit(false); doNavigatePending(true); },
+              className: "",
+            },
+            {
+              label: "Back to Annotation",
+              onClick: () => { setConfirmExit(false); setPendingNavDest(null); },
+              className: "bg-transparent hover:bg-muted text-muted-foreground",
+            },
+          ]}
+        />
       )}
 
       {/* ── Management Board ── */}

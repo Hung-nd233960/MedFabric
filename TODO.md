@@ -50,9 +50,21 @@ Labeling:
 + The cursor of RZSM can move anywhere in the grid via keyboard arrows and also Shift + Up/Down to move to same column, highest/lowest row. (but should we block overflowing keys or they cycle in the same row/column or let them overflow the hireachy?)
 + This is for single-cell annotation, they can expand to multi-cell, Vim motions,...but try to think single-cell first
 
-
+Dashboard:
 - Visual Mode in cells should also include how many image sets are done, how many image are in draft, how many are pending
-- Shift + N focuses on Image Set Notes
+Labeing - Annotation
+- N (outside Zone Mode) focuses on Image Set Notes (Done)
+- Zone Mode:
++ Change from -- Zone -- to -- Zone Mode --, -- Zone Vis -- to -- Zone Mode -- -- Vis-- (Done)
++ Should mouse zone annotation exits Zone Mode ? I think Yes (Done)
++ while in Zone Mode, Ctrl + A would Vis all zones (Done)
+Keyboard Shortcuts Box rework: (Done)
+- Two tabs: General and Label, while the box displayed, Tab would switch between tabs, L Label for  G is General. General contains site-wide and Dashboard, Annotation is the rest. Smart Tab Placement: While in Label, default to Label. While in Dashboard, default to General
+- Dialogues (Confirm draft deletion, system stability warning in Dashboard, prompt to Submit/Draft/exit annotating page in Labeling) now all can be keyboard-navigated with arrows, Enter and ESC, any side effects to take note of? (Done)
+- More admin features:
++ See who is online? (Done)
+- Now is the hard part:
++ Keyboard hints for each button direction and such. because UI is messy, we have option to turn it off for decluttering
 ## Hard Features
 
 - Vietnamese Support

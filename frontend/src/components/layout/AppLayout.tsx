@@ -9,9 +9,11 @@ import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/store/authStore";
 import { authApi } from "@/lib/api";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
+import { useHeartbeat } from "@/hooks/useHeartbeat";
 
 export default function AppLayout() {
   useGlobalShortcuts();
+  useHeartbeat();
   const { mustChangePassword, mustSetName, setMustChangePassword, setMustSetName } = useAuthStore();
 
   const [fullName, setFullName] = useState("");

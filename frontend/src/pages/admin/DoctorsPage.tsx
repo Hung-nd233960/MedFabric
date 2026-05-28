@@ -16,6 +16,13 @@ import {
 import { adminApi } from "@/lib/api";
 import type { Doctor } from "@/lib/types";
 
+const ONLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
+function isOnline(last_seen: string | null): boolean {
+  if (!last_seen) return false;
+  return Date.now() - new Date(last_seen).getTime() < ONLINE_THRESHOLD_MS;
+}
+
 export default function DoctorsPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [showInactive, setShowInactive] = useState(false);
@@ -35,7 +42,11 @@ export default function DoctorsPage() {
     }
   };
 
-  useEffect(() => { load(); }, [showInactive]);
+  useEffect(() => {
+    load();
+    const id = setInterval(load, 30_000);
+    return () => clearInterval(id);
+  }, [showInactive]);
 
   const toggleActive = async (doctor: Doctor) => {
     try {
@@ -178,7 +189,15 @@ export default function DoctorsPage() {
           <tbody className="divide-y divide-border">
             {doctors.map((d) => (
               <tr key={d.uuid} className="hover:bg-muted/30">
-                <td className="px-4 py-3 font-medium">{d.username}</td>
+                <td className="px-4 py-3 font-medium">
+                  <span className="flex items-center gap-2">
+                    <span
+                      className={`h-2 w-2 rounded-full shrink-0 ${isOnline(d.last_seen) ? "bg-green-400" : "bg-muted-foreground/30"}`}
+                      title={isOnline(d.last_seen) ? `Online (last seen ${new Date(d.last_seen!).toLocaleTimeString()})` : d.last_seen ? `Last seen ${new Date(d.last_seen).toLocaleString()}` : "Never seen"}
+                    />
+                    {d.username}
+                  </span>
+                </td>
                 <td className="px-4 py-3 text-muted-foreground">{d.full_name ?? <span className="italic text-yellow-600 text-xs">Not set</span>}</td>
                 <td className="px-4 py-3 text-muted-foreground">{d.email ?? "—"}</td>
                 <td className="px-4 py-3">

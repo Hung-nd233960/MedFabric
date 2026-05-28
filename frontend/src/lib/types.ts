@@ -27,6 +27,7 @@ export interface Doctor {
   must_set_name: boolean;
   registration_source: string;
   created_at: string;
+  last_seen: string | null;
 }
 
 export interface SubmissionRecord {

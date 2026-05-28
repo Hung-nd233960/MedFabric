@@ -40,10 +40,11 @@ interface SliceEvaluationProps {
   readOnly?: boolean;
   zoneModeCell?: ZoneCell | null;
   zoneModeAnchor?: ZoneCell | null;
+  onExitZoneMode?: () => void;
   sliceNotesRef?: RefObject<HTMLTextAreaElement>;
 }
 
-export default function SliceEvaluation({ imageUuid, readOnly, zoneModeCell, zoneModeAnchor, sliceNotesRef }: SliceEvaluationProps) {
+export default function SliceEvaluation({ imageUuid, readOnly, zoneModeCell, zoneModeAnchor, onExitZoneMode, sliceNotesRef }: SliceEvaluationProps) {
   const { slices, setRegion, setSliceNotes, isCurrentSliceValid } = useLabelStore();
   const internalNotesRef = useRef<HTMLTextAreaElement>(null);
   const notesRef = sliceNotesRef ?? internalNotesRef;
@@ -95,7 +96,7 @@ export default function SliceEvaluation({ imageUuid, readOnly, zoneModeCell, zon
         </div>
       </div>
 
-      {region !== "None" && <ZoneScoreGrid imageUuid={imageUuid} readOnly={readOnly} zoneModeCell={zoneModeCell} zoneModeAnchor={zoneModeAnchor} />}
+      {region !== "None" && <ZoneScoreGrid imageUuid={imageUuid} readOnly={readOnly} zoneModeCell={zoneModeCell} zoneModeAnchor={zoneModeAnchor} onExitZoneMode={onExitZoneMode} />}
 
       <div className="space-y-1.5">
         <Label className="text-base text-muted-foreground">Slice notes (optional)</Label>
