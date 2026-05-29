@@ -31,6 +31,7 @@ const COLUMNS: Column[] = [
       { combo: "Shift+A", desc: "Launch selected sets — Annotate" },
       { combo: "Shift+R", desc: "Launch selected sets — Reader" },
       { combo: "Shift+P", desc: "Launch selected sets — Preview" },
+      { combo: "Shift+Q", desc: "Jump to first not-done set (nothing selected)" },
       { combo: "Del / Shift+D", desc: "Delete selected drafts (Drafts tab)" },
       { combo: "Esc", desc: "Clear highlight & deselect" },
     ],
@@ -41,15 +42,20 @@ const COLUMNS: Column[] = [
     rows: [
       { combo: "← / →", desc: "Previous / next image" },
       { combo: "Shift+← / →", desc: "Previous / next set in queue" },
-      { combo: "Shift+1/2/3/4", desc: "Ischemic / Hemorrhagic / Anomaly / Irrelevant" },
+      { combo: "Shift+1/2/3/4", desc: "Ischemic / Hemorrhagic / Anomaly / Irrelevant (re-press to unselect)" },
+      { combo: "Shift+0", desc: "Clear usability selection" },
       { combo: "Shift+Q", desc: "Toggle Low Quality (Ischemic only)" },
-      { combo: "Shift+B / C / N", desc: "Region: Basal / Corona / None" },
-      { combo: "N", desc: "Focus Image Set Notes" },
-      { combo: "J", desc: "Jump to image number input" },
-      { combo: "Shift+J", desc: "Jump to set number input" },
+      { combo: "Shift+B / C", desc: "Region: Basal / Corona" },
+      { combo: "Shift+N", desc: "Region: None — or focus slice notes if already None" },
+      { combo: "N", desc: "Focus set-level notes" },
+      { combo: "I", desc: "Jump to image number input" },
+      { combo: "Shift+I", desc: "Jump to set number input" },
+      { combo: "Shift+A", desc: "AI Assist (In Development)" },
       { combo: "W", desc: "Jump to WL input" },
       { combo: "Shift+W", desc: "Reset windowing" },
       { combo: "Shift+Tab", desc: "Cycle Image Set Evaluation tabs" },
+      { combo: "P", desc: "Toggle Wide Image Panel Mode" },
+      { combo: "Shift+P", desc: "Switch tab in Wide Mode (Annotation / Evaluation)" },
       { combo: "M", desc: "Toggle Management Board" },
       { combo: "Ctrl+S", desc: "Save draft" },
       { combo: "Ctrl+Enter", desc: "Submit (when ready)" },
@@ -64,19 +70,21 @@ const COLUMNS: Column[] = [
     title: "Zone Mode",
     rows: [
       { combo: "Z", desc: "Enter Zone Mode (Basal/Corona image)" },
-      { combo: "V", desc: "Enter Zone Mode directly in Visual" },
+      { combo: "V", desc: "Enter Zone Mode directly in Vis" },
       { combo: "Shift+B / C", desc: "Re-press current zone to enter Zone Mode" },
-      { combo: "1 / 2 / 3", desc: "Damaged / OK / Not Visible → advance" },
-      { combo: "V", desc: "Enter / exit Visual selection" },
+      { combo: "1 / 2 / 3", desc: "Score selection (DMG / OK / NV) → advance" },
+      { combo: "Shift+1 … N", desc: "Select row N — ↑↓ navigates rows" },
+      { combo: "< / >", desc: "Select Left / Right column — ←→ switches" },
       { combo: "Ctrl+A", desc: "Select all cells" },
-      { combo: "Shift+1 … N", desc: "Select entire row N (both sides)" },
-      { combo: "<", desc: "Select all Left column" },
-      { combo: ">", desc: "Select all Right column" },
-      { combo: "↑ / ↓", desc: "Move row" },
-      { combo: "← / →", desc: "Switch column (Left / Right)" },
-      { combo: "Shift+↑ / ↓", desc: "Jump to first / last row in column" },
+      { combo: "V", desc: "Promote selection to Vis range (or toggle Vis)" },
+      { combo: "Esc", desc: "Cancel selection scope → exit Vis → exit Zone Mode" },
+      { combo: "↑ / ↓", desc: "Move cursor row (or navigate selected row)" },
+      { combo: "← / →", desc: "Switch column (or navigate selected column)" },
+      { combo: "Shift+↑ / ↓", desc: "Jump to first / last row (cell scope only)" },
+      { combo: "0", desc: "Clear current cell / row / col / all selection" },
+      { combo: "Del / Backspace", desc: "Clear selection (implicit, same as 0)" },
       { combo: "N", desc: "Focus slice notes (Zone Mode stays on)" },
-      { combo: "Z / Esc", desc: "Exit Zone Mode" },
+      { combo: "Z", desc: "Exit Zone Mode" },
     ],
   },
   {
@@ -85,7 +93,7 @@ const COLUMNS: Column[] = [
     rows: [
       { combo: "← / →", desc: "Previous / next image" },
       { combo: "Shift+← / →", desc: "Previous / next set in queue" },
-      { combo: "J / Shift+J", desc: "Jump to image / set number input" },
+      { combo: "I / Shift+I", desc: "Jump to image / set number input" },
       { combo: "W / Shift+W", desc: "Jump to WL input / Reset windowing" },
       { combo: "Shift+Tab", desc: "Cycle Image Set Evaluation tabs" },
       { combo: "M", desc: "Toggle Management Board" },
@@ -127,10 +135,8 @@ export default function KeyboardShortcutsPanel() {
       <DialogContent
         className="w-[80vw] h-[80vh] max-w-none flex flex-col"
         onKeyDown={(e) => {
-          // Don't intercept if focus is inside an input/textarea
           const tag = (e.target as HTMLElement).tagName;
           if (tag === "INPUT" || tag === "TEXTAREA") return;
-
           if (e.key === "Tab") {
             e.preventDefault();
             setActiveTab((t) => (t === "general" ? "label" : "general"));

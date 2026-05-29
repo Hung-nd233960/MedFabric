@@ -24,6 +24,7 @@ interface AboutInfo {
 interface DevInfo {
   python_version?: string;
   fastapi_version?: string;
+  sqlalchemy_version?: string;
   postgres_version?: string;
   startup_time?: string;
   uptime_seconds?: number;
@@ -174,7 +175,8 @@ export default function AboutDialog({
                       </div>
                       <div className="border-t border-border pt-3 space-y-2">
                         {devInfo?.python_version   && <Row label="Python"     value={devInfo.python_version} mono />}
-                        {devInfo?.fastapi_version  && <Row label="FastAPI"    value={devInfo.fastapi_version} mono />}
+                        {devInfo?.fastapi_version     && <Row label="FastAPI"     value={devInfo.fastapi_version} mono />}
+                        {devInfo?.sqlalchemy_version  && <Row label="SQLAlchemy"  value={devInfo.sqlalchemy_version} mono />}
                         <Row label="React"       value={REACT_VERSION} mono />
                         {devInfo?.postgres_version && <Row label="PostgreSQL" value={devInfo.postgres_version} mono />}
                         {devInfo?.docker_version   && <Row label="Docker"     value={devInfo.docker_version} mono />}

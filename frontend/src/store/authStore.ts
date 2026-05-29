@@ -7,6 +7,7 @@ interface AuthState {
   role: DoctorRole | null;
   doctorUuid: string | null;
   username: string | null;
+  fullName: string | null;
   isTest: boolean;
   mustChangePassword: boolean;
   mustSetName: boolean;
@@ -32,6 +33,7 @@ export const useAuthStore = create<AuthState>()(
       role: null,
       doctorUuid: null,
       username: null,
+      fullName: null,
       isTest: false,
       mustChangePassword: false,
       mustSetName: false,
@@ -43,6 +45,7 @@ export const useAuthStore = create<AuthState>()(
           doctorUuid: payload.sub as string,
           role: (payload.role as DoctorRole) ?? "Doctor",
           username: (payload.username as string) ?? null,
+          fullName: (payload.full_name as string) || null,
           isTest: (payload.is_test as boolean) ?? false,
           mustChangePassword,
           mustSetName,
@@ -56,6 +59,7 @@ export const useAuthStore = create<AuthState>()(
           doctorUuid: payload.sub as string,
           role: (payload.role as DoctorRole) ?? "Doctor",
           username: (payload.username as string) ?? null,
+          fullName: (payload.full_name as string) || null,
           isTest: (payload.is_test as boolean) ?? false,
           mustChangePassword,
           mustSetName,
@@ -84,6 +88,7 @@ export const useAuthStore = create<AuthState>()(
         role: s.role,
         doctorUuid: s.doctorUuid,
         username: s.username,
+        fullName: s.fullName,
         isTest: s.isTest,
         mustChangePassword: s.mustChangePassword,
         mustSetName: s.mustSetName,

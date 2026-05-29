@@ -9,7 +9,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useNavGuardStore } from "@/store/navGuardStore";
 import { useLabelStore } from "@/store/labelStore";
 import { WithTooltip } from "@/components/ui/tooltip";
-import { authApi } from "@/lib/api";
+import { authApi, aboutApi } from "@/lib/api";
 
 export default function Navbar() {
   const { role, username, logout, isTest } = useAuthStore();
@@ -23,7 +23,12 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [appVersion, setAppVersion] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    aboutApi.get().then((res) => { if (res.data.version) setAppVersion(res.data.version); }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -68,7 +73,7 @@ export default function Navbar() {
             className="flex items-center gap-2 font-semibold text-sm hover:opacity-80 transition-opacity"
           >
             <span className="text-primary font-bold text-base">MedFabric</span>
-            <span className="text-muted-foreground text-xs">3.0</span>
+            {appVersion && <span className="text-muted-foreground text-xs">{appVersion}</span>}
           </button>
 
           <Separator orientation="vertical" className="h-5" />

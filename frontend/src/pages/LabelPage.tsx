@@ -11,12 +11,12 @@ import { useEffect, useRef, useState } from "react";
 import type { RegionScore } from "@/lib/types";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, RotateCcw, Send, ArrowLeft, Trash2, Save, X, ClipboardList, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCcw, Send, ArrowLeft, Trash2, Save, X, ClipboardList, Loader2, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { WithTooltip } from "@/components/ui/tooltip";
+import { WithTooltip, TooltipKbd } from "@/components/ui/tooltip";
 import SetLevelEvaluation from "@/components/label/SetLevelEvaluation";
 import SliceEvaluation from "@/components/label/SliceEvaluation";
 import ValidationStatus from "@/components/label/ValidationStatus";
@@ -25,6 +25,7 @@ import { useLabelStore, buildSnapshotFromPayload } from "@/store/labelStore";
 import { useLabelQueueStore } from "@/store/labelQueueStore";
 import { useAuthStore } from "@/store/authStore";
 import { useNavGuardStore } from "@/store/navGuardStore";
+import { useUiStore } from "@/store/uiStore";
 import type { ImageRecord, ImageSet, SliceEvalState, ImageSetUsability } from "@/lib/types";
 import { USABILITY_LABELS, BASAL_ZONES, CORONA_ZONES } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -134,12 +135,21 @@ export default function LabelPage() {
   const [zoneModeCursor, setZoneModeCursor] = useState<ZoneCell | null>(null);
   const [zoneModeVisual, setZoneModeVisual] = useState(false);
   const [zoneModeAnchor, setZoneModeAnchor] = useState<ZoneCell | null>(null);
+  const [zoneModeScope, setZoneModeScope] = useState<"cell" | "row" | "col" | "all">("cell");
+  const [wideMode, setWideMode] = useState(false);
+  const [wideModeTab, setWideModeTab] = useState<"annotation" | "evaluation">("annotation");
   const sliceNotesRef = useRef<HTMLTextAreaElement>(null);
   const setLevelNotesRef = useRef<HTMLTextAreaElement>(null);
 
   const exitZoneMode = () => {
     setZoneModeActive(false); setZoneModeCursor(null);
     setZoneModeVisual(false); setZoneModeAnchor(null);
+    setZoneModeScope("cell");
+  };
+
+  const handleWideModeTabClick = (tab: "annotation" | "evaluation") => {
+    if (zoneModeActive) exitZoneMode();
+    setWideModeTab(tab);
   };
 
   const currentImg = currentImage();
@@ -278,6 +288,7 @@ export default function LabelPage() {
     const start = findSmartStart(zones, scores as Record<string, RegionScore | null>);
     setZoneModeCursor(start);
     setZoneModeActive(true);
+    setZoneModeScope("cell");
     if (visual) { setZoneModeAnchor(start); setZoneModeVisual(true); }
   };
 
@@ -540,6 +551,7 @@ export default function LabelPage() {
   // Comprehensive keyboard shortcuts (placed after all handlers are defined)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (useUiStore.getState().shortcutsOpen) return;
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
 
@@ -596,8 +608,8 @@ export default function LabelPage() {
         return;
       }
 
-      // J — focus Jump to Image input | Shift+J — focus Jump to Set input (all modes)
-      if (!ctrl && UP === "J") {
+      // I — focus Jump to Image input | Shift+I — focus Jump to Set input (all modes)
+      if (!ctrl && UP === "I") {
         e.preventDefault();
         if (shift) {
           jumpSetInputRef.current?.focus();
@@ -619,6 +631,29 @@ export default function LabelPage() {
 
       // Management Board keyboard navigation (when open, no modifier)
       if (showManagementBoard && !ctrl && !shift) {
+        if (key === "Enter" && selectedBoardSetUuid) {
+          e.preventDefault();
+          if (mbActiveCol === "left") {
+            const sameSet = selectedBoardSetUuid === imageSetUuid;
+            if (sameSet) { setShowManagementBoard(false); }
+            else { goToSet(selectedBoardSetUuid).then(() => setShowManagementBoard(false)); }
+          } else if (mbActiveCol === "right" && selectedMBImageIndex >= 0) {
+            const imgList = getMBImagesForUuid(selectedBoardSetUuid);
+            const mbSlicesNow = getMBSlicesForUuid(selectedBoardSetUuid);
+            const annotated = imgList.filter(({ uuid }) => {
+              const s = mbSlicesNow[uuid];
+              return s && s.region !== "None";
+            });
+            const target = annotated[selectedMBImageIndex];
+            if (target) {
+              const sameSet = selectedBoardSetUuid === imageSetUuid;
+              const jump = () => { setCurrentIndex(target.index); setShowManagementBoard(false); };
+              if (sameSet) jump();
+              else goToSet(selectedBoardSetUuid).then(jump);
+            }
+          }
+          return;
+        }
         if (key === "ArrowLeft" || key === "ArrowRight") {
           if (!isPreviewMode) {
             e.preventDefault();
@@ -667,6 +702,7 @@ export default function LabelPage() {
       // Esc — close Management Board or Zone Mode (dialogs handle their own Esc via ConfirmDialog capture listener)
       if (key === "Escape") {
         if (showManagementBoard) { setShowManagementBoard(false); return; }
+        if (zoneModeScope !== "cell") { setZoneModeScope("cell"); return; }
         if (zoneModeVisual) { setZoneModeVisual(false); setZoneModeAnchor(null); return; }
         if (zoneModeActive) { exitZoneMode(); return; }
         return;
@@ -693,20 +729,32 @@ export default function LabelPage() {
         return;
       }
 
-      // Shift+1–4: usability (annotate mode only, not while Zone Mode is active)
+      // Shift+1–4/0: usability (annotate mode only, not while Zone Mode is active)
       if (shift && !ctrl && !isReadMode && !isPreviewMode && !zoneModeActive) {
+        const revealEval = () => { if (wideMode && wideModeTab === "annotation") setWideModeTab("evaluation"); };
         switch (e.code) {
-          case "Digit1": e.preventDefault(); setUsability("IschemicAssessable"); return;
-          case "Digit2": e.preventDefault(); setUsability("HemorrhagicPresent"); return;
-          case "Digit3": e.preventDefault(); setUsability("Anomaly"); return;
-          case "Digit4": e.preventDefault(); setUsability("Irrelevant"); return;
+          case "Digit1": e.preventDefault(); setUsability("IschemicAssessable"); revealEval(); return;
+          case "Digit2": e.preventDefault(); setUsability("HemorrhagicPresent"); revealEval(); return;
+          case "Digit3": e.preventDefault(); setUsability("Anomaly"); revealEval(); return;
+          case "Digit4": e.preventDefault(); setUsability("Irrelevant"); revealEval(); return;
+          case "Digit0": e.preventDefault(); setUsability(null); revealEval(); return;
         }
       }
 
+      // Shift+P: switch wide mode tab (wide mode only, not in Zone Mode)
+      if (shift && !ctrl && UP === "P" && !isReadMode && !isPreviewMode && wideMode) {
+        e.preventDefault();
+        setWideModeTab(t => t === "annotation" ? "evaluation" : "annotation");
+        return;
+      }
+
       // Shift+Q: toggle low quality (annotate mode, Ischemic only)
-      if (shift && !ctrl && UP === "Q" && !isReadMode && !isPreviewMode) {
+      if (shift && !ctrl && UP === "Q" && !isReadMode && !isPreviewMode && !zoneModeActive) {
         const { usability: u, lowQuality: lq } = useLabelStore.getState();
-        if (u === "IschemicAssessable") setLowQuality(!lq);
+        if (u === "IschemicAssessable") {
+          setLowQuality(!lq);
+          if (wideMode && wideModeTab === "annotation") setWideModeTab("evaluation");
+        }
         return;
       }
 
@@ -721,6 +769,9 @@ export default function LabelPage() {
             if (targetRegion !== "None" && curRegion === targetRegion) {
               // Re-press same zone — activate Zone Mode instead of resetting
               activateZoneMode(zmImg2.uuid, targetRegion as "BasalGanglia" | "CoronaRadiata");
+            } else if (targetRegion === "None" && curRegion === "None") {
+              // Already None — jump to slice notes
+              sliceNotesRef.current?.focus();
             } else {
               setRegion(zmImg2.uuid, targetRegion as "None" | "BasalGanglia" | "CoronaRadiata");
               if (zoneModeActive) exitZoneMode();
@@ -739,102 +790,179 @@ export default function LabelPage() {
                         zmRegion === "CoronaRadiata" ? CORONA_ZONES : null;
 
         if (zmImg && zmZones && zoneModeCursor) {
-          // 1 / 2 / 3 — score and advance (visual: score entire selection)
+          const totalCells = zmZones.length * 2;
+
+          // 1 / 2 / 3 — score based on scope or Vis selection, then advance
           if (!shift && !ctrl && (key === "1" || key === "2" || key === "3")) {
             e.preventDefault();
             const SCORE_MAP: Record<string, RegionScore> = {
               "1": "Affected", "2": "Not_Affected", "3": "Not_In_This_Slice",
             };
             const score = SCORE_MAP[key];
-            const totalCells = zmZones.length * 2;
 
             if (zoneModeVisual && zoneModeAnchor) {
-              // Score entire visual selection rectangle
+              // Vis Mode: score the visual rectangle
               const rMin = Math.min(zoneModeAnchor.row, zoneModeCursor.row);
               const rMax = Math.max(zoneModeAnchor.row, zoneModeCursor.row);
               const selCols = new Set([zoneModeAnchor.col, zoneModeCursor.col]);
               const cols = (["left", "right"] as const).filter((c) => selCols.has(c));
-              for (let r = rMin; r <= rMax; r++) {
-                for (const col of cols) {
+              for (let r = rMin; r <= rMax; r++)
+                for (const col of cols)
                   setScore(zmImg.uuid, `${zmZones[r]}_${col}_score`, score);
-                }
-              }
               setZoneModeVisual(false); setZoneModeAnchor(null);
-              // Advance past last cell of selection
               const lastIdx = rMax * 2 + (selCols.has("right") ? 1 : 0);
               if (lastIdx < totalCells - 1) {
                 const ni = lastIdx + 1;
                 setZoneModeCursor({ row: Math.floor(ni / 2), col: ni % 2 === 0 ? "left" : "right" });
-              } else {
-                exitZoneMode(); toast.success("Zone scoring complete.");
+              } else { exitZoneMode(); toast.success("Zone scoring complete."); }
+            } else if (zoneModeScope === "row") {
+              setScore(zmImg.uuid, `${zmZones[zoneModeCursor.row]}_left_score`, score);
+              setScore(zmImg.uuid, `${zmZones[zoneModeCursor.row]}_right_score`, score);
+              if (zoneModeCursor.row < zmZones.length - 1)
+                setZoneModeCursor({ row: zoneModeCursor.row + 1, col: "left" });
+              else { exitZoneMode(); toast.success("Zone scoring complete."); }
+            } else if (zoneModeScope === "col") {
+              const currentCol = zoneModeCursor.col;
+              const otherCol: "left" | "right" = currentCol === "left" ? "right" : "left";
+              for (let r = 0; r < zmZones.length; r++)
+                setScore(zmImg.uuid, `${zmZones[r]}_${currentCol}_score`, score);
+              const storeSlice = useLabelStore.getState().slices[zmImg.uuid];
+              const otherDone = zmZones.every(z => (storeSlice?.scores[`${z}_${otherCol}_score`] ?? null) !== null);
+              if (otherDone) { exitZoneMode(); toast.success("Zone scoring complete."); }
+              else setZoneModeCursor(c => c ? { ...c, col: otherCol } : c);
+            } else if (zoneModeScope === "all") {
+              for (let r = 0; r < zmZones.length; r++) {
+                setScore(zmImg.uuid, `${zmZones[r]}_left_score`, score);
+                setScore(zmImg.uuid, `${zmZones[r]}_right_score`, score);
               }
+              exitZoneMode(); toast.success("Zone scoring complete.");
             } else {
               // Single cell
-              const sk = `${zmZones[zoneModeCursor.row]}_${zoneModeCursor.col}_score`;
-              setScore(zmImg.uuid, sk, score);
+              setScore(zmImg.uuid, `${zmZones[zoneModeCursor.row]}_${zoneModeCursor.col}_score`, score);
               const ci = zoneModeCursor.row * 2 + (zoneModeCursor.col === "left" ? 0 : 1);
               if (ci < totalCells - 1) {
                 const ni = ci + 1;
                 setZoneModeCursor({ row: Math.floor(ni / 2), col: ni % 2 === 0 ? "left" : "right" });
-              } else {
-                exitZoneMode(); toast.success("Zone scoring complete.");
-              }
+              } else { exitZoneMode(); toast.success("Zone scoring complete."); }
             }
             return;
           }
 
-          // V — toggle visual selection (anchor = current cursor)
+          // V — promote scope to Vis, or toggle Vis (when scope is "cell")
           if (!shift && !ctrl && UP === "V") {
             e.preventDefault();
-            if (zoneModeVisual) { setZoneModeVisual(false); setZoneModeAnchor(null); }
-            else { setZoneModeAnchor(zoneModeCursor); setZoneModeVisual(true); }
+            if (zoneModeScope !== "cell") {
+              const anchor: ZoneCell =
+                zoneModeScope === "row" ? { row: zoneModeCursor.row, col: "left" } :
+                zoneModeScope === "col" ? { row: 0, col: zoneModeCursor.col } :
+                { row: 0, col: "left" };
+              const newCursor: ZoneCell =
+                zoneModeScope === "row" ? { row: zoneModeCursor.row, col: "right" } :
+                zoneModeScope === "col" ? { row: zmZones.length - 1, col: zoneModeCursor.col } :
+                { row: zmZones.length - 1, col: "right" };
+              setZoneModeAnchor(anchor); setZoneModeCursor(newCursor);
+              setZoneModeVisual(true); setZoneModeScope("cell");
+            } else {
+              if (zoneModeVisual) { setZoneModeVisual(false); setZoneModeAnchor(null); }
+              else { setZoneModeAnchor(zoneModeCursor); setZoneModeVisual(true); }
+            }
             return;
           }
 
-          // Ctrl+A — select all cells
+          // Ctrl+A — toggle: full range ↔ Cell (both in scope and Vis modes)
           if (ctrl && !shift && UP === "A") {
             e.preventDefault();
-            setZoneModeAnchor({ row: 0, col: "left" });
-            setZoneModeCursor({ row: zmZones.length - 1, col: "right" });
-            setZoneModeVisual(true);
+            if (zoneModeVisual) {
+              const isAllSel =
+                zoneModeAnchor?.row === 0 && zoneModeAnchor?.col === "left" &&
+                zoneModeCursor?.row === zmZones.length - 1 && zoneModeCursor?.col === "right";
+              if (isAllSel) { setZoneModeAnchor(zoneModeCursor); }
+              else { setZoneModeAnchor({ row: 0, col: "left" }); setZoneModeCursor({ row: zmZones.length - 1, col: "right" }); }
+            } else if (zoneModeScope === "all") {
+              setZoneModeScope("cell");
+            } else {
+              setZoneModeScope("all");
+            }
             return;
           }
 
-          // Shift+1…N — select entire row N (both columns)
+          // Shift+digit — scope "row" N (not Vis) or visual row N (Vis)
           if (shift && !ctrl && e.code.startsWith("Digit")) {
             const row = parseInt(e.code.slice(5)) - 1;
             if (row >= 0 && row < zmZones.length) {
               e.preventDefault();
-              setZoneModeAnchor({ row, col: "left" });
-              setZoneModeCursor({ row, col: "right" });
-              setZoneModeVisual(true);
+              if (zoneModeVisual) {
+                setZoneModeAnchor({ row, col: "left" }); setZoneModeCursor({ row, col: "right" });
+              } else {
+                setZoneModeScope("row"); setZoneModeCursor({ row, col: "left" });
+              }
               return;
             }
           }
 
-          // < — select all Left column, > — select all Right column
-          if (!ctrl && key === "<") {
+          // < / > — scope "col" (not Vis) or visual col (Vis)
+          if (!ctrl && (key === "<" || key === ">")) {
             e.preventDefault();
-            setZoneModeAnchor({ row: 0, col: "left" });
-            setZoneModeCursor({ row: zmZones.length - 1, col: "left" });
-            setZoneModeVisual(true);
-            return;
-          }
-          if (!ctrl && key === ">") {
-            e.preventDefault();
-            setZoneModeAnchor({ row: 0, col: "right" });
-            setZoneModeCursor({ row: zmZones.length - 1, col: "right" });
-            setZoneModeVisual(true);
+            const col: "left" | "right" = key === "<" ? "left" : "right";
+            if (zoneModeVisual) {
+              setZoneModeAnchor({ row: 0, col }); setZoneModeCursor({ row: zmZones.length - 1, col });
+            } else {
+              setZoneModeScope("col"); setZoneModeCursor(c => c ? { ...c, col } : c);
+            }
             return;
           }
 
-          // Arrow navigation (moves cursor; in visual mode extends selection from anchor)
-          if (!ctrl && !shift && key === "ArrowUp")    { e.preventDefault(); setZoneModeCursor(c => c && c.row > 0 ? { ...c, row: c.row - 1 } : c); return; }
-          if (!ctrl && !shift && key === "ArrowDown")  { e.preventDefault(); setZoneModeCursor(c => c && c.row < zmZones.length - 1 ? { ...c, row: c.row + 1 } : c); return; }
-          if (!ctrl && !shift && key === "ArrowLeft")  { e.preventDefault(); setZoneModeCursor(c => c ? { ...c, col: "left" } : c); return; }
-          if (!ctrl && !shift && key === "ArrowRight") { e.preventDefault(); setZoneModeCursor(c => c ? { ...c, col: "right" } : c); return; }
-          if (!ctrl && shift && key === "ArrowUp")     { e.preventDefault(); setZoneModeCursor(c => c ? { ...c, row: 0 } : c); return; }
-          if (!ctrl && shift && key === "ArrowDown")   { e.preventDefault(); setZoneModeCursor(c => c ? { ...c, row: zmZones.length - 1 } : c); return; }
+          // Arrow navigation — behaviour depends on scope
+          if (!ctrl) {
+            if (key === "ArrowUp") {
+              e.preventDefault();
+              if (zoneModeScope === "cell" || zoneModeScope === "row") {
+                if (!shift) setZoneModeCursor(c => c && c.row > 0 ? { ...c, row: c.row - 1 } : c);
+                else setZoneModeCursor(c => c ? { ...c, row: 0 } : c);
+              }
+              return;
+            }
+            if (key === "ArrowDown") {
+              e.preventDefault();
+              if (zoneModeScope === "cell" || zoneModeScope === "row") {
+                if (!shift) setZoneModeCursor(c => c && c.row < zmZones.length - 1 ? { ...c, row: c.row + 1 } : c);
+                else setZoneModeCursor(c => c ? { ...c, row: zmZones.length - 1 } : c);
+              }
+              return;
+            }
+            if (key === "ArrowLeft") {
+              e.preventDefault();
+              if (zoneModeScope === "cell" || zoneModeScope === "col")
+                setZoneModeCursor(c => c ? { ...c, col: "left" } : c);
+              return;
+            }
+            if (key === "ArrowRight") {
+              e.preventDefault();
+              if (zoneModeScope === "cell" || zoneModeScope === "col")
+                setZoneModeCursor(c => c ? { ...c, col: "right" } : c);
+              return;
+            }
+          }
+
+          // 0 / Del / Backspace — clear current scope selection back to null
+          if (!shift && !ctrl && (key === "0" || key === "Delete" || key === "Backspace")) {
+            e.preventDefault();
+            if (zoneModeScope === "row") {
+              setScore(zmImg.uuid, `${zmZones[zoneModeCursor.row]}_left_score`, null);
+              setScore(zmImg.uuid, `${zmZones[zoneModeCursor.row]}_right_score`, null);
+            } else if (zoneModeScope === "col") {
+              for (let r = 0; r < zmZones.length; r++)
+                setScore(zmImg.uuid, `${zmZones[r]}_${zoneModeCursor.col}_score`, null);
+            } else if (zoneModeScope === "all") {
+              for (let r = 0; r < zmZones.length; r++) {
+                setScore(zmImg.uuid, `${zmZones[r]}_left_score`, null);
+                setScore(zmImg.uuid, `${zmZones[r]}_right_score`, null);
+              }
+            } else {
+              setScore(zmImg.uuid, `${zmZones[zoneModeCursor.row]}_${zoneModeCursor.col}_score`, null);
+            }
+            return;
+          }
 
           // N — focus slice notes (Zone Mode stays active)
           if (!shift && !ctrl && UP === "N") { e.preventDefault(); sliceNotesRef.current?.focus(); return; }
@@ -850,7 +978,19 @@ export default function LabelPage() {
       const currentImg = useLabelStore.getState().currentImage();
 
       // N — focus Image Set Notes
-      if (UP === "N") { e.preventDefault(); setLevelNotesRef.current?.focus(); return; }
+      if (UP === "N") {
+        e.preventDefault();
+        if (wideMode && wideModeTab === "annotation") {
+          setWideModeTab("evaluation");
+          setTimeout(() => setLevelNotesRef.current?.focus(), 0);
+        } else {
+          setLevelNotesRef.current?.focus();
+        }
+        return;
+      }
+
+      // P — toggle Wide Image Panel Mode
+      if (UP === "P") { e.preventDefault(); setWideMode(v => !v); return; }
 
       // Z — activate Zone Mode | V — activate Zone Mode directly in Visual
       if ((UP === "Z" || UP === "V") && currentImg && useLabelStore.getState().aspectsEnabled()) {
@@ -932,8 +1072,8 @@ export default function LabelPage() {
         <Loader2 className="w-8 h-8 animate-spin text-primary/70" />
       </div>
 
-      {/* ── Image viewer — 40% normal, 70% preview ── */}
-      <div className={`${isPreviewMode ? "w-[70%]" : "w-[40%]"} bg-black relative flex items-center justify-center overflow-hidden shrink-0`}>
+      {/* ── Image viewer — 40% normal, 70% preview/wide ── */}
+      <div className={`${isPreviewMode ? "w-[70%]" : wideMode ? "w-[70%]" : "w-[40%]"} bg-black relative flex items-center justify-center overflow-hidden shrink-0`}>
         {blobUrl ? (
           <img
             key={blobUrl}
@@ -959,413 +1099,938 @@ export default function LabelPage() {
             {currentImg.image_name}
           </div>
         )}
+        {!isPreviewMode && (
+          <button
+            type="button"
+            className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5 rounded-lg bg-black/60 hover:bg-black/80 text-white px-2.5 py-1.5 transition-colors"
+            onClick={() => setWideMode(v => !v)}
+          >
+            {wideMode ? <ChevronLeft className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+            <span className="text-xs font-medium">{wideMode ? "Collapse" : "Wide Mode"}</span>
+            <kbd className="font-mono border border-white/30 bg-white/10 px-1 py-0.5 rounded text-[10px] leading-none">P</kbd>
+          </button>
+        )}
       </div>
 
-      {/* ── Middle (30%): image annotation — hidden in preview ── */}
-      {!isPreviewMode && <div className="w-[30%] flex flex-col border-l border-border bg-background shrink-0 overflow-hidden">
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-4 space-y-4">
-            <h3 className="text-base font-semibold uppercase tracking-widest text-muted-foreground">
-              Image Annotation
-            </h3>
-
-            {/* Navigation & windowing */}
-            <div className="space-y-3">
-              {images.length === 1 ? (
-                <p className="text-base text-muted-foreground">Image 1 of 1</p>
-              ) : (
-                <div className="flex items-end gap-2">
-                  <WithTooltip content="Previous image (← key)" side="top">
-                    <Button
-                      variant="outline" size="icon" className="h-8 w-8 shrink-0"
-                      onClick={() => {
-                        const n = (currentIndex - 1 + images.length) % images.length;
-                        setCurrentIndex(n);
-                        setJumpImgInput(String(n + 1));
-                      }}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                  </WithTooltip>
-                  <Input
-                    ref={jumpImgInputRef}
-                    type="number"
-                    className={`h-8 w-16 text-center text-base ${NO_SPINNER}`}
-                    value={jumpImgInput}
-                    onChange={(e) => setJumpImgInput(e.target.value)}
-                    onBlur={(e) => { if (!skipJumpImgApplyRef.current) applyJumpImage(e.target.value); skipJumpImgApplyRef.current = false; }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") { applyJumpImage(jumpImgInput); e.currentTarget.blur(); }
-                      else if (e.key === "Escape") { skipJumpImgApplyRef.current = true; setJumpImgInput(String(currentIndex + 1)); e.currentTarget.blur(); }
-                    }}
-                    min={1} max={images.length}
-                  />
-                  <span className="text-base text-muted-foreground shrink-0">of {images.length}</span>
-                  <WithTooltip content="Next image (→ key)" side="top">
-                    <Button
-                      variant="outline" size="icon" className="h-8 w-8 shrink-0"
-                      onClick={() => {
-                        const n = (currentIndex + 1) % images.length;
-                        setCurrentIndex(n);
-                        setJumpImgInput(String(n + 1));
-                      }}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </WithTooltip>
-                  <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                    <span className="text-[10px] text-muted-foreground leading-none">Jump to Image</span>
-                    <input
-                      type="range"
-                      min={1}
-                      max={images.length}
-                      value={currentIndex + 1}
-                      onChange={(e) => {
-                        const n = parseInt(e.target.value);
-                        setCurrentIndex(n - 1);
-                        setJumpImgInput(String(n));
-                      }}
-                      className="w-full cursor-pointer accent-primary"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2">
-                <Label className="text-base text-muted-foreground shrink-0">WL</Label>
-                <Input
-                  ref={wlInputRef}
-                  type="number"
-                  className={`h-7 w-16 text-base ${NO_SPINNER}`}
-                  value={wlInput}
-                  onChange={(e) => setWlInput(e.target.value)}
-                  onBlur={() => { if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
-                    else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWlInput(String(windowLevel)); e.currentTarget.blur(); }
-                    else if (e.key === "Tab") { e.preventDefault(); wwInputRef.current?.focus(); wwInputRef.current?.select(); }
-                  }}
-                />
-                <Label className="text-base text-muted-foreground shrink-0">WW</Label>
-                <Input
-                  ref={wwInputRef}
-                  type="number"
-                  className={`h-7 w-16 text-base ${NO_SPINNER}`}
-                  value={wwInput}
-                  onChange={(e) => setWwInput(e.target.value)}
-                  onBlur={() => { if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
-                    else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWwInput(String(windowWidth)); e.currentTarget.blur(); }
-                    else if (e.key === "Tab") { e.preventDefault(); wlInputRef.current?.focus(); wlInputRef.current?.select(); }
-                  }}
-                />
-                <WithTooltip content={`Reset to WL ${defaultWindowLevel} / WW ${defaultWindowWidth}`} side="top">
-                  <Button
-                    variant="outline" size="icon" className="h-7 w-7 shrink-0"
-                    onClick={handleResetWindow}
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                  </Button>
-                </WithTooltip>
-              </div>
+      {/* ── Side panels — collapse into tabs in Wide Mode ── */}
+      {!isPreviewMode && (
+        wideMode ? (
+          <div className="w-[30%] flex flex-col border-l border-border bg-background shrink-0 overflow-hidden">
+            {/* Wide Mode tab bar */}
+            <div className="flex items-center border-b border-border shrink-0">
+              {(["annotation", "evaluation"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => handleWideModeTabClick(tab)}
+                  className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    wideModeTab === tab
+                      ? "border-primary text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tab === "annotation" ? "Image Annotation" : "Image Set Evaluation"}
+                </button>
+              ))}
+              <kbd className="ml-auto font-mono border border-border bg-muted px-1.5 py-0.5 rounded text-[10px] leading-none text-muted-foreground shrink-0 mr-2">Shift+P</kbd>
             </div>
+            {/* Active tab content */}
+            {wideModeTab === "annotation" ? (
+              <div className="flex-1 overflow-y-auto">
+                <div className="p-4 space-y-4">
+                  <h3 className="text-base font-semibold uppercase tracking-widest text-muted-foreground">
+                    Image Annotation
+                  </h3>
 
-            <Separator />
-
-            {/* ASPECTS scoring */}
-            <div className="space-y-3">
-              <p className="text-base font-medium text-muted-foreground">Image Annotation</p>
-              {!aspectsEnabled() ? (
-                <div className="rounded border border-dashed border-muted-foreground/30 px-4 py-6 text-center">
-                  <p className="text-base font-medium text-muted-foreground">
-                    {aspectsDisabledMessage}
-                  </p>
-                </div>
-              ) : currentImg ? (
-                <SliceEvaluation
-                  imageUuid={currentImg.uuid}
-                  readOnly={isReadMode}
-                  zoneModeCell={zoneModeActive ? zoneModeCursor : null}
-                  zoneModeAnchor={zoneModeActive && zoneModeVisual ? zoneModeAnchor : null}
-                  onExitZoneMode={zoneModeActive ? exitZoneMode : undefined}
-                  sliceNotesRef={sliceNotesRef}
-                />
-              ) : (
-                <p className="text-base text-muted-foreground">No image loaded</p>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>}
-
-      {/* ── Right (30%): image set evaluation — hidden in preview ── */}
-      {!isPreviewMode && <div className="w-[30%] flex flex-col border-l border-border bg-background shrink-0 overflow-hidden">
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-4 space-y-4">
-            <h3 className="text-base font-semibold uppercase tracking-widest text-muted-foreground">
-              Image Set Evaluation
-            </h3>
-
-            {/* Set position indicator + navigation (always visible) */}
-            <div className="space-y-2">
-              <p className="text-lg font-semibold text-foreground">
-                Set {queuePos + 1} of {queue.length}
-              </p>
-              {queue.length > 1 && (
-                <div className="flex items-center gap-2">
-                  <WithTooltip content="Previous image set" side="top">
-                    <Button
-                      variant="outline" size="icon" className="h-8 w-8 shrink-0"
-                      disabled={navigating}
-                      onClick={() => goToSet(queue[(queuePos - 1 + queue.length) % queue.length])}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                  </WithTooltip>
-                  <Input
-                    ref={jumpSetInputRef}
-                    type="number"
-                    className={`h-8 w-14 text-center text-base ${NO_SPINNER}`}
-                    value={jumpSetInput}
-                    onChange={(e) => setJumpSetInput(e.target.value)}
-                    onBlur={(e) => { if (!skipJumpSetApplyRef.current) applyJumpSet(e.target.value); skipJumpSetApplyRef.current = false; }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") { applyJumpSet(jumpSetInput); e.currentTarget.blur(); }
-                      else if (e.key === "Escape") { skipJumpSetApplyRef.current = true; setJumpSetInput(String(queuePos + 1)); e.currentTarget.blur(); }
-                    }}
-                    min={1} max={queue.length}
-                  />
-                  <span className="text-sm text-muted-foreground shrink-0">of {queue.length}</span>
-                  <WithTooltip content="Next image set" side="top">
-                    <Button
-                      variant="outline" size="icon" className="h-8 w-8 shrink-0"
-                      disabled={navigating}
-                      onClick={() => goToSet(queue[(queuePos + 1) % queue.length])}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </WithTooltip>
-                  {queue.length >= 4 && (
-                    <input
-                      type="range"
-                      min={1}
-                      max={queue.length}
-                      value={parseInt(jumpSetInput) || queuePos + 1}
-                      onChange={(e) => setJumpSetInput(e.target.value)}
-                      onPointerUp={(e) => applyJumpSet((e.target as HTMLInputElement).value)}
-                      className="flex-1 min-w-0 cursor-pointer accent-primary"
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Tabs — Set Information / Patient Information / (Reader) Annotation Info */}
-            <div className="space-y-3">
-              <div className="flex border-b border-border">
-                {(["set-info", "patient-info"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setRightTab(tab)}
-                    className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
-                      rightTab === tab
-                        ? "border-primary text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {tab === "set-info" ? "Set Information" : "Patient Information"}
-                  </button>
-                ))}
-                {isReadMode && (
-                  <button
-                    type="button"
-                    onClick={() => setRightTab("annotation-info")}
-                    className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
-                      rightTab === "annotation-info"
-                        ? "border-primary text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Annotation Info
-                  </button>
-                )}
-              </div>
-
-              {/* ── Set Information ── */}
-              {rightTab === "set-info" && (
-                <div className="space-y-1 text-base">
-                  {datasetIndex !== null && (
-                    <div className="flex gap-2">
-                      <span className="text-muted-foreground w-24 shrink-0">Set Index</span>
-                      <span className="font-mono">{datasetIndex}</span>
-                    </div>
-                  )}
-                  {imageSet?.image_set_name && (
-                    <div className="flex gap-2">
-                      <span className="text-muted-foreground w-24 shrink-0">Set ID</span>
-                      <span className="font-mono truncate">{imageSet.image_set_name}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ── Patient Information ── */}
-              {rightTab === "patient-info" && (
-                <div className="space-y-1 text-base">
-                  <div className="flex gap-2">
-                    <span className="text-muted-foreground w-24 shrink-0">Patient ID</span>
-                    <span
-                      className="font-mono truncate max-w-[140px]"
-                      title={imageSet?.patient_id ?? undefined}
-                    >
-                      {imageSet?.patient_id ?? "—"}
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-muted-foreground w-24 shrink-0">Age</span>
-                    <span>{imageSet?.patient_age != null ? imageSet.patient_age : "—"}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-muted-foreground w-24 shrink-0">Gender</span>
-                    <span>{imageSet?.patient_gender ?? "—"}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-muted-foreground w-24 shrink-0">ICD</span>
-                    <span className="font-mono">{imageSet?.icd_code ?? "—"}</span>
-                  </div>
-                  {imageSet?.description && (
-                    <div className="flex gap-2">
-                      <span className="text-muted-foreground w-24 shrink-0">Description</span>
-                      <span className="leading-relaxed text-sm">{imageSet.description}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ── Annotation Info (reader mode only) ── */}
-              {rightTab === "annotation-info" && isReadMode && (
-                <div className="space-y-3 text-base">
-                  <div className="flex gap-2 items-start">
-                    <span className="text-muted-foreground w-20 shrink-0">Type</span>
-                    {annotationMeta ? (
-                      annotationMeta.type === "submission" ? (
-                        <span className="inline-flex items-center rounded-full border border-blue-500/40 bg-blue-500/10 px-2.5 py-0.5 text-sm font-medium text-blue-400">
-                          Full Annotation
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2.5 py-0.5 text-sm font-medium text-yellow-400">
-                          Draft
-                        </span>
-                      )
+                  {/* Navigation & windowing */}
+                  <div className="space-y-3">
+                    {images.length === 1 ? (
+                      <p className="text-base text-muted-foreground">Image 1 of 1</p>
                     ) : (
-                      <span className="text-muted-foreground">—</span>
+                      <div className="flex items-end gap-2">
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Previous image</span><TooltipKbd>←</TooltipKbd></span>} side="top">
+                          <Button
+                            variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                            onClick={() => {
+                              const n = (currentIndex - 1 + images.length) % images.length;
+                              setCurrentIndex(n);
+                              setJumpImgInput(String(n + 1));
+                            }}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                        </WithTooltip>
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Jump to image</span><TooltipKbd>I</TooltipKbd></span>} side="top">
+                          <Input
+                            ref={jumpImgInputRef}
+                            type="number"
+                            className={`h-8 w-16 text-center text-base ${NO_SPINNER}`}
+                            value={jumpImgInput}
+                            onChange={(e) => setJumpImgInput(e.target.value)}
+                            onBlur={(e) => { if (!skipJumpImgApplyRef.current) applyJumpImage(e.target.value); skipJumpImgApplyRef.current = false; }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") { applyJumpImage(jumpImgInput); e.currentTarget.blur(); }
+                              else if (e.key === "Escape") { skipJumpImgApplyRef.current = true; setJumpImgInput(String(currentIndex + 1)); e.currentTarget.blur(); }
+                            }}
+                            min={1} max={images.length}
+                          />
+                        </WithTooltip>
+                        <span className="text-base text-muted-foreground shrink-0">of {images.length}</span>
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Next image</span><TooltipKbd>→</TooltipKbd></span>} side="top">
+                          <Button
+                            variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                            onClick={() => {
+                              const n = (currentIndex + 1) % images.length;
+                              setCurrentIndex(n);
+                              setJumpImgInput(String(n + 1));
+                            }}
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </WithTooltip>
+                        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                          <span className="text-[10px] text-muted-foreground leading-none">Jump to Image</span>
+                          <input
+                            type="range"
+                            min={1}
+                            max={images.length}
+                            value={currentIndex + 1}
+                            onChange={(e) => {
+                              const n = parseInt(e.target.value);
+                              setCurrentIndex(n - 1);
+                              setJumpImgInput(String(n));
+                            }}
+                            className="w-full cursor-pointer accent-primary"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <WithTooltip content={<span className="flex items-center gap-2"><span>Focus Window Level</span><TooltipKbd>W</TooltipKbd></span>} side="top">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-base text-muted-foreground shrink-0 cursor-default">WL</Label>
+                          <Input
+                            ref={wlInputRef}
+                            type="number"
+                            className={`h-7 w-16 text-base ${NO_SPINNER}`}
+                            value={wlInput}
+                            onChange={(e) => setWlInput(e.target.value)}
+                            onBlur={() => { if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
+                              else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWlInput(String(windowLevel)); e.currentTarget.blur(); }
+                              else if (e.key === "Tab") { e.preventDefault(); wwInputRef.current?.focus(); wwInputRef.current?.select(); }
+                            }}
+                          />
+                        </div>
+                      </WithTooltip>
+                      <WithTooltip content={<span className="flex items-center gap-2"><span>Focus Window Width</span><span className="flex items-center gap-1"><TooltipKbd>W</TooltipKbd><TooltipKbd>Tab</TooltipKbd></span></span>} side="top">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-base text-muted-foreground shrink-0 cursor-default">WW</Label>
+                          <Input
+                            ref={wwInputRef}
+                            type="number"
+                            className={`h-7 w-16 text-base ${NO_SPINNER}`}
+                            value={wwInput}
+                            onChange={(e) => setWwInput(e.target.value)}
+                            onBlur={() => { if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
+                              else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWwInput(String(windowWidth)); e.currentTarget.blur(); }
+                              else if (e.key === "Tab") { e.preventDefault(); wlInputRef.current?.focus(); wlInputRef.current?.select(); }
+                            }}
+                          />
+                        </div>
+                      </WithTooltip>
+                      <WithTooltip content={<span className="flex items-center gap-2"><span>Reset to WL {defaultWindowLevel} / WW {defaultWindowWidth}</span><TooltipKbd>Shift+W</TooltipKbd></span>} side="top">
+                        <Button
+                          variant="outline" size="icon" className="h-7 w-7 shrink-0"
+                          onClick={handleResetWindow}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </Button>
+                      </WithTooltip>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* ASPECTS scoring */}
+                  <div className="space-y-3">
+                    <p className="text-base font-medium text-muted-foreground">Image Annotation</p>
+                    {!aspectsEnabled() ? (
+                      <div className="rounded border border-dashed border-muted-foreground/30 px-4 py-6 text-center">
+                        <p className="text-base font-medium text-muted-foreground">
+                          {aspectsDisabledMessage}
+                        </p>
+                      </div>
+                    ) : currentImg ? (
+                      <SliceEvaluation
+                        imageUuid={currentImg.uuid}
+                        readOnly={isReadMode}
+                        zoneModeCell={zoneModeActive ? zoneModeCursor : null}
+                        zoneModeAnchor={zoneModeActive && zoneModeVisual ? zoneModeAnchor : null}
+                        zoneModeScope={zoneModeActive ? zoneModeScope : undefined}
+                        onExitZoneMode={zoneModeActive ? exitZoneMode : undefined}
+                        sliceNotesRef={sliceNotesRef}
+                      />
+                    ) : (
+                      <p className="text-base text-muted-foreground">No image loaded</p>
                     )}
                   </div>
-                  <div className="flex gap-2">
-                    <span className="text-muted-foreground w-20 shrink-0">By</span>
-                    <span className="font-medium">
-                      {annotationMeta
-                        ? (annotationMeta.doctorFullName ?? annotationMeta.doctorUsername ?? "—")
-                        : "—"}
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-muted-foreground w-20 shrink-0">Time</span>
-                    <span className="text-sm">
-                      {annotationMeta?.timestamp
-                        ? new Date(annotationMeta.timestamp).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
-                        : "—"}
-                    </span>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex-1 overflow-y-auto">
+                  <div className="p-4 space-y-4">
+                    <h3 className="text-base font-semibold uppercase tracking-widest text-muted-foreground">
+                      Image Set Evaluation
+                    </h3>
+
+                    {/* Set position indicator + navigation (always visible) */}
+                    <div className="space-y-2">
+                      <p className="text-lg font-semibold text-foreground">
+                        Set {queuePos + 1} of {queue.length}
+                      </p>
+                      {queue.length > 1 && (
+                        <div className="flex items-center gap-2">
+                          <WithTooltip content={<span className="flex items-center gap-2"><span>Previous image set</span><TooltipKbd>Shift+←</TooltipKbd></span>} side="top">
+                            <Button
+                              variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                              disabled={navigating}
+                              onClick={() => goToSet(queue[(queuePos - 1 + queue.length) % queue.length])}
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                          </WithTooltip>
+                          <WithTooltip content={<span className="flex items-center gap-2"><span>Jump to set</span><TooltipKbd>Shift+I</TooltipKbd></span>} side="top">
+                            <Input
+                              ref={jumpSetInputRef}
+                              type="number"
+                              className={`h-8 w-14 text-center text-base ${NO_SPINNER}`}
+                              value={jumpSetInput}
+                              onChange={(e) => setJumpSetInput(e.target.value)}
+                              onBlur={(e) => { if (!skipJumpSetApplyRef.current) applyJumpSet(e.target.value); skipJumpSetApplyRef.current = false; }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") { applyJumpSet(jumpSetInput); e.currentTarget.blur(); }
+                                else if (e.key === "Escape") { skipJumpSetApplyRef.current = true; setJumpSetInput(String(queuePos + 1)); e.currentTarget.blur(); }
+                              }}
+                              min={1} max={queue.length}
+                            />
+                          </WithTooltip>
+                          <span className="text-sm text-muted-foreground shrink-0">of {queue.length}</span>
+                          <WithTooltip content={<span className="flex items-center gap-2"><span>Next image set</span><TooltipKbd>Shift+→</TooltipKbd></span>} side="top">
+                            <Button
+                              variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                              disabled={navigating}
+                              onClick={() => goToSet(queue[(queuePos + 1) % queue.length])}
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </WithTooltip>
+                          {queue.length >= 4 && (
+                            <input
+                              type="range"
+                              min={1}
+                              max={queue.length}
+                              value={parseInt(jumpSetInput) || queuePos + 1}
+                              onChange={(e) => setJumpSetInput(e.target.value)}
+                              onPointerUp={(e) => applyJumpSet((e.target as HTMLInputElement).value)}
+                              className="flex-1 min-w-0 cursor-pointer accent-primary"
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Tabs — Set Information / Patient Information / (Reader) Annotation Info */}
+                    <div className="space-y-3">
+                      <div className="flex items-center border-b border-border">
+                        {(["set-info", "patient-info"] as const).map((tab) => (
+                          <button
+                            key={tab}
+                            type="button"
+                            onClick={() => setRightTab(tab)}
+                            className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
+                              rightTab === tab
+                                ? "border-primary text-foreground"
+                                : "border-transparent text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {tab === "set-info" ? "Set Information" : "Patient Information"}
+                          </button>
+                        ))}
+                        {isReadMode && (
+                          <button
+                            type="button"
+                            onClick={() => setRightTab("annotation-info")}
+                            className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
+                              rightTab === "annotation-info"
+                                ? "border-primary text-foreground"
+                                : "border-transparent text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            Annotation Info
+                          </button>
+                        )}
+                        <kbd className="ml-auto font-mono border border-border bg-muted px-1.5 py-0.5 rounded text-[10px] leading-none text-muted-foreground shrink-0">Shift+Tab</kbd>
+                      </div>
+
+                      {/* ── Set Information ── */}
+                      {rightTab === "set-info" && (
+                        <div className="space-y-1 text-base">
+                          {datasetIndex !== null && (
+                            <div className="flex gap-2">
+                              <span className="text-muted-foreground w-24 shrink-0">Set Index</span>
+                              <span className="font-mono">{datasetIndex}</span>
+                            </div>
+                          )}
+                          {imageSet?.image_set_name && (
+                            <div className="flex gap-2">
+                              <span className="text-muted-foreground w-24 shrink-0">Set ID</span>
+                              <span className="font-mono truncate">{imageSet.image_set_name}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ── Patient Information ── */}
+                      {rightTab === "patient-info" && (
+                        <div className="space-y-1 text-base">
+                          <div className="flex gap-2">
+                            <span className="text-muted-foreground w-24 shrink-0">Patient ID</span>
+                            <span
+                              className="font-mono truncate max-w-[140px]"
+                              title={imageSet?.patient_id ?? undefined}
+                            >
+                              {imageSet?.patient_id ?? "—"}
+                            </span>
+                          </div>
+                          <div className="flex gap-2">
+                            <span className="text-muted-foreground w-24 shrink-0">Age</span>
+                            <span>{imageSet?.patient_age != null ? imageSet.patient_age : "—"}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <span className="text-muted-foreground w-24 shrink-0">Gender</span>
+                            <span>{imageSet?.patient_gender ?? "—"}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <span className="text-muted-foreground w-24 shrink-0">ICD</span>
+                            <span className="font-mono">{imageSet?.icd_code ?? "—"}</span>
+                          </div>
+                          {imageSet?.description && (
+                            <div className="flex gap-2">
+                              <span className="text-muted-foreground w-24 shrink-0">Description</span>
+                              <span className="leading-relaxed text-sm">{imageSet.description}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ── Annotation Info (reader mode only) ── */}
+                      {rightTab === "annotation-info" && isReadMode && (
+                        <div className="space-y-3 text-base">
+                          <div className="flex gap-2 items-start">
+                            <span className="text-muted-foreground w-20 shrink-0">Type</span>
+                            {annotationMeta ? (
+                              annotationMeta.type === "submission" ? (
+                                <span className="inline-flex items-center rounded-full border border-blue-500/40 bg-blue-500/10 px-2.5 py-0.5 text-sm font-medium text-blue-400">
+                                  Full Annotation
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2.5 py-0.5 text-sm font-medium text-yellow-400">
+                                  Draft
+                                </span>
+                              )
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <span className="text-muted-foreground w-20 shrink-0">By</span>
+                            <span className="font-medium">
+                              {annotationMeta
+                                ? (annotationMeta.doctorFullName ?? annotationMeta.doctorUsername ?? "—")
+                                : "—"}
+                            </span>
+                          </div>
+                          <div className="flex gap-2">
+                            <span className="text-muted-foreground w-20 shrink-0">Time</span>
+                            <span className="text-sm">
+                              {annotationMeta?.timestamp
+                                ? new Date(annotationMeta.timestamp).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+                                : "—"}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator />
+
+                    {/* Set classification */}
+                    <div className="space-y-3">
+                      <p className="text-base font-medium text-muted-foreground">Set Classification</p>
+                      <SetLevelEvaluation readOnly={isReadMode} notesRef={setLevelNotesRef} zoneMode={zoneModeActive} />
+                    </div>
                   </div>
                 </div>
-              )}
-            </div>
 
-            <Separator />
-
-            {/* Set classification */}
-            <div className="space-y-3">
-              <p className="text-base font-medium text-muted-foreground">Set Classification</p>
-              <SetLevelEvaluation readOnly={isReadMode} notesRef={setLevelNotesRef} />
-            </div>
+                {/* ── Pinned action buttons ── */}
+                <div className="border-t border-border p-4 space-y-3 shrink-0">
+                  {isReadMode ? (
+                    <>
+                      <div className="rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm text-blue-400 text-center font-medium">
+                        Read-only — annotations cannot be changed
+                      </div>
+                      <WithTooltip content={<span className="flex items-center gap-2"><span>Toggle Management Board</span><TooltipKbd>M</TooltipKbd></span>} side="top">
+                        <Button
+                          variant="outline"
+                          className="w-full gap-2 border-foreground text-foreground font-semibold"
+                          onClick={() => setShowManagementBoard(true)}
+                        >
+                          <ClipboardList className="h-4 w-4" />
+                          Management Board
+                        </Button>
+                      </WithTooltip>
+                      <WithTooltip content={<span className="flex items-center gap-2"><span>Exit to Dashboard</span><TooltipKbd>Shift+Esc</TooltipKbd></span>} side="top">
+                        <Button
+                          className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+                          onClick={handleExit}
+                        >
+                          <ArrowLeft className="h-4 w-4" />
+                          {isAdminRead ? "Return to Submissions" : "Return to Dashboard"}
+                        </Button>
+                      </WithTooltip>
+                    </>
+                  ) : (
+                    <>
+                      <ValidationStatus />
+                      <div className="flex gap-2">
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Toggle Management Board</span><TooltipKbd>M</TooltipKbd></span>} side="top">
+                          <Button
+                            variant="outline"
+                            className="flex-1 gap-2 border-foreground text-foreground font-semibold"
+                            onClick={() => setShowManagementBoard(true)}
+                          >
+                            <ClipboardList className="h-4 w-4" />
+                            Management Board
+                          </Button>
+                        </WithTooltip>
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>AI Assist (In Development)</span><TooltipKbd>Shift+A</TooltipKbd></span>} side="top">
+                          <span className="flex-1">
+                            <Button
+                              variant="outline"
+                              className="w-full gap-2"
+                              disabled
+                            >
+                              <Bot className="h-4 w-4" />
+                              AI Assist (In Development)
+                            </Button>
+                          </span>
+                        </WithTooltip>
+                      </div>
+                      <div className="flex gap-2">
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Save draft</span><TooltipKbd>Ctrl+S</TooltipKbd></span>} side="top">
+                          <Button
+                            className="flex-1 gap-2 bg-yellow-500 hover:bg-yellow-600 text-black"
+                            disabled={savingDraft || submitting}
+                            onClick={handleSaveDraft}
+                          >
+                            <Save className="h-4 w-4" />
+                            {savingDraft ? "Saving…" : "Save Draft"}
+                          </Button>
+                        </WithTooltip>
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Submit annotation</span><TooltipKbd>Ctrl+Enter</TooltipKbd></span>} side="top">
+                          <Button
+                            className="flex-1 gap-2"
+                            disabled={!anyReady || submitting || navigating}
+                            onClick={() => setSubmitDialogMode(allReady ? "all-ready" : "partial-ready")}
+                          >
+                            <Send className="h-4 w-4" />
+                            {submitting ? "Submitting…" : anyReady ? "Submit Annotation" : "Not Ready"}
+                          </Button>
+                        </WithTooltip>
+                      </div>
+                      <div className="flex gap-2">
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Exit to Dashboard</span><TooltipKbd>Shift+Esc</TooltipKbd></span>} side="top">
+                          <Button
+                            className="flex-1 gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+                            onClick={handleExit}
+                          >
+                            <ArrowLeft className="h-4 w-4" />
+                            Exit to Dashboard
+                          </Button>
+                        </WithTooltip>
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Reset all annotations</span><TooltipKbd>Shift+Del</TooltipKbd></span>} side="top">
+                          <Button
+                            variant="ghost"
+                            className="flex-1 gap-2 text-destructive hover:text-destructive"
+                            onClick={() => setConfirmReset(true)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Reset All Annotations
+                          </Button>
+                        </WithTooltip>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Normal layout: two 30% panels */}
+            <div className="w-[30%] flex flex-col border-l border-border bg-background shrink-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto">
+                <div className="p-4 space-y-4">
+                  <h3 className="text-base font-semibold uppercase tracking-widest text-muted-foreground">
+                    Image Annotation
+                  </h3>
 
-        {/* ── Pinned action buttons ── */}
-        <div className="border-t border-border p-4 space-y-3 shrink-0">
-          {isReadMode ? (
-            <>
-              <div className="rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm text-blue-400 text-center font-medium">
-                Read-only — annotations cannot be changed
+                  {/* Navigation & windowing */}
+                  <div className="space-y-3">
+                    {images.length === 1 ? (
+                      <p className="text-base text-muted-foreground">Image 1 of 1</p>
+                    ) : (
+                      <div className="flex items-end gap-2">
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Previous image</span><TooltipKbd>←</TooltipKbd></span>} side="top">
+                          <Button
+                            variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                            onClick={() => {
+                              const n = (currentIndex - 1 + images.length) % images.length;
+                              setCurrentIndex(n);
+                              setJumpImgInput(String(n + 1));
+                            }}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                        </WithTooltip>
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Jump to image</span><TooltipKbd>I</TooltipKbd></span>} side="top">
+                          <Input
+                            ref={jumpImgInputRef}
+                            type="number"
+                            className={`h-8 w-16 text-center text-base ${NO_SPINNER}`}
+                            value={jumpImgInput}
+                            onChange={(e) => setJumpImgInput(e.target.value)}
+                            onBlur={(e) => { if (!skipJumpImgApplyRef.current) applyJumpImage(e.target.value); skipJumpImgApplyRef.current = false; }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") { applyJumpImage(jumpImgInput); e.currentTarget.blur(); }
+                              else if (e.key === "Escape") { skipJumpImgApplyRef.current = true; setJumpImgInput(String(currentIndex + 1)); e.currentTarget.blur(); }
+                            }}
+                            min={1} max={images.length}
+                          />
+                        </WithTooltip>
+                        <span className="text-base text-muted-foreground shrink-0">of {images.length}</span>
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Next image</span><TooltipKbd>→</TooltipKbd></span>} side="top">
+                          <Button
+                            variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                            onClick={() => {
+                              const n = (currentIndex + 1) % images.length;
+                              setCurrentIndex(n);
+                              setJumpImgInput(String(n + 1));
+                            }}
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </WithTooltip>
+                        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                          <span className="text-[10px] text-muted-foreground leading-none">Jump to Image</span>
+                          <input
+                            type="range"
+                            min={1}
+                            max={images.length}
+                            value={currentIndex + 1}
+                            onChange={(e) => {
+                              const n = parseInt(e.target.value);
+                              setCurrentIndex(n - 1);
+                              setJumpImgInput(String(n));
+                            }}
+                            className="w-full cursor-pointer accent-primary"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <WithTooltip content={<span className="flex items-center gap-2"><span>Focus Window Level</span><TooltipKbd>W</TooltipKbd></span>} side="top">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-base text-muted-foreground shrink-0 cursor-default">WL</Label>
+                          <Input
+                            ref={wlInputRef}
+                            type="number"
+                            className={`h-7 w-16 text-base ${NO_SPINNER}`}
+                            value={wlInput}
+                            onChange={(e) => setWlInput(e.target.value)}
+                            onBlur={() => { if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
+                              else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWlInput(String(windowLevel)); e.currentTarget.blur(); }
+                              else if (e.key === "Tab") { e.preventDefault(); wwInputRef.current?.focus(); wwInputRef.current?.select(); }
+                            }}
+                          />
+                        </div>
+                      </WithTooltip>
+                      <WithTooltip content={<span className="flex items-center gap-2"><span>Focus Window Width</span><span className="flex items-center gap-1"><TooltipKbd>W</TooltipKbd><TooltipKbd>Tab</TooltipKbd></span></span>} side="top">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-base text-muted-foreground shrink-0 cursor-default">WW</Label>
+                          <Input
+                            ref={wwInputRef}
+                            type="number"
+                            className={`h-7 w-16 text-base ${NO_SPINNER}`}
+                            value={wwInput}
+                            onChange={(e) => setWwInput(e.target.value)}
+                            onBlur={() => { if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
+                              else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWwInput(String(windowWidth)); e.currentTarget.blur(); }
+                              else if (e.key === "Tab") { e.preventDefault(); wlInputRef.current?.focus(); wlInputRef.current?.select(); }
+                            }}
+                          />
+                        </div>
+                      </WithTooltip>
+                      <WithTooltip content={<span className="flex items-center gap-2"><span>Reset to WL {defaultWindowLevel} / WW {defaultWindowWidth}</span><TooltipKbd>Shift+W</TooltipKbd></span>} side="top">
+                        <Button
+                          variant="outline" size="icon" className="h-7 w-7 shrink-0"
+                          onClick={handleResetWindow}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </Button>
+                      </WithTooltip>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* ASPECTS scoring */}
+                  <div className="space-y-3">
+                    <p className="text-base font-medium text-muted-foreground">Image Annotation</p>
+                    {!aspectsEnabled() ? (
+                      <div className="rounded border border-dashed border-muted-foreground/30 px-4 py-6 text-center">
+                        <p className="text-base font-medium text-muted-foreground">
+                          {aspectsDisabledMessage}
+                        </p>
+                      </div>
+                    ) : currentImg ? (
+                      <SliceEvaluation
+                        imageUuid={currentImg.uuid}
+                        readOnly={isReadMode}
+                        zoneModeCell={zoneModeActive ? zoneModeCursor : null}
+                        zoneModeAnchor={zoneModeActive && zoneModeVisual ? zoneModeAnchor : null}
+                        zoneModeScope={zoneModeActive ? zoneModeScope : undefined}
+                        onExitZoneMode={zoneModeActive ? exitZoneMode : undefined}
+                        sliceNotesRef={sliceNotesRef}
+                      />
+                    ) : (
+                      <p className="text-base text-muted-foreground">No image loaded</p>
+                    )}
+                  </div>
+                </div>
               </div>
-              <Button
-                variant="outline"
-                className="w-full gap-2 border-foreground text-foreground font-semibold"
-                onClick={() => setShowManagementBoard(true)}
-              >
-                <ClipboardList className="h-4 w-4" />
-                Management Board
-              </Button>
-              <Button
-                className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white"
-                onClick={handleExit}
-              >
-                <ArrowLeft className="h-4 w-4" />
-                {isAdminRead ? "Return to Submissions" : "Return to Dashboard"}
-              </Button>
-            </>
-          ) : (
-            <>
-              <ValidationStatus />
-              <Button
-                variant="outline"
-                className="w-full gap-2 border-foreground text-foreground font-semibold"
-                onClick={() => setShowManagementBoard(true)}
-              >
-                <ClipboardList className="h-4 w-4" />
-                Management Board
-              </Button>
-              <div className="flex gap-2">
-                <Button
-                  className="flex-1 gap-2 bg-yellow-500 hover:bg-yellow-600 text-black"
-                  disabled={savingDraft || submitting}
-                  onClick={handleSaveDraft}
-                >
-                  <Save className="h-4 w-4" />
-                  {savingDraft ? "Saving…" : "Save Draft"}
-                </Button>
-                <Button
-                  className="flex-1 gap-2"
-                  disabled={!anyReady || submitting || navigating}
-                  onClick={() => setSubmitDialogMode(allReady ? "all-ready" : "partial-ready")}
-                >
-                  <Send className="h-4 w-4" />
-                  {submitting ? "Submitting…" : anyReady ? "Submit Annotation" : "Not Ready"}
-                </Button>
+            </div>
+            <div className="w-[30%] flex flex-col border-l border-border bg-background shrink-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto">
+                <div className="p-4 space-y-4">
+                  <h3 className="text-base font-semibold uppercase tracking-widest text-muted-foreground">
+                    Image Set Evaluation
+                  </h3>
+
+                  {/* Set position indicator + navigation (always visible) */}
+                  <div className="space-y-2">
+                    <p className="text-lg font-semibold text-foreground">
+                      Set {queuePos + 1} of {queue.length}
+                    </p>
+                    {queue.length > 1 && (
+                      <div className="flex items-center gap-2">
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Previous image set</span><TooltipKbd>Shift+←</TooltipKbd></span>} side="top">
+                          <Button
+                            variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                            disabled={navigating}
+                            onClick={() => goToSet(queue[(queuePos - 1 + queue.length) % queue.length])}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                        </WithTooltip>
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Jump to set</span><TooltipKbd>Shift+I</TooltipKbd></span>} side="top">
+                          <Input
+                            ref={jumpSetInputRef}
+                            type="number"
+                            className={`h-8 w-14 text-center text-base ${NO_SPINNER}`}
+                            value={jumpSetInput}
+                            onChange={(e) => setJumpSetInput(e.target.value)}
+                            onBlur={(e) => { if (!skipJumpSetApplyRef.current) applyJumpSet(e.target.value); skipJumpSetApplyRef.current = false; }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") { applyJumpSet(jumpSetInput); e.currentTarget.blur(); }
+                              else if (e.key === "Escape") { skipJumpSetApplyRef.current = true; setJumpSetInput(String(queuePos + 1)); e.currentTarget.blur(); }
+                            }}
+                            min={1} max={queue.length}
+                          />
+                        </WithTooltip>
+                        <span className="text-sm text-muted-foreground shrink-0">of {queue.length}</span>
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Next image set</span><TooltipKbd>Shift+→</TooltipKbd></span>} side="top">
+                          <Button
+                            variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                            disabled={navigating}
+                            onClick={() => goToSet(queue[(queuePos + 1) % queue.length])}
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </WithTooltip>
+                        {queue.length >= 4 && (
+                          <input
+                            type="range"
+                            min={1}
+                            max={queue.length}
+                            value={parseInt(jumpSetInput) || queuePos + 1}
+                            onChange={(e) => setJumpSetInput(e.target.value)}
+                            onPointerUp={(e) => applyJumpSet((e.target as HTMLInputElement).value)}
+                            className="flex-1 min-w-0 cursor-pointer accent-primary"
+                          />
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tabs — Set Information / Patient Information / (Reader) Annotation Info */}
+                  <div className="space-y-3">
+                    <div className="flex items-center border-b border-border">
+                      {(["set-info", "patient-info"] as const).map((tab) => (
+                        <button
+                          key={tab}
+                          type="button"
+                          onClick={() => setRightTab(tab)}
+                          className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
+                            rightTab === tab
+                              ? "border-primary text-foreground"
+                              : "border-transparent text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {tab === "set-info" ? "Set Information" : "Patient Information"}
+                        </button>
+                      ))}
+                      {isReadMode && (
+                        <button
+                          type="button"
+                          onClick={() => setRightTab("annotation-info")}
+                          className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
+                            rightTab === "annotation-info"
+                              ? "border-primary text-foreground"
+                              : "border-transparent text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          Annotation Info
+                        </button>
+                      )}
+                      <kbd className="ml-auto font-mono border border-border bg-muted px-1.5 py-0.5 rounded text-[10px] leading-none text-muted-foreground shrink-0">Shift+Tab</kbd>
+                    </div>
+
+                    {/* ── Set Information ── */}
+                    {rightTab === "set-info" && (
+                      <div className="space-y-1 text-base">
+                        {datasetIndex !== null && (
+                          <div className="flex gap-2">
+                            <span className="text-muted-foreground w-24 shrink-0">Set Index</span>
+                            <span className="font-mono">{datasetIndex}</span>
+                          </div>
+                        )}
+                        {imageSet?.image_set_name && (
+                          <div className="flex gap-2">
+                            <span className="text-muted-foreground w-24 shrink-0">Set ID</span>
+                            <span className="font-mono truncate">{imageSet.image_set_name}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ── Patient Information ── */}
+                    {rightTab === "patient-info" && (
+                      <div className="space-y-1 text-base">
+                        <div className="flex gap-2">
+                          <span className="text-muted-foreground w-24 shrink-0">Patient ID</span>
+                          <span
+                            className="font-mono truncate max-w-[140px]"
+                            title={imageSet?.patient_id ?? undefined}
+                          >
+                            {imageSet?.patient_id ?? "—"}
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="text-muted-foreground w-24 shrink-0">Age</span>
+                          <span>{imageSet?.patient_age != null ? imageSet.patient_age : "—"}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="text-muted-foreground w-24 shrink-0">Gender</span>
+                          <span>{imageSet?.patient_gender ?? "—"}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="text-muted-foreground w-24 shrink-0">ICD</span>
+                          <span className="font-mono">{imageSet?.icd_code ?? "—"}</span>
+                        </div>
+                        {imageSet?.description && (
+                          <div className="flex gap-2">
+                            <span className="text-muted-foreground w-24 shrink-0">Description</span>
+                            <span className="leading-relaxed text-sm">{imageSet.description}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ── Annotation Info (reader mode only) ── */}
+                    {rightTab === "annotation-info" && isReadMode && (
+                      <div className="space-y-3 text-base">
+                        <div className="flex gap-2 items-start">
+                          <span className="text-muted-foreground w-20 shrink-0">Type</span>
+                          {annotationMeta ? (
+                            annotationMeta.type === "submission" ? (
+                              <span className="inline-flex items-center rounded-full border border-blue-500/40 bg-blue-500/10 px-2.5 py-0.5 text-sm font-medium text-blue-400">
+                                Full Annotation
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2.5 py-0.5 text-sm font-medium text-yellow-400">
+                                Draft
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="text-muted-foreground w-20 shrink-0">By</span>
+                          <span className="font-medium">
+                            {annotationMeta
+                              ? (annotationMeta.doctorFullName ?? annotationMeta.doctorUsername ?? "—")
+                              : "—"}
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="text-muted-foreground w-20 shrink-0">Time</span>
+                          <span className="text-sm">
+                            {annotationMeta?.timestamp
+                              ? new Date(annotationMeta.timestamp).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+                              : "—"}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  {/* Set classification */}
+                  <div className="space-y-3">
+                    <p className="text-base font-medium text-muted-foreground">Set Classification</p>
+                    <SetLevelEvaluation readOnly={isReadMode} notesRef={setLevelNotesRef} zoneMode={zoneModeActive} />
+                  </div>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  className="flex-1 gap-2 bg-purple-600 hover:bg-purple-700 text-white"
-                  onClick={handleExit}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Exit to Dashboard
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="flex-1 gap-2 text-destructive hover:text-destructive"
-                  onClick={() => setConfirmReset(true)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Reset All Annotations
-                </Button>
+
+              {/* ── Pinned action buttons ── */}
+              <div className="border-t border-border p-4 space-y-3 shrink-0">
+                {isReadMode ? (
+                  <>
+                    <div className="rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm text-blue-400 text-center font-medium">
+                      Read-only — annotations cannot be changed
+                    </div>
+                    <WithTooltip content={<span className="flex items-center gap-2"><span>Toggle Management Board</span><TooltipKbd>M</TooltipKbd></span>} side="top">
+                      <Button
+                        variant="outline"
+                        className="w-full gap-2 border-foreground text-foreground font-semibold"
+                        onClick={() => setShowManagementBoard(true)}
+                      >
+                        <ClipboardList className="h-4 w-4" />
+                        Management Board
+                      </Button>
+                    </WithTooltip>
+                    <WithTooltip content={<span className="flex items-center gap-2"><span>Exit to Dashboard</span><TooltipKbd>Shift+Esc</TooltipKbd></span>} side="top">
+                      <Button
+                        className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+                        onClick={handleExit}
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                        {isAdminRead ? "Return to Submissions" : "Return to Dashboard"}
+                      </Button>
+                    </WithTooltip>
+                  </>
+                ) : (
+                  <>
+                    <ValidationStatus />
+                    <div className="flex gap-2">
+                      <WithTooltip content={<span className="flex items-center gap-2"><span>Toggle Management Board</span><TooltipKbd>M</TooltipKbd></span>} side="top">
+                        <Button
+                          variant="outline"
+                          className="flex-1 gap-2 border-foreground text-foreground font-semibold"
+                          onClick={() => setShowManagementBoard(true)}
+                        >
+                          <ClipboardList className="h-4 w-4" />
+                          Management Board
+                        </Button>
+                      </WithTooltip>
+                      <WithTooltip content={<span className="flex items-center gap-2"><span>AI Assist (In Development)</span><TooltipKbd>Shift+A</TooltipKbd></span>} side="top">
+                        <span>
+                          <Button
+                            variant="outline"
+                            className="flex-1 gap-2"
+                            disabled
+                          >
+                            <Bot className="h-4 w-4" />
+                            AI Assist (In Development)
+                          </Button>
+                        </span>
+                      </WithTooltip>
+                    </div>
+                    <div className="flex gap-2">
+                      <WithTooltip content={<span className="flex items-center gap-2"><span>Save draft</span><TooltipKbd>Ctrl+S</TooltipKbd></span>} side="top">
+                        <Button
+                          className="flex-1 gap-2 bg-yellow-500 hover:bg-yellow-600 text-black"
+                          disabled={savingDraft || submitting}
+                          onClick={handleSaveDraft}
+                        >
+                          <Save className="h-4 w-4" />
+                          {savingDraft ? "Saving…" : "Save Draft"}
+                        </Button>
+                      </WithTooltip>
+                      <WithTooltip content={<span className="flex items-center gap-2"><span>Submit annotation</span><TooltipKbd>Ctrl+Enter</TooltipKbd></span>} side="top">
+                        <Button
+                          className="flex-1 gap-2"
+                          disabled={!anyReady || submitting || navigating}
+                          onClick={() => setSubmitDialogMode(allReady ? "all-ready" : "partial-ready")}
+                        >
+                          <Send className="h-4 w-4" />
+                          {submitting ? "Submitting…" : anyReady ? "Submit Annotation" : "Not Ready"}
+                        </Button>
+                      </WithTooltip>
+                    </div>
+                    <div className="flex gap-2">
+                      <WithTooltip content={<span className="flex items-center gap-2"><span>Exit to Dashboard</span><TooltipKbd>Shift+Esc</TooltipKbd></span>} side="top">
+                        <Button
+                          className="flex-1 gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+                          onClick={handleExit}
+                        >
+                          <ArrowLeft className="h-4 w-4" />
+                          Exit to Dashboard
+                        </Button>
+                      </WithTooltip>
+                      <WithTooltip content={<span className="flex items-center gap-2"><span>Reset all annotations</span><TooltipKbd>Shift+Del</TooltipKbd></span>} side="top">
+                        <Button
+                          variant="ghost"
+                          className="flex-1 gap-2 text-destructive hover:text-destructive"
+                          onClick={() => setConfirmReset(true)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Reset All Annotations
+                        </Button>
+                      </WithTooltip>
+                    </div>
+                  </>
+                )}
               </div>
-            </>
-          )}
-        </div>
-      </div>}
+            </div>
+          </>
+        )
+      )}
 
       {/* ── Preview panel (30%) — only in preview mode ── */}
       {isPreviewMode && (
@@ -1381,23 +2046,25 @@ export default function LabelPage() {
                 <p className="text-lg font-semibold">{queue.length > 1 ? `Set ${queuePos + 1} of ${queue.length}` : "Set"}</p>
                 {queue.length > 1 && (
                   <div className="flex items-center gap-2">
-                    <WithTooltip content="Previous image set" side="top">
+                    <WithTooltip content={<span className="flex items-center gap-2"><span>Previous image set</span><TooltipKbd>Shift+←</TooltipKbd></span>} side="top">
                       <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" disabled={navigating}
                         onClick={() => goToSet(queue[(queuePos - 1 + queue.length) % queue.length])}>
                         <ChevronLeft className="h-4 w-4" />
                       </Button>
                     </WithTooltip>
-                    <Input ref={jumpSetInputRef} type="number" className={`h-8 w-14 text-center text-base ${NO_SPINNER}`}
-                      value={jumpSetInput}
-                      onChange={(e) => setJumpSetInput(e.target.value)}
-                      onBlur={(e) => { if (!skipJumpSetApplyRef.current) applyJumpSet(e.target.value); skipJumpSetApplyRef.current = false; }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") { applyJumpSet(jumpSetInput); e.currentTarget.blur(); }
-                        else if (e.key === "Escape") { skipJumpSetApplyRef.current = true; setJumpSetInput(String(queuePos + 1)); e.currentTarget.blur(); }
-                      }}
-                      min={1} max={queue.length} />
+                    <WithTooltip content={<span className="flex items-center gap-2"><span>Jump to set</span><TooltipKbd>Shift+I</TooltipKbd></span>} side="top">
+                      <Input ref={jumpSetInputRef} type="number" className={`h-8 w-14 text-center text-base ${NO_SPINNER}`}
+                        value={jumpSetInput}
+                        onChange={(e) => setJumpSetInput(e.target.value)}
+                        onBlur={(e) => { if (!skipJumpSetApplyRef.current) applyJumpSet(e.target.value); skipJumpSetApplyRef.current = false; }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") { applyJumpSet(jumpSetInput); e.currentTarget.blur(); }
+                          else if (e.key === "Escape") { skipJumpSetApplyRef.current = true; setJumpSetInput(String(queuePos + 1)); e.currentTarget.blur(); }
+                        }}
+                        min={1} max={queue.length} />
+                    </WithTooltip>
                     <span className="text-sm text-muted-foreground shrink-0">of {queue.length}</span>
-                    <WithTooltip content="Next image set" side="top">
+                    <WithTooltip content={<span className="flex items-center gap-2"><span>Next image set</span><TooltipKbd>Shift+→</TooltipKbd></span>} side="top">
                       <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" disabled={navigating}
                         onClick={() => goToSet(queue[(queuePos + 1) % queue.length])}>
                         <ChevronRight className="h-4 w-4" />
@@ -1442,24 +2109,26 @@ export default function LabelPage() {
                   <p className="text-base text-muted-foreground">Image 1 of 1</p>
                 ) : (
                   <div className="flex items-end gap-2">
-                    <WithTooltip content="Previous image (← key)" side="top">
+                    <WithTooltip content={<span className="flex items-center gap-2"><span>Previous image</span><TooltipKbd>←</TooltipKbd></span>} side="top">
                       <Button variant="outline" size="icon" className="h-8 w-8 shrink-0"
                         onClick={() => { const n = (currentIndex - 1 + images.length) % images.length; setCurrentIndex(n); setJumpImgInput(String(n + 1)); }}>
                         <ChevronLeft className="h-4 w-4" />
                       </Button>
                     </WithTooltip>
-                    <Input type="number" className={`h-8 w-16 text-center text-base ${NO_SPINNER}`}
-                      ref={jumpImgInputRef}
-                      value={jumpImgInput}
-                      onChange={(e) => setJumpImgInput(e.target.value)}
-                      onBlur={(e) => { if (!skipJumpImgApplyRef.current) applyJumpImage(e.target.value); skipJumpImgApplyRef.current = false; }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") { applyJumpImage(jumpImgInput); e.currentTarget.blur(); }
-                        else if (e.key === "Escape") { skipJumpImgApplyRef.current = true; setJumpImgInput(String(currentIndex + 1)); e.currentTarget.blur(); }
-                      }}
-                      min={1} max={images.length} />
+                    <WithTooltip content={<span className="flex items-center gap-2"><span>Jump to image</span><TooltipKbd>I</TooltipKbd></span>} side="top">
+                      <Input type="number" className={`h-8 w-16 text-center text-base ${NO_SPINNER}`}
+                        ref={jumpImgInputRef}
+                        value={jumpImgInput}
+                        onChange={(e) => setJumpImgInput(e.target.value)}
+                        onBlur={(e) => { if (!skipJumpImgApplyRef.current) applyJumpImage(e.target.value); skipJumpImgApplyRef.current = false; }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") { applyJumpImage(jumpImgInput); e.currentTarget.blur(); }
+                          else if (e.key === "Escape") { skipJumpImgApplyRef.current = true; setJumpImgInput(String(currentIndex + 1)); e.currentTarget.blur(); }
+                        }}
+                        min={1} max={images.length} />
+                    </WithTooltip>
                     <span className="text-base text-muted-foreground shrink-0">of {images.length}</span>
-                    <WithTooltip content="Next image (→ key)" side="top">
+                    <WithTooltip content={<span className="flex items-center gap-2"><span>Next image</span><TooltipKbd>→</TooltipKbd></span>} side="top">
                       <Button variant="outline" size="icon" className="h-8 w-8 shrink-0"
                         onClick={() => { const n = (currentIndex + 1) % images.length; setCurrentIndex(n); setJumpImgInput(String(n + 1)); }}>
                         <ChevronRight className="h-4 w-4" />
@@ -1474,25 +2143,33 @@ export default function LabelPage() {
                   </div>
                 )}
                 <div className="flex items-center gap-2">
-                  <Label className="text-base text-muted-foreground shrink-0">WL</Label>
-                  <Input ref={wlInputRef} type="number" className={`h-7 w-16 text-base ${NO_SPINNER}`} value={wlInput}
-                    onChange={(e) => setWlInput(e.target.value)}
-                    onBlur={() => { if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
-                      else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWlInput(String(windowLevel)); e.currentTarget.blur(); }
-                      else if (e.key === "Tab") { e.preventDefault(); wwInputRef.current?.focus(); wwInputRef.current?.select(); }
-                    }} />
-                  <Label className="text-base text-muted-foreground shrink-0">WW</Label>
-                  <Input ref={wwInputRef} type="number" className={`h-7 w-16 text-base ${NO_SPINNER}`} value={wwInput}
-                    onChange={(e) => setWwInput(e.target.value)}
-                    onBlur={() => { if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
-                      else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWwInput(String(windowWidth)); e.currentTarget.blur(); }
-                      else if (e.key === "Tab") { e.preventDefault(); wlInputRef.current?.focus(); wlInputRef.current?.select(); }
-                    }} />
-                  <WithTooltip content={`Reset to WL ${defaultWindowLevel} / WW ${defaultWindowWidth}`} side="top">
+                  <WithTooltip content={<span className="flex items-center gap-2"><span>Focus Window Level</span><TooltipKbd>W</TooltipKbd></span>} side="top">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-base text-muted-foreground shrink-0 cursor-default">WL</Label>
+                      <Input ref={wlInputRef} type="number" className={`h-7 w-16 text-base ${NO_SPINNER}`} value={wlInput}
+                        onChange={(e) => setWlInput(e.target.value)}
+                        onBlur={() => { if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
+                          else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWlInput(String(windowLevel)); e.currentTarget.blur(); }
+                          else if (e.key === "Tab") { e.preventDefault(); wwInputRef.current?.focus(); wwInputRef.current?.select(); }
+                        }} />
+                    </div>
+                  </WithTooltip>
+                  <WithTooltip content={<span className="flex items-center gap-2"><span>Focus Window Width</span><span className="flex items-center gap-1"><TooltipKbd>W</TooltipKbd><TooltipKbd>Tab</TooltipKbd></span></span>} side="top">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-base text-muted-foreground shrink-0 cursor-default">WW</Label>
+                      <Input ref={wwInputRef} type="number" className={`h-7 w-16 text-base ${NO_SPINNER}`} value={wwInput}
+                        onChange={(e) => setWwInput(e.target.value)}
+                        onBlur={() => { if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
+                          else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWwInput(String(windowWidth)); e.currentTarget.blur(); }
+                          else if (e.key === "Tab") { e.preventDefault(); wlInputRef.current?.focus(); wlInputRef.current?.select(); }
+                        }} />
+                    </div>
+                  </WithTooltip>
+                  <WithTooltip content={<span className="flex items-center gap-2"><span>Reset to WL {defaultWindowLevel} / WW {defaultWindowWidth}</span><TooltipKbd>Shift+W</TooltipKbd></span>} side="top">
                     <Button variant="outline" size="icon" className="h-7 w-7 shrink-0" onClick={handleResetWindow}>
                       <RotateCcw className="h-3.5 w-3.5" />
                     </Button>
@@ -1505,13 +2182,17 @@ export default function LabelPage() {
 
           {/* Pinned actions */}
           <div className="border-t border-border p-4 space-y-3 shrink-0">
-            <Button variant="outline" className="w-full gap-2 border-foreground text-foreground font-semibold"
-              onClick={() => setShowManagementBoard(true)}>
-              <ClipboardList className="h-4 w-4" /> Management Board
-            </Button>
-            <Button className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white" onClick={handleExit}>
-              <ArrowLeft className="h-4 w-4" /> Return to Dashboard
-            </Button>
+            <WithTooltip content={<span className="flex items-center gap-2"><span>Toggle Management Board</span><TooltipKbd>M</TooltipKbd></span>} side="top">
+              <Button variant="outline" className="w-full gap-2 border-foreground text-foreground font-semibold"
+                onClick={() => setShowManagementBoard(true)}>
+                <ClipboardList className="h-4 w-4" /> Management Board
+              </Button>
+            </WithTooltip>
+            <WithTooltip content={<span className="flex items-center gap-2"><span>Exit to Dashboard</span><TooltipKbd>Shift+Esc</TooltipKbd></span>} side="top">
+              <Button className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white" onClick={handleExit}>
+                <ArrowLeft className="h-4 w-4" /> Return to Dashboard
+              </Button>
+            </WithTooltip>
           </div>
         </div>
       )}
@@ -1641,6 +2322,11 @@ export default function LabelPage() {
                           key={uuid}
                           className={`cursor-pointer border-b transition-colors hover:bg-muted/50 ${isSelected ? "bg-muted" : ""}`}
                           onClick={() => setSelectedBoardSetUuid(isSelected ? null : uuid)}
+                          onDoubleClick={() => {
+                            const sameSet = uuid === imageSetUuid;
+                            if (sameSet) { setShowManagementBoard(false); }
+                            else { goToSet(uuid).then(() => setShowManagementBoard(false)); }
+                          }}
                         >
                           <td className="px-3 py-2 font-mono text-muted-foreground">{pos + 1}</td>
                           <td className="px-3 py-2 font-mono text-muted-foreground">{indices[pos] ?? "—"}</td>
@@ -1694,7 +2380,17 @@ export default function LabelPage() {
                           const s = mbSlices[uuid];
                           const missing = getMissingZones(s);
                           return (
-                            <tr key={uuid} className={`border-b ${rowIdx === selectedMBImageIndex ? "bg-muted" : ""}`}>
+                            <tr
+                              key={uuid}
+                              className={`cursor-pointer border-b hover:bg-muted/50 ${rowIdx === selectedMBImageIndex ? "bg-muted" : ""}`}
+                              onClick={() => setSelectedMBImageIndex(rowIdx)}
+                              onDoubleClick={() => {
+                                const sameSet = selectedBoardSetUuid === imageSetUuid;
+                                const jump = () => { setCurrentIndex(index); setShowManagementBoard(false); };
+                                if (sameSet) jump();
+                                else goToSet(selectedBoardSetUuid).then(jump);
+                              }}
+                            >
                               <td className="px-3 py-2 font-mono text-muted-foreground">{index + 1}</td>
                               <td className={`px-3 py-2 font-medium ${
                                 s.region === "BasalGanglia" ? "text-purple-400"

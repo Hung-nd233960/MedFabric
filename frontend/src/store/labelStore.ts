@@ -131,14 +131,14 @@ interface LabelStore {
   preloadRegistry: (entries: Record<string, SetSnapshot>) => void;
 
   // Actions — set level
-  setUsability: (u: ImageSetUsability) => void;
+  setUsability: (u: ImageSetUsability | null) => void;
   setLowQuality: (lq: boolean) => void;
   setSetNotes: (n: string) => void;
 
   // Actions — slice level
   setCurrentIndex: (i: number) => void;
   setRegion: (imageUuid: string, region: Region) => void;
-  setScore: (imageUuid: string, field: string, score: RegionScore) => void;
+  setScore: (imageUuid: string, field: string, score: RegionScore | null) => void;
   setSliceNotes: (imageUuid: string, notes: string) => void;
   setWindow: (wl: number, ww: number) => void;
   resetWindow: () => void;

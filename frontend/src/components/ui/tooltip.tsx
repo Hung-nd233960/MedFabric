@@ -18,8 +18,8 @@ function TooltipContent({
       <TooltipPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 max-w-[240px] overflow-hidden rounded-md bg-foreground/[0.92] px-2.5 py-1.5",
-          "text-xs font-medium leading-snug text-background shadow-lg",
+          "z-50 max-w-[360px] rounded-xl bg-foreground/[0.93] px-3.5 py-2.5",
+          "text-sm font-medium leading-snug text-background shadow-xl ring-1 ring-background/10",
           "animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
           "data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2",
           "data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
@@ -39,15 +39,26 @@ function TooltipContent({
  * type="functional" — UI hints, button labels (default)
  * type="meta"       — tooltip-option descriptions; always on unless mode is "off"
  */
+/** Kbd chip styled for the dark tooltip background. */
+function TooltipKbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="inline-flex items-center rounded-md border border-background/50 bg-background/[0.15] px-2 py-0.5 font-mono text-xs font-semibold leading-none text-background shrink-0 shadow-sm">
+      {children}
+    </kbd>
+  );
+}
+
 function WithTooltip({
   type = "functional",
   content,
   side,
+  delayDuration,
   children,
 }: {
   type?: "medical" | "functional" | "meta";
-  content: string;
+  content: React.ReactNode;
   side?: "top" | "right" | "bottom" | "left";
+  delayDuration?: number;
   children: React.ReactElement;
 }) {
   const { tooltipMode } = useAppearanceStore();
@@ -60,11 +71,11 @@ function WithTooltip({
 
   if (!visible) return children;
   return (
-    <Tooltip>
+    <Tooltip delayDuration={delayDuration}>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
       <TooltipContent side={side}>{content}</TooltipContent>
     </Tooltip>
   );
 }
 
-export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, WithTooltip };
+export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, WithTooltip, TooltipKbd };

@@ -4,14 +4,14 @@
  *   - Low Quality checkbox (only active when IschemicAssessable)
  *   - Optional notes
  */
-import { useEffect, useRef } from "react";
-import type { RefObject } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { RefObject, ReactNode } from "react";
 import { useLabelStore } from "@/store/labelStore";
 import type { ImageSetUsability } from "@/lib/types";
 import { USABILITY_LABELS } from "@/lib/types";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { WithTooltip } from "@/components/ui/tooltip";
+import { WithTooltip, TooltipKbd } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 
@@ -29,14 +29,29 @@ const USABILITY_COLORS: Record<ImageSetUsability, string> = {
   Irrelevant:          "border-purple-500 bg-purple-500/10 text-purple-400",
 };
 
-const USABILITY_TOOLTIPS: Record<ImageSetUsability, string> = {
-  IschemicAssessable:  "ASPECTS scoring applies — ischemic stroke OR healthy patient",
-  HemorrhagicPresent:  "Hemorrhage detected — ASPECTS not applicable",
-  Anomaly:             "Other abnormality present — ASPECTS not applicable (eg Brain tumors). Please describe the anomaly in the notes.",
-  Irrelevant:          "Wrong scan (wrong body part, bone CT,...), wrong patient, or non-diagnostic. Please include the reason in the notes.",
+const USABILITY_KEYS: Record<ImageSetUsability, string> = {
+  IschemicAssessable: "Shift+1",
+  HemorrhagicPresent: "Shift+2",
+  Anomaly:            "Shift+3",
+  Irrelevant:         "Shift+4",
 };
 
-export default function SetLevelEvaluation({ readOnly, notesRef: externalNotesRef }: { readOnly?: boolean; notesRef?: RefObject<HTMLTextAreaElement> }) {
+const USABILITY_TOOLTIPS: Record<ImageSetUsability, ReactNode> = {
+  IschemicAssessable:  <span className="flex items-center gap-2"><span>ASPECTS scoring applies — ischemic stroke or healthy patient</span><TooltipKbd>Shift+1</TooltipKbd></span>,
+  HemorrhagicPresent:  <span className="flex items-center gap-2"><span>Hemorrhage detected — ASPECTS not applicable</span><TooltipKbd>Shift+2</TooltipKbd></span>,
+  Anomaly:             <span className="flex items-center gap-2"><span>Other abnormality present — ASPECTS not applicable (eg. brain tumors). Describe in notes.</span><TooltipKbd>Shift+3</TooltipKbd></span>,
+  Irrelevant:          <span className="flex items-center gap-2"><span>Wrong scan, wrong patient, or non-diagnostic. Include reason in notes.</span><TooltipKbd>Shift+4</TooltipKbd></span>,
+};
+
+export default function SetLevelEvaluation({
+  readOnly,
+  notesRef: externalNotesRef,
+  zoneMode,
+}: {
+  readOnly?: boolean;
+  notesRef?: RefObject<HTMLTextAreaElement>;
+  zoneMode?: boolean;
+}) {
   const { usability, lowQuality, setNotes, setUsability, setLowQuality, setSetNotes } =
     useLabelStore((s) => ({
       usability: s.usability,
@@ -50,6 +65,7 @@ export default function SetLevelEvaluation({ readOnly, notesRef: externalNotesRe
   const internalNotesRef = useRef<HTMLTextAreaElement>(null);
   const notesTextareaRef = externalNotesRef ?? internalNotesRef;
   const lqInteractive = !readOnly && usability === "IschemicAssessable";
+  const [notesFocused, setNotesFocused] = useState(false);
 
   // Auto-focus notes textarea when Anomaly/Irrelevant is selected (notes are required)
   useEffect(() => {
@@ -61,9 +77,17 @@ export default function SetLevelEvaluation({ readOnly, notesRef: externalNotesRe
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
-        <Label className="text-base uppercase tracking-wide text-muted-foreground">
-          Usability
-        </Label>
+        <div className="flex items-center justify-between gap-2">
+          <Label className="text-base uppercase tracking-wide text-muted-foreground">Usability</Label>
+          {!readOnly && (
+            zoneMode
+              ? <span className="text-xs text-muted-foreground shrink-0">Disable Zone Mode to change usability</span>
+              : <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                  <kbd className="font-mono border border-border bg-muted px-1 py-0.5 rounded text-[10px] leading-none">Shift+0</kbd>
+                  <span>to unselect</span>
+                </span>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-2">
           {USABILITIES.map((u) => (
             <WithTooltip
@@ -71,10 +95,11 @@ export default function SetLevelEvaluation({ readOnly, notesRef: externalNotesRe
               type="medical"
               content={USABILITY_TOOLTIPS[u]}
               side="top"
+              delayDuration={120}
             >
               <button
                 type="button"
-                onClick={readOnly ? undefined : () => setUsability(u)}
+                onClick={readOnly ? undefined : () => setUsability(usability === u ? null : u)}
                 tabIndex={readOnly ? -1 : undefined}
                 className={cn(
                   "rounded-md border px-3 py-2 text-left text-base font-medium transition-all w-full",
@@ -84,7 +109,14 @@ export default function SetLevelEvaluation({ readOnly, notesRef: externalNotesRe
                   readOnly && "cursor-default"
                 )}
               >
-                {USABILITY_LABELS[u]}
+                <span className="flex items-center justify-between gap-2">
+                  {USABILITY_LABELS[u]}
+                  {!readOnly && !zoneMode && (
+                    <kbd className="font-mono border border-border bg-background/40 px-1 py-0.5 rounded text-[10px] leading-none text-muted-foreground shrink-0">
+                      {USABILITY_KEYS[u]}
+                    </kbd>
+                  )}
+                </span>
               </button>
             </WithTooltip>
           ))}
@@ -92,56 +124,81 @@ export default function SetLevelEvaluation({ readOnly, notesRef: externalNotesRe
       </div>
 
       {/* Low Quality — tickbox, only active for IschemicAssessable */}
-      <div className={cn(
-        "flex items-center justify-between rounded-md border border-border px-3 py-2 transition-opacity",
-        !lqInteractive && !readOnly && "opacity-40"
-      )}>
-        <Label
-          className={cn(
-            "text-lg select-none",
-            lqInteractive ? "cursor-pointer" : "cursor-default"
-          )}
-          onClick={lqInteractive ? () => setLowQuality(!lowQuality) : undefined}
-        >
-          Low Quality
-        </Label>
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={lowQuality}
-          onClick={lqInteractive ? () => setLowQuality(!lowQuality) : undefined}
-          tabIndex={lqInteractive ? 0 : -1}
-          className={cn(
-            "h-5 w-5 shrink-0 rounded border-2 flex items-center justify-center transition-colors",
-            lowQuality && lqInteractive
-              ? "border-primary bg-primary"
-              : lowQuality && !lqInteractive
-              ? "border-muted-foreground/50 bg-muted-foreground/30"
-              : "border-muted-foreground/40 bg-transparent",
-            lqInteractive && !lowQuality && "hover:border-primary",
-            lqInteractive ? "cursor-pointer" : "cursor-default"
-          )}
-        >
-          {lowQuality && (
-            <Check className={cn("h-3 w-3", lqInteractive ? "text-primary-foreground" : "text-muted-foreground")} strokeWidth={3} />
-          )}
-        </button>
-      </div>
+      <WithTooltip
+        type="functional"
+        content={<span className="flex items-center gap-2"><span>Poor image quality — artifacts or technical issues reducing diagnostic confidence</span><TooltipKbd>Shift+Q</TooltipKbd></span>}
+        side="top"
+      >
+        <div className={cn(
+          "flex items-center justify-between rounded-md border border-border px-3 py-2 transition-opacity",
+          !lqInteractive && !readOnly && "opacity-40"
+        )}>
+          <Label
+            className={cn(
+              "text-lg select-none",
+              lqInteractive ? "cursor-pointer" : "cursor-default"
+            )}
+            onClick={lqInteractive ? () => setLowQuality(!lowQuality) : undefined}
+          >
+            Low Quality
+          </Label>
+          <div className="flex items-center gap-2">
+            {!readOnly && !zoneMode && (
+              <kbd className="font-mono border border-border bg-muted px-1.5 py-0.5 rounded text-[10px] leading-none text-muted-foreground shrink-0">Shift+Q</kbd>
+            )}
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={lowQuality}
+            onClick={lqInteractive ? () => setLowQuality(!lowQuality) : undefined}
+            tabIndex={lqInteractive ? 0 : -1}
+            className={cn(
+              "h-5 w-5 shrink-0 rounded border-2 flex items-center justify-center transition-colors",
+              lowQuality && lqInteractive
+                ? "border-primary bg-primary"
+                : lowQuality && !lqInteractive
+                ? "border-muted-foreground/50 bg-muted-foreground/30"
+                : "border-muted-foreground/40 bg-transparent",
+              lqInteractive && !lowQuality && "hover:border-primary",
+              lqInteractive ? "cursor-pointer" : "cursor-default"
+            )}
+          >
+            {lowQuality && (
+              <Check className={cn("h-3 w-3", lqInteractive ? "text-primary-foreground" : "text-muted-foreground")} strokeWidth={3} />
+            )}
+          </button>
+          </div>
+        </div>
+      </WithTooltip>
 
       {(() => {
         const notesRequired = !readOnly && (usability === "Anomaly" || usability === "Irrelevant");
         const notesEmpty = !setNotes?.trim();
         return (
           <div className="space-y-1.5">
-            <Label className={cn("text-base", notesRequired ? "text-foreground font-medium" : "text-muted-foreground")}>
-              Set-level notes{notesRequired ? <span className="text-destructive ml-1">*</span> : " (optional)"}
-            </Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label className={cn("text-base", notesRequired ? "text-foreground font-medium" : "text-muted-foreground")}>
+                Set-level notes{notesRequired ? <span className="text-destructive ml-1">*</span> : " (optional)"}
+              </Label>
+              {!readOnly && (
+                zoneMode
+                  ? <span className="text-xs text-muted-foreground shrink-0">N goes to slice notes here</span>
+                  : notesFocused
+                  ? <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                      <kbd className="font-mono border border-border bg-muted px-1 py-0.5 rounded text-[10px] leading-none">Esc</kbd>
+                      <span>when done</span>
+                    </span>
+                  : <kbd className="font-mono border border-border bg-muted px-1.5 py-0.5 rounded text-[10px] leading-none text-muted-foreground shrink-0">N</kbd>
+              )}
+            </div>
             <Textarea
               ref={notesTextareaRef}
               rows={2}
               placeholder={notesRequired ? `Describe the ${usability === "Anomaly" ? "anomaly" : "reason this scan is irrelevant"}…` : "Any notes about this scan…"}
               value={setNotes}
               onChange={readOnly ? undefined : (e) => setSetNotes(e.target.value)}
+              onFocus={() => setNotesFocused(true)}
+              onBlur={() => setNotesFocused(false)}
               onKeyDown={readOnly ? undefined : (e) => {
                 if (e.key === "Escape") e.currentTarget.blur();
               }}

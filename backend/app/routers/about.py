@@ -5,6 +5,7 @@ import sys
 from datetime import datetime, timezone
 
 import fastapi
+import sqlalchemy
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -43,6 +44,7 @@ def about_dev(db: Session = Depends(get_db)) -> dict:
     return {
         "python_version": sys.version.split()[0],
         "fastapi_version": fastapi.__version__,
+        "sqlalchemy_version": sqlalchemy.__version__,
         "postgres_version": pg_version,
         "startup_time": startup.isoformat() if startup else None,
         "uptime_seconds": uptime_seconds,

@@ -13,6 +13,8 @@ import { useLabelQueueStore } from "@/store/labelQueueStore";
 import { WithTooltip } from "@/components/ui/tooltip";
 import type { DashboardStats, DraftItem, HistoryEvent, ImageSetWithProgress } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useUiStore } from "@/store/uiStore";
+import { useAuthStore } from "@/store/authStore";
 
 type Tab = "image-sets" | "drafts" | "history";
 type SortDir = "asc" | "desc";
@@ -126,6 +128,7 @@ const statusRank = (s: ImageSetWithProgress) => s.evaluated_by_me ? 2 : s.in_dra
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { fullName, username } = useAuthStore();
   const [activeTab, setActiveTab] = useState<Tab>("image-sets");
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [imageSets, setImageSets] = useState<ImageSetWithProgress[]>([]);
@@ -193,6 +196,25 @@ export default function DashboardPage() {
       }
     };
     load();
+  }, []);
+
+  useEffect(() => {
+    const poll = async () => {
+      if (document.hidden) return;
+      try {
+        const statsRes = await dashboardApi.stats();
+        const s: DashboardStats = statsRes.data;
+        setStats(s);
+        if (s.assigned_dataset) {
+          const setsRes = await imageSetsApi.listByDataset(s.assigned_dataset.dataset_uuid);
+          setImageSets(setsRes.data);
+        }
+      } catch {
+        // silent — don't disrupt the user with background poll errors
+      }
+    };
+    const id = setInterval(poll, 30_000);
+    return () => clearInterval(id);
   }, []);
 
   // ── Image Sets tab helpers ──────────────────────────────────────────────────
@@ -432,6 +454,7 @@ export default function DashboardPage() {
   // ── Keyboard shortcuts ───────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (useUiStore.getState().shortcutsOpen) return;
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.altKey) return;
@@ -529,6 +552,14 @@ export default function DashboardPage() {
         return;
       }
 
+      // Shift+Q — jump to first not-done image set (only when nothing is selected and not in Visual Mode)
+      if (shift && !ctrl && UP === "Q" && !visualMode && selectedSets.size === 0 && sortedSets.length > 0) {
+        e.preventDefault();
+        const found = sortedSets.findIndex((s) => !s.evaluated_by_me);
+        if (found >= 0) setKbHighlight(found);
+        return;
+      }
+
       // Shift+1–0 — jump to decile
       if (shift && !ctrl && e.code?.startsWith("Digit") && sortedSets.length > 0) {
         const d = parseInt(e.code.slice(-1));
@@ -599,16 +630,29 @@ export default function DashboardPage() {
       <div className="flex-1 overflow-hidden flex flex-col max-w-6xl mx-auto w-full px-6 pt-5 pb-4 gap-4">
 
         {/* Header */}
-        <div className="shrink-0">
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
-          {stats?.assigned_dataset ? (
-            <p className="text-muted-foreground text-sm mt-1">
-              Assigned dataset:{" "}
-              <span className="text-foreground font-medium">{stats.assigned_dataset.name}</span>
-            </p>
-          ) : (
-            <p className="text-muted-foreground text-sm mt-1">No dataset assigned — contact an admin.</p>
-          )}
+        <div className="shrink-0 flex items-start justify-between gap-6">
+          <div>
+            <h1 className="text-2xl font-semibold">Dashboard</h1>
+            {stats?.assigned_dataset ? (
+              <p className="text-muted-foreground text-sm mt-1">
+                Assigned dataset:{" "}
+                <span className="text-foreground font-medium">{stats.assigned_dataset.name}</span>
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-sm mt-1">No dataset assigned — contact an admin.</p>
+            )}
+          </div>
+          <div className="text-right shrink-0">
+            <p className="text-lg font-semibold">{(() => {
+              const h = new Date().getHours();
+              const greet = h >= 5 && h < 12 ? "Good Morning,"
+                : h >= 12 && h < 18 ? "Good Afternoon,"
+                : h >= 18 && h < 22 ? "Good Evening,"
+                : "Staying Up Late?";
+              return `${greet} ${fullName ?? username ?? "Doctor"}`;
+            })()} 👋</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Thank you for your dedication to advancing medical AI.</p>
+          </div>
         </div>
 
         {/* Stats */}
@@ -819,13 +863,25 @@ export default function DashboardPage() {
                           if (i < sortedSets.length && selectedSets.has(sortedSets[i].uuid)) chosen++;
                         }
                         const notChosen = total - chosen;
+                        const rangedSets = sortedSets.slice(lo, hi + 1);
+                        const cntDone    = rangedSets.filter(s => s.evaluated_by_me).length;
+                        const cntDraft   = rangedSets.filter(s => s.in_draft_by_me).length;
+                        const cntPending = rangedSets.filter(s => !s.evaluated_by_me && !s.in_draft_by_me).length;
                         return (
-                          <div className="shrink-0 border-t border-blue-500/20 bg-blue-500/5 px-3 py-1.5 text-xs font-mono select-none flex items-center gap-2">
+                          <div className="shrink-0 border-t border-blue-500/20 bg-blue-500/5 px-3 py-1.5 text-xs font-mono select-none flex items-center gap-3 flex-wrap">
                             <span className="text-blue-400">-- VISUAL --</span>
                             <span className="text-muted-foreground">
                               {total} row{total !== 1 ? "s" : ""},{"  "}
                               <span className="text-primary">{chosen} chosen</span>,{"  "}
                               {notChosen} not chosen
+                            </span>
+                            <span className="text-muted-foreground/40">|</span>
+                            <span className="text-muted-foreground">
+                              <span className="text-green-400">{cntDone} done</span>
+                              {"  ·  "}
+                              <span className="text-yellow-400">{cntDraft} draft</span>
+                              {"  ·  "}
+                              <span className="text-muted-foreground">{cntPending} pending</span>
                             </span>
                           </div>
                         );
