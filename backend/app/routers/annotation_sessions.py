@@ -4,6 +4,7 @@ import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -65,11 +66,9 @@ def my_history(
     doctor: Doctors = Depends(get_current_doctor),
 ):
     """Return a chronological list of annotation activity events for the current doctor."""
-    from sqlalchemy import func as _func
-
     index_rows = db.query(
         ImageSet.uuid,
-        _func.row_number()
+        func.row_number()
         .over(partition_by=ImageSet.dataset_uuid, order_by=ImageSet.uuid)
         .label("idx"),
     ).subquery()
@@ -85,13 +84,13 @@ def my_history(
     events: List[HistoryEvent] = []
     for sess, img_set in sessions:
         idx = index_map.get(img_set.uuid, 0)
-        base = dict(
-            annotation_session_uuid=sess.annotation_session_uuid,
-            image_set_uuid=img_set.uuid,
-            image_set_name=img_set.image_set_name,
-            dataset_index=idx,
-            icd_code=img_set.icd_code,
-        )
+        base = {
+            "annotation_session_uuid": sess.annotation_session_uuid,
+            "image_set_uuid": img_set.uuid,
+            "image_set_name": img_set.image_set_name,
+            "dataset_index": idx,
+            "icd_code": img_set.icd_code,
+        }
         # All three events are independent — a session can have all of them
         if sess.draft_saved_at:
             events.append(
@@ -125,7 +124,7 @@ def get_one_annotation_session(
     try:
         sess = get_annotation_session(db, annotation_session_uuid)
     except AnnotationSessionNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     if sess.doctor_uuid != doctor.uuid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not your session"

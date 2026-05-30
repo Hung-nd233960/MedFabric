@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -45,7 +46,7 @@ def submit(
     try:
         ann_sess = get_annotation_session(db, body.annotation_session_uuid)
     except AnnotationSessionNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     if ann_sess.doctor_uuid != doctor.uuid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not your session"
@@ -54,11 +55,11 @@ def submit(
     try:
         return submit_annotation(db, body)
     except AnnotationSessionAlreadySubmittedError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except InvalidEvaluationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
-        )
+        ) from exc
 
 
 @router.get(
@@ -73,7 +74,7 @@ def get_set_eval(
     try:
         ann_sess = get_annotation_session(db, annotation_session_uuid)
     except AnnotationSessionNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     if ann_sess.doctor_uuid != doctor.uuid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not your session"
@@ -100,7 +101,7 @@ def get_image_evals(
     try:
         ann_sess = get_annotation_session(db, annotation_session_uuid)
     except AnnotationSessionNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     if ann_sess.doctor_uuid != doctor.uuid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not your session"
@@ -119,7 +120,7 @@ def save_auto_draft(
     try:
         ann_sess = get_annotation_session(db, body.annotation_session_uuid)
     except AnnotationSessionNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     if ann_sess.doctor_uuid != doctor.uuid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not your session"
@@ -151,7 +152,7 @@ def save_draft(
     try:
         ann_sess = get_annotation_session(db, body.annotation_session_uuid)
     except AnnotationSessionNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     if ann_sess.doctor_uuid != doctor.uuid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not your session"
@@ -181,7 +182,7 @@ def get_submission_by_image_set(
     db: Session = Depends(get_db),
     doctor: Doctors = Depends(get_current_doctor),
 ):
-    """Return the latest submitted annotation for the current doctor + image set as a draft-shaped payload."""
+    """Return the latest submitted annotation for the current doctor + image set."""
     ann_sess = (
         db.query(AnnotationSession)
         .filter(
@@ -203,7 +204,7 @@ def get_submission_by_image_set(
             status_code=status.HTTP_404_NOT_FOUND, detail="Evaluation data missing"
         )
 
-    _SCORE_FIELDS = [
+    score_fields = [
         f"{z}_{side}_score"
         for z in ["c", "ic", "l", "i", "m1", "m2", "m3", "m4", "m5", "m6"]
         for side in ["left", "right"]
@@ -219,7 +220,7 @@ def get_submission_by_image_set(
                 "image_uuid": str(e.image_uuid),
                 "region": e.region.value,
                 "notes": e.notes,
-                **{f: getattr(e, f).value for f in _SCORE_FIELDS},
+                **{f: getattr(e, f).value for f in score_fields},
             }
             for e in img_evals
         ],
@@ -322,11 +323,9 @@ def list_my_drafts(
     }
 
     # Dataset index map: count position within dataset
-    from sqlalchemy import func as _func
-
     index_rows = db.query(
         ImageSet.uuid,
-        _func.row_number()
+        func.row_number()
         .over(partition_by=ImageSet.dataset_uuid, order_by=ImageSet.uuid)
         .label("idx"),
     ).subquery()

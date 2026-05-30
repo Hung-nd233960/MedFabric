@@ -81,7 +81,7 @@ export default function SetLevelEvaluation({
     if (!readOnly && (usability === "Anomaly" || usability === "Irrelevant")) {
       notesTextareaRef.current?.focus();
     }
-  }, [usability, readOnly]);
+  }, [usability, readOnly, notesTextareaRef]);
 
   return (
     <div className="space-y-4">

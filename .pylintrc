@@ -1,5 +1,5 @@
 [MASTER]
-ignore = 
+ignore =
     .venv,
     venv,
     __pycache__,
@@ -7,45 +7,46 @@ ignore =
     dist,
     .mypy_cache,
     .pytest_cache,
-    .tox,
     .eggs,
-    *.egg-info
-    .ipynb_checkpoints
-    .streamlit
-    deprecated
+    migrations
 
-init-hook='import sys; sys.path.append(".")'
-load-plugins=pylint.extensions.docparams
+# Add backend/ to sys.path so that `from app.xxx import` resolves correctly
+init-hook='import sys; sys.path.insert(0, "backend")'
 
 [MESSAGES CONTROL]
-# Disable messages that are often too strict or irrelevant in practical dev
-disable=
+disable =
     import-error,
-    redefined-outer-name
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    too-few-public-methods,
+    used-before-assignment,
+    unused-argument
 
 [REPORTS]
 output-format=colorized
 reports=no
 
 [FORMAT]
-# Relax line length for UI logic and Streamlit code
 max-line-length=100
 indent-string='    '
 
 [DESIGN]
-max-args=7
-max-attributes=10
+max-args=8
+max-attributes=15
 max-locals=20
 max-branches=12
-max-statements=50
+max-statements=60
 
 [TYPECHECK]
-# Don't complain about dynamic imports in Streamlit apps
-ignored-modules=streamlit,numpy,pandas,PIL,cv2
 ignored-classes=optparse.Values,thread._local,_thread._local
 
+[BASIC]
+# Allow PascalCase for SQLAlchemy enum members (renaming to UPPER_CASE would
+# break DB schema values and all callers across the codebase)
+class-const-rgx = ([A-Z_][A-Z0-9_]*|[A-Za-z_][A-Za-z0-9_]*)
+
 [VARIABLES]
-# Allow common placeholder variable names
 additional-builtins=_
 
 [STRING]

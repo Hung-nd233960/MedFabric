@@ -215,7 +215,7 @@ class Doctors(Base):
     )
 
     @validates("username")
-    def validate_username(self, key, value):
+    def validate_username(self, _key, value):
         if not value or len(value) < 3:
             raise ValueError("Username must be at least 3 characters.")
         return value

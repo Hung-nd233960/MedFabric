@@ -60,9 +60,9 @@ def _add_missing_columns() -> None:
         "ALTER TABLE annotation_sessions ADD COLUMN IF NOT EXISTS draft_saved_at TIMESTAMPTZ",
         "ALTER TABLE annotation_sessions ADD COLUMN IF NOT EXISTS draft_deleted_at TIMESTAMPTZ",
         "ALTER TABLE doctors ADD COLUMN IF NOT EXISTS full_name VARCHAR(255)",
-        "ALTER TABLE doctors ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE doctors ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE",  # pylint: disable=line-too-long
         "ALTER TABLE doctors ADD COLUMN IF NOT EXISTS must_set_name BOOLEAN NOT NULL DEFAULT FALSE",
-        "ALTER TABLE doctors ADD COLUMN IF NOT EXISTS registration_source VARCHAR(64) NOT NULL DEFAULT 'admin_created'",
+        "ALTER TABLE doctors ADD COLUMN IF NOT EXISTS registration_source VARCHAR(64) NOT NULL DEFAULT 'admin_created'",  # pylint: disable=line-too-long
         "ALTER TABLE annotation_sessions ADD COLUMN IF NOT EXISTS auto_draft_payload TEXT",
         "ALTER TABLE annotation_sessions ADD COLUMN IF NOT EXISTS auto_draft_saved_at TIMESTAMPTZ",
         "ALTER TABLE doctors ADD COLUMN IF NOT EXISTS is_test BOOLEAN NOT NULL DEFAULT FALSE",
@@ -80,7 +80,7 @@ def _add_missing_columns() -> None:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     set_startup_time()
     get_about()  # load and cache about.toml; logs name/version/creator
     logger.info(

@@ -282,7 +282,7 @@ export default function LabelPage() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [currentIndex, images.length, showManagementBoard, zoneModeActive]);
+  }, [currentIndex, images.length, showManagementBoard, zoneModeActive, setCurrentIndex]);
   void inputFocusRef;
 
   useEffect(() => { setSelectedMBImageIndex(-1); }, [selectedBoardSetUuid]);
@@ -348,7 +348,7 @@ export default function LabelPage() {
       setConfirmExit(true);
     });
     return () => { useNavGuardStore.getState().setInterceptor(null); };
-  }, [isReadMode, isPreviewMode]);
+  }, [isReadMode, isPreviewMode, navigate]);
 
   // In reader mode: preload all other queue sets into setRegistry so the Management Board
   // can show their status without requiring navigation to each set first.

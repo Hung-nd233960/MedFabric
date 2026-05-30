@@ -76,11 +76,11 @@ def create_new_dataset(
     try:
         return create_dataset(db, name=body.name, description=body.description)
     except DataSetAlreadyExistsError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except InvalidDataSetError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
-        )
+        ) from exc
 
 
 @router.get("/{dataset_uuid}", response_model=DataSetRead)
@@ -92,7 +92,7 @@ def get_one_dataset(
     try:
         return get_dataset(db, dataset_uuid)
     except DataSetNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @router.patch("/{dataset_uuid}", response_model=DataSetRead)
@@ -110,4 +110,4 @@ def update_one_dataset(
             is_active=body.is_active,
         )
     except DataSetNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

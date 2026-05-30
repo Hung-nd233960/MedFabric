@@ -64,7 +64,7 @@ export default function AboutDialog({
     if (info) return;
     setLoadingAbout(true);
     aboutApi.get().then((res) => setInfo(res.data)).catch(() => setInfo({})).finally(() => setLoadingAbout(false));
-  }, [open]);
+  }, [open, info]);
 
   useEffect(() => {
     if (!devInfo?.startup_time) return;

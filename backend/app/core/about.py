@@ -10,7 +10,7 @@ from typing import TypedDict
 logger = logging.getLogger(__name__)
 
 _ABOUT_PATH = Path(__file__).parent.parent.parent / "about.toml"
-_startup_time: datetime | None = None
+_STARTUP_TIME: datetime | None = None
 
 
 class AboutInfo(TypedDict, total=False):
@@ -24,12 +24,12 @@ class AboutInfo(TypedDict, total=False):
 
 
 def set_startup_time() -> None:
-    global _startup_time
-    _startup_time = datetime.now(timezone.utc)
+    global _STARTUP_TIME  # pylint: disable=global-statement
+    _STARTUP_TIME = datetime.now(timezone.utc)
 
 
 def get_startup_time() -> datetime | None:
-    return _startup_time
+    return _STARTUP_TIME
 
 
 @lru_cache(maxsize=1)

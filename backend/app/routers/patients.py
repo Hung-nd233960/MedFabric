@@ -48,7 +48,7 @@ def create_new_patient(
             gender=body.gender,
         )
     except PatientAlreadyExistsError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
 @router.get("/{patient_uuid}", response_model=PatientRead)
@@ -60,7 +60,7 @@ def get_one_patient(
     try:
         return get_patient(db, patient_uuid)
     except PatientNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @router.patch("/{patient_uuid}", response_model=PatientRead)
@@ -79,4 +79,4 @@ def update_one_patient(
             gender=body.gender,
         )
     except PatientNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

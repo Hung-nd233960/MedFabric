@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.core.about import get_about
-from app.core.config import get_settings
 from app.deps import get_current_doctor
 from app.db.models import Doctors
 
@@ -37,7 +36,6 @@ def submit_bug_report(
     body: BugReportRequest,
     doctor: Doctors = Depends(get_current_doctor),
 ) -> None:
-    settings = get_settings()
     about = get_about()
 
     entry = {

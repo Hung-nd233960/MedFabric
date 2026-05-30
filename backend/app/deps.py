@@ -47,10 +47,10 @@ def get_current_doctor(
     if sid:
         try:
             login_session = get_login_session(db, uuid.UUID(sid))
-        except ValueError:
+        except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Malformed session ID"
-            )
+            ) from exc
         if not login_session or not login_session.is_active:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -60,11 +60,11 @@ def get_current_doctor(
 
     try:
         doctor_uuid = uuid.UUID(claims["sub"])
-    except ValueError:
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Malformed token subject",
-        )
+        ) from exc
     doctor = get_doctor_by_uuid(db, doctor_uuid)
     if not doctor:
         raise HTTPException(

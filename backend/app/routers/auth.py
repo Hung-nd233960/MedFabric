@@ -90,8 +90,8 @@ def _build_token_response(
             "sid": str(session.session_uuid),
         },
     )
-    refresh = create_refresh_token(str(doctor.uuid))
-    _set_refresh_cookie(response, refresh)
+    refresh_token = create_refresh_token(str(doctor.uuid))
+    _set_refresh_cookie(response, refresh_token)
     return TokenResponse(
         access_token=access,
         must_change_password=doctor.must_change_password,
@@ -129,7 +129,7 @@ def register(
             registration_source="self_registered",
         )
     except DuplicateEntryError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     return _build_token_response(doctor, response, db)
 
 
@@ -143,13 +143,13 @@ def login(
 ):
     try:
         doctor = authenticate_doctor(db, body.username, body.password)
-    except (UserNotFoundError, InvalidCredentialsError):
+    except (UserNotFoundError, InvalidCredentialsError) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
-        )
+        ) from exc
     except InactiveAccountError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
     return _build_token_response(doctor, response, db)
 
 
@@ -181,7 +181,7 @@ def logout(
     request: Request,
     response: Response,
     db: Session = Depends(get_db),
-    doctor=Depends(get_current_doctor),
+    _doctor=Depends(get_current_doctor),
 ):
     # Deactivate the specific login session bound to this access token
     auth_header = request.headers.get("Authorization", "")

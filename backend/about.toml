@@ -1,6 +1,6 @@
 [about]
 name = "MedFabric"
-version = "3.2.0"
+version = "3.2.1"
 description = "ASPECTS annotation platform for ischemic stroke imaging research."
 creator = "Nguyễn Đức Hùng"
 institution = "iBME Lab, Hanoi University of Science and Technology, dataset provided by E Hospital"

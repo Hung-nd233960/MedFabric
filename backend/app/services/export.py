@@ -65,7 +65,7 @@ ORDER BY ds.name, p.patient_id, ims.image_set_name, d.username, img.slice_index
 
 def export_annotations(
     db: Session,
-    format: str = "xlsx",
+    file_format: str = "xlsx",
     dataset_uuid: Optional[uuid.UUID] = None,
 ) -> bytes:
     result = db.execute(
@@ -76,7 +76,7 @@ def export_annotations(
     df = pd.DataFrame([dict(r) for r in rows])
 
     buf = io.BytesIO()
-    if format == "csv":
+    if file_format == "csv":
         df.to_csv(buf, index=False)
     else:
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:

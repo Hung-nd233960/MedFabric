@@ -139,9 +139,9 @@ def register_new_image_set(
     except InvalidImageSetPathError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
-        )
+        ) from exc
     except ImageSetAlreadyExistsError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
 @router.get("/{image_set_uuid}", response_model=ImageSetRead)
@@ -153,7 +153,7 @@ def get_one_image_set(
     try:
         img_set = get_image_set(db, image_set_uuid)
     except ImageSetNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     patient = (
         db.query(Patient).filter(Patient.patient_uuid == img_set.patient_uuid).first()
     )
@@ -186,4 +186,4 @@ def update_one_image_set(
             is_active=body.is_active,
         )
     except ImageSetNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

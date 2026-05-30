@@ -54,7 +54,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 def list_all_doctors(
     include_inactive: bool = False,
     db: Session = Depends(get_db),
-    admin: Doctors = Depends(get_current_admin),
+    _admin: Doctors = Depends(get_current_admin),
 ):
     return list_doctors(db, include_inactive=include_inactive)
 
@@ -79,7 +79,7 @@ def create_doctor(
             registration_source="admin_created",
         )
     except DuplicateEntryError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     audit_log(
         db,
         admin.uuid,
@@ -149,7 +149,10 @@ def update_doctor(
                 if has_submissions:
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
-                        detail="Cannot remove test flag: this account has submitted annotations. Test data cannot be retroactively counted toward global progress.",
+                        detail=(
+                            "Cannot remove test flag: this account has submitted annotations."
+                            " Test data cannot be retroactively counted toward global progress."
+                        ),
                     )
             doc.is_test = body.is_test
             db.commit()
@@ -163,7 +166,7 @@ def update_doctor(
                 str(doctor_uuid),
             )
     except UserNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     if doctor is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -252,7 +255,7 @@ def revoke_doctor_assignment(
     try:
         revoke_assignment(db, assignment_id)
     except AssignmentNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     audit_log(
         db,
         admin.uuid,
@@ -270,7 +273,7 @@ def revoke_doctor_assignment(
 @router.get("/drafts", response_model=List[DraftItem])
 def list_all_drafts(
     db: Session = Depends(get_db),
-    admin: Doctors = Depends(get_current_admin),
+    _admin: Doctors = Depends(get_current_admin),
 ):
     """List all active drafts across all doctors."""
     from sqlalchemy import or_
@@ -291,11 +294,9 @@ def list_all_drafts(
         .all()
     )
 
-    from sqlalchemy import func as _func
-
     index_rows = db.query(
         ImageSet.uuid,
-        _func.row_number()
+        func.row_number()
         .over(partition_by=ImageSet.dataset_uuid, order_by=ImageSet.uuid)
         .label("idx"),
     ).subquery()
@@ -381,8 +382,6 @@ def list_submissions(
     _=Depends(get_current_admin),
 ):
     """List all submitted annotation sessions with doctor info."""
-    from sqlalchemy import func as _func
-
     q = (
         db.query(AnnotationSession, ImageSet, Doctors)
         .join(ImageSet, AnnotationSession.image_set_uuid == ImageSet.uuid)
@@ -395,7 +394,7 @@ def list_submissions(
 
     index_rows = db.query(
         ImageSet.uuid,
-        _func.row_number()
+        func.row_number()
         .over(partition_by=ImageSet.dataset_uuid, order_by=ImageSet.uuid)
         .label("idx"),
     ).subquery()
@@ -447,7 +446,7 @@ def get_submission_by_image_set_admin(
             status_code=status.HTTP_404_NOT_FOUND, detail="Evaluation data missing"
         )
 
-    _SCORE_FIELDS = [
+    score_fields = [
         f"{z}_{side}_score"
         for z in ["c", "ic", "l", "i", "m1", "m2", "m3", "m4", "m5", "m6"]
         for side in ["left", "right"]
@@ -463,7 +462,7 @@ def get_submission_by_image_set_admin(
                 "image_uuid": str(e.image_uuid),
                 "region": e.region.value,
                 "notes": e.notes,
-                **{f: getattr(e, f).value for f in _SCORE_FIELDS},
+                **{f: getattr(e, f).value for f in score_fields},
             }
             for e in img_evals
         ],
