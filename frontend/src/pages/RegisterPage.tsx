@@ -29,7 +29,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       const res = await authApi.register(username, password, fullName, email || undefined, inviteCode);
-      setAuth(res.data.access_token, res.data.must_change_password, res.data.must_set_name);
+      setAuth(res.data.access_token, res.data.must_change_password, res.data.must_set_name, res.data.preferences);
       navigate("/");
     } catch (err: unknown) {
       const msg =

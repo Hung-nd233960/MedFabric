@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { useAuthStore } from "@/store/authStore";
 import { useAppearanceStore } from "@/store/appearanceStore";
+import { preferencesApi } from "@/lib/api";
 import MobileGuard from "@/components/MobileGuard";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import AppLayout from "@/components/layout/AppLayout";
@@ -19,6 +21,7 @@ import AssignmentsPage from "@/pages/admin/AssignmentsPage";
 import ExportPage from "@/pages/admin/ExportPage";
 import SubmissionsPage from "@/pages/admin/SubmissionsPage";
 import ChangePasswordPage from "@/pages/ChangePasswordPage";
+import SettingsPage from "@/pages/SettingsPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.accessToken);
@@ -36,6 +39,15 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const dark = useAppearanceStore((s) => s.dark);
+
+  // On reload, the token is already persisted but preferences haven't been hydrated yet.
+  // Fetch them once so the stored settings take effect immediately.
+  useEffect(() => {
+    if (!useAuthStore.getState().accessToken) return;
+    preferencesApi.get()
+      .then((res) => useAppearanceStore.getState().hydrate(res.data))
+      .catch(() => {});
+  }, []);
   return (
     <MobileGuard>
       <TooltipProvider delayDuration={300}>
@@ -53,6 +65,7 @@ export default function App() {
           }
         >
           <Route path="/" element={<DashboardPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="/change-password" element={<ChangePasswordPage />} />
           <Route path="/label" element={<LabelPage />} />
         </Route>

@@ -25,6 +25,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -180,6 +181,9 @@ class Doctors(Base):
     )
     last_seen: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True, default=None,
+    )
+    preferences: Mapped[Optional[dict]] = mapped_column(
+        JSON, nullable=True, default=None,
     )
 
     login_sessions: Mapped[List["LoginSession"]] = relationship(

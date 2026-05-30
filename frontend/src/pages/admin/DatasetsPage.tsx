@@ -98,7 +98,7 @@ export default function DatasetsPage() {
                     </div>
                   )}
                 </td>
-                <td className="px-4 py-3 text-muted-foreground text-xs">{new Date(d.created_at).toLocaleDateString()}</td>
+                <td className="px-4 py-3 text-muted-foreground text-xs">{new Date(d.created_at).toLocaleDateString(undefined, { timeZone: "Asia/Bangkok" })}</td>
                 <td className="px-4 py-3 text-right">
                   <Button variant="ghost" size="sm" onClick={() => toggleActive(d)}>
                     {d.is_active ? "Deactivate" : "Reactivate"}

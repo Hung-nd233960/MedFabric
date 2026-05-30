@@ -18,7 +18,7 @@ from app.core.security import (
     verify_refresh_token,
 )
 from app.db.models import Doctors
-from app.db.schemas import ChangePasswordRequest, LoginRequest, RegisterRequest, SetupAccountRequest, TokenResponse
+from app.db.schemas import ChangePasswordRequest, DoctorMeResponse, LoginRequest, RegisterRequest, SetupAccountRequest, TokenResponse, UserPreferences
 from app.deps import get_current_doctor, get_refresh_token_from_cookie
 from app.services.credentials import (
     authenticate_doctor,
@@ -53,6 +53,19 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
     )
 
 
+def _doctor_preferences(doctor: Doctors) -> UserPreferences:
+    """Return the doctor's saved preferences, falling back to defaults."""
+    raw = doctor.preferences or {}
+    defaults = UserPreferences()
+    return UserPreferences(
+        dark=raw.get("dark", defaults.dark),
+        tooltip_mode=raw.get("tooltip_mode", defaults.tooltip_mode),
+        show_kbd_hints=raw.get("show_kbd_hints", defaults.show_kbd_hints),
+        dashboard_hint_open=raw.get("dashboard_hint_open", defaults.dashboard_hint_open),
+        nav_mode=raw.get("nav_mode", defaults.nav_mode),
+    )
+
+
 def _build_token_response(doctor: Doctors, response: Response, db: Session) -> TokenResponse:
     """Issue a new access+refresh token pair and record the login session."""
     session = create_login_session(db, doctor.uuid)
@@ -71,6 +84,7 @@ def _build_token_response(doctor: Doctors, response: Response, db: Session) -> T
         access_token=access,
         must_change_password=doctor.must_change_password,
         must_set_name=doctor.must_set_name,
+        preferences=_doctor_preferences(doctor),
     )
 
 
@@ -189,4 +203,35 @@ def change_password_endpoint(
 def heartbeat(db: Session = Depends(get_db), doctor: Doctors = Depends(get_current_doctor)):
     """Update last_seen timestamp for the authenticated doctor."""
     doctor.last_seen = datetime.now(timezone.utc)
+    db.commit()
+
+
+@router.get("/me", response_model=DoctorMeResponse)
+def get_me(doctor: Doctors = Depends(get_current_doctor)) -> DoctorMeResponse:
+    """Return the authenticated doctor's profile."""
+    return DoctorMeResponse(
+        uuid=str(doctor.uuid),
+        username=doctor.username,
+        email=doctor.email,
+        full_name=doctor.full_name,
+        role=doctor.role.value,
+        is_test=doctor.is_test,
+        created_at=doctor.created_at.isoformat() if doctor.created_at else None,
+    )
+
+
+@router.get("/preferences", response_model=UserPreferences)
+def get_preferences(doctor: Doctors = Depends(get_current_doctor)) -> UserPreferences:
+    """Return the authenticated doctor's UI preferences."""
+    return _doctor_preferences(doctor)
+
+
+@router.put("/preferences", status_code=status.HTTP_204_NO_CONTENT)
+def save_preferences(
+    body: UserPreferences,
+    db: Session = Depends(get_db),
+    doctor: Doctors = Depends(get_current_doctor),
+) -> None:
+    """Persist the authenticated doctor's UI preferences."""
+    doctor.preferences = body.model_dump()
     db.commit()

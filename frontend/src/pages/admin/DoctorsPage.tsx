@@ -193,7 +193,7 @@ export default function DoctorsPage() {
                   <span className="flex items-center gap-2">
                     <span
                       className={`h-2 w-2 rounded-full shrink-0 ${isOnline(d.last_seen) ? "bg-green-400" : "bg-muted-foreground/30"}`}
-                      title={isOnline(d.last_seen) ? `Online (last seen ${new Date(d.last_seen!).toLocaleTimeString()})` : d.last_seen ? `Last seen ${new Date(d.last_seen).toLocaleString()}` : "Never seen"}
+                      title={isOnline(d.last_seen) ? `Online (last seen ${new Date(d.last_seen!).toLocaleTimeString(undefined, { timeZone: "Asia/Bangkok" })})` : d.last_seen ? `Last seen ${new Date(d.last_seen).toLocaleString(undefined, { timeZone: "Asia/Bangkok" })}` : "Never seen"}
                     />
                     {d.username}
                   </span>
@@ -236,7 +236,7 @@ export default function DoctorsPage() {
                   </Badge>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground text-xs">
-                  {new Date(d.created_at).toLocaleDateString()}
+                  {new Date(d.created_at).toLocaleDateString(undefined, { timeZone: "Asia/Bangkok" })}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-1">

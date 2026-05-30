@@ -24,7 +24,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await authApi.login(username, password);
-      setAuth(res.data.access_token, res.data.must_change_password, res.data.must_set_name);
+      setAuth(res.data.access_token, res.data.must_change_password, res.data.must_set_name, res.data.preferences);
       navigate("/");
     } catch (err: unknown) {
       const msg =

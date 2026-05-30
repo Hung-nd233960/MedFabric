@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { DoctorRole } from "@/lib/types";
+import { useAppearanceStore, type UserPreferences } from "@/store/appearanceStore";
 
 interface AuthState {
   accessToken: string | null;
@@ -11,8 +12,8 @@ interface AuthState {
   isTest: boolean;
   mustChangePassword: boolean;
   mustSetName: boolean;
-  setAuth: (token: string, mustChangePassword?: boolean, mustSetName?: boolean) => void;
-  setAccessToken: (token: string, mustChangePassword?: boolean, mustSetName?: boolean) => void;
+  setAuth: (token: string, mustChangePassword?: boolean, mustSetName?: boolean, preferences?: UserPreferences) => void;
+  setAccessToken: (token: string, mustChangePassword?: boolean, mustSetName?: boolean, preferences?: UserPreferences) => void;
   setMustChangePassword: (v: boolean) => void;
   setMustSetName: (v: boolean) => void;
   logout: () => void;
@@ -38,8 +39,9 @@ export const useAuthStore = create<AuthState>()(
       mustChangePassword: false,
       mustSetName: false,
 
-      setAuth: (token, mustChangePassword = false, mustSetName = false) => {
+      setAuth: (token, mustChangePassword = false, mustSetName = false, preferences) => {
         const payload = parseJwtPayload(token);
+        if (preferences) useAppearanceStore.getState().hydrate(preferences);
         set({
           accessToken: token,
           doctorUuid: payload.sub as string,
@@ -52,8 +54,9 @@ export const useAuthStore = create<AuthState>()(
         });
       },
 
-      setAccessToken: (token, mustChangePassword = false, mustSetName = false) => {
+      setAccessToken: (token, mustChangePassword = false, mustSetName = false, preferences) => {
         const payload = parseJwtPayload(token);
+        if (preferences) useAppearanceStore.getState().hydrate(preferences);
         set({
           accessToken: token,
           doctorUuid: payload.sub as string,

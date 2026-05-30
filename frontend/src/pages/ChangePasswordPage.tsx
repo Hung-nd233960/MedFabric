@@ -88,7 +88,7 @@ export default function ChangePasswordPage() {
               <Button type="submit" className="flex-1" disabled={saving}>
                 {saving ? "Saving…" : "Change Password"}
               </Button>
-              <Button type="button" variant="outline" className="flex-1" onClick={() => navigate("/")}>
+              <Button type="button" variant="outline" className="flex-1" onClick={() => navigate("/settings")}>
                 Cancel
               </Button>
             </div>

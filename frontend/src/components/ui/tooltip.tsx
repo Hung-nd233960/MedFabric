@@ -2,6 +2,7 @@ import * as React from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { cn } from "@/lib/utils";
 import { useAppearanceStore } from "@/store/appearanceStore";
+import { navLabel, type NavDir } from "@/lib/navKeys";
 
 const TooltipProvider = TooltipPrimitive.Provider;
 const Tooltip = TooltipPrimitive.Root;
@@ -78,4 +79,10 @@ function WithTooltip({
   );
 }
 
-export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, WithTooltip, TooltipKbd };
+/** Kbd chip that shows the correct key(s) for a navigation direction based on the current nav mode. */
+function NavKbd({ dir }: { dir: NavDir }) {
+  const { navMode } = useAppearanceStore();
+  return <TooltipKbd>{navLabel(dir, navMode)}</TooltipKbd>;
+}
+
+export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, WithTooltip, TooltipKbd, NavKbd };

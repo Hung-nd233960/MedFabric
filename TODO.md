@@ -64,7 +64,11 @@ Keyboard Shortcuts Box rework: (Done)
 - More admin features:
 + See who is online? (Done)
 - Now is the hard part:
-+ Keyboard hints for each button direction and such. because UI is messy, we have option to turn it off for decluttering
++ Keyboard hints for each button direction and such. because UI is messy, we have option to turn it off for decluttering (Done)
+
+- Fix: Continue: The Settings page now have Accounts category below the Keyboard, displaying their username, email, real name, when this account made, badge shows if they are a doctor or an admin, testing badge or official badge, and a button to change password. Cancel that would lead you to the Settings again, not Dashboard. (although if changed password, going to dashboard is fair game). Remove the Change Password in navbar
+
+- Fix: When labeling, going to Settings in the navbar prompt you to submit, it jumped to Dashboard instead. 
 ## Hard Features
 
 - Vietnamese Support

@@ -9,7 +9,7 @@ import { adminApi, datasetsApi } from "@/lib/api";
 import type { DataSet, SubmissionRecord } from "@/lib/types";
 
 function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" });
 }
 
 export default function SubmissionsPage() {

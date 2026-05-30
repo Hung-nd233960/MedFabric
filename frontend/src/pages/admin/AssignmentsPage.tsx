@@ -133,7 +133,7 @@ export default function AssignmentsPage() {
                   ) : ""}
                 </td>
                 <td className="px-4 py-3 text-muted-foreground text-xs">
-                  {d.assignment ? new Date(d.assignment.assigned_at).toLocaleDateString() : ""}
+                  {d.assignment ? new Date(d.assignment.assigned_at).toLocaleDateString(undefined, { timeZone: "Asia/Bangkok" }) : ""}
                 </td>
                 <td className="px-4 py-3 text-right">
                   {d.assignment && (

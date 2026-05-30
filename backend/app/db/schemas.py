@@ -64,11 +64,30 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class DoctorMeResponse(BaseModel):
+    uuid: str
+    username: str
+    email: Optional[str]
+    full_name: Optional[str]
+    role: str
+    is_test: bool
+    created_at: Optional[str]
+
+
+class UserPreferences(BaseModel):
+    dark: bool = True
+    tooltip_mode: str = "all"
+    show_kbd_hints: bool = True
+    dashboard_hint_open: bool = True
+    nav_mode: str = "arrow"
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     must_change_password: bool = False
     must_set_name: bool = False
+    preferences: UserPreferences = UserPreferences()
 
 
 class ChangePasswordRequest(BaseModel):

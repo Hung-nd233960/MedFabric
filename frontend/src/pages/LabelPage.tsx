@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { WithTooltip, TooltipKbd } from "@/components/ui/tooltip";
+import { WithTooltip, TooltipKbd, NavKbd } from "@/components/ui/tooltip";
 import SetLevelEvaluation from "@/components/label/SetLevelEvaluation";
 import SliceEvaluation from "@/components/label/SliceEvaluation";
 import ValidationStatus from "@/components/label/ValidationStatus";
@@ -26,6 +26,8 @@ import { useLabelQueueStore } from "@/store/labelQueueStore";
 import { useAuthStore } from "@/store/authStore";
 import { useNavGuardStore } from "@/store/navGuardStore";
 import { useUiStore } from "@/store/uiStore";
+import { useAppearanceStore } from "@/store/appearanceStore";
+import { nav } from "@/lib/navKeys";
 import type { ImageRecord, ImageSet, SliceEvalState, ImageSetUsability } from "@/lib/types";
 import { USABILITY_LABELS, BASAL_ZONES, CORONA_ZONES } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -87,6 +89,7 @@ export default function LabelPage() {
   } = useLabelStore();
 
   const { logout } = useAuthStore();
+  const { showKbdHints, navMode } = useAppearanceStore();
 
   const hasAnyAnnotation =
     usability !== null ||
@@ -101,6 +104,7 @@ export default function LabelPage() {
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialLoadDone = useRef(false);
   const draftToastShown = useRef(false);
+  const intentionalNav = useRef(false);
   const [navigating, setNavigating] = useState(false);
   const [imgLoading, setImgLoading] = useState(false);
   const [submitDialogMode, setSubmitDialogMode] = useState<"all-ready" | "partial-ready" | null>(null);
@@ -156,7 +160,7 @@ export default function LabelPage() {
 
   // Redirect if queue is empty (e.g. page refresh)
   useEffect(() => {
-    if (queue.length === 0) navigate("/", { replace: true });
+    if (queue.length === 0 && !intentionalNav.current) navigate("/", { replace: true });
   }, [queue.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load image set on mount / set change
@@ -261,7 +265,7 @@ export default function LabelPage() {
     setJumpSetInput(String(queuePos + 1));
   }, [queuePos]);
 
-  // Keyboard navigation — image (← →, no shift)
+  // Keyboard navigation — image (← → / h l, no shift)
   const jumpImgInputRef = useRef<HTMLInputElement>(null);
   const jumpSetInputRef = useRef<HTMLInputElement>(null);
   const inputFocusRef = useRef(false);
@@ -269,11 +273,12 @@ export default function LabelPage() {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (e.shiftKey) return; // Shift+← / Shift+→ are handled in the comprehensive handler
-      if (showManagementBoard) return; // MB takes over arrow keys
-      if (zoneModeActive) return; // Zone Mode takes over arrow keys
-      if (e.key === "ArrowLeft") setCurrentIndex((currentIndex - 1 + images.length) % images.length);
-      if (e.key === "ArrowRight") setCurrentIndex((currentIndex + 1) % images.length);
+      if (e.shiftKey) return; // Shift+←/→ / Shift+H/L handled in the comprehensive handler
+      if (showManagementBoard) return; // MB takes over nav keys
+      if (zoneModeActive) return; // Zone Mode takes over nav keys
+      const m = useAppearanceStore.getState().navMode;
+      if (nav.left(e, m))  setCurrentIndex((currentIndex - 1 + images.length) % images.length);
+      if (nav.right(e, m)) setCurrentIndex((currentIndex + 1) % images.length);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -338,7 +343,7 @@ export default function LabelPage() {
         st.lowQuality ||
         st.setNotes.trim() !== "" ||
         (Object.values(st.slices) as SliceEvalState[]).some(s => s.region !== "None" || s.notes.trim() !== "");
-      if (!dirty) { st.reset(); useLabelQueueStore.getState().clear(); navigate(dest); return; }
+      if (!dirty) { intentionalNav.current = true; st.reset(); useLabelQueueStore.getState().clear(); navigate(dest); return; }
       setPendingNavDest(dest);
       setConfirmExit(true);
     });
@@ -477,6 +482,7 @@ export default function LabelPage() {
       }
       const parts = [toSubmit.length && `${toSubmit.length} submitted`, toDraft.length && `${toDraft.length} drafted`].filter(Boolean);
       toast.success(parts.join(", ") || "Done.");
+      intentionalNav.current = true;
       reset();
       clearQueue();
       navigate("/");
@@ -507,6 +513,7 @@ export default function LabelPage() {
     if (deleteDraft && imageSetUuid) {
       try { await evaluationsApi.deleteDraftByImageSet(imageSetUuid); } catch { /* no draft is fine */ }
     }
+    intentionalNav.current = true;
     reset();
     clearQueue();
     if (dest === "__logout__") {
@@ -520,9 +527,9 @@ export default function LabelPage() {
   };
 
   const handleExit = () => {
-    if (isReadMode) { reset(); clearQueue(); navigate(isAdminRead ? "/admin/submissions" : "/"); return; }
-    if (isPreviewMode) { reset(); clearQueue(); navigate("/"); return; }
-    if (!hasAnyAnnotation) { reset(); clearQueue(); navigate("/"); return; }
+    if (isReadMode) { intentionalNav.current = true; reset(); clearQueue(); navigate(isAdminRead ? "/admin/submissions" : "/"); return; }
+    if (isPreviewMode) { intentionalNav.current = true; reset(); clearQueue(); navigate("/"); return; }
+    if (!hasAnyAnnotation) { intentionalNav.current = true; reset(); clearQueue(); navigate("/"); return; }
     setPendingNavDest("/");
     setConfirmExit(true);
   };
@@ -583,14 +590,14 @@ export default function LabelPage() {
         return;
       }
 
-      // Shift+← / Shift+→ — queue navigation (all modes)
-      if (shift && !ctrl && key === "ArrowLeft") {
+      // Shift+← / Shift+→ / Shift+H / Shift+L — queue navigation (all modes)
+      if (!ctrl && nav.shiftLeft(e, navMode)) {
         e.preventDefault();
         if (zoneModeActive) exitZoneMode();
         if (queuePos > 0) goToSet(queue[queuePos - 1]);
         return;
       }
-      if (shift && !ctrl && key === "ArrowRight") {
+      if (!ctrl && nav.shiftRight(e, navMode)) {
         e.preventDefault();
         if (zoneModeActive) exitZoneMode();
         if (queuePos < queue.length - 1) goToSet(queue[queuePos + 1]);
@@ -654,16 +661,16 @@ export default function LabelPage() {
           }
           return;
         }
-        if (key === "ArrowLeft" || key === "ArrowRight") {
+        if (nav.left(e, navMode) || nav.right(e, navMode)) {
           if (!isPreviewMode) {
             e.preventDefault();
             setMbActiveCol(c => c === "left" ? "right" : "left");
           }
           return;
         }
-        if (key === "ArrowUp" || key === "ArrowDown") {
+        if (nav.up(e, navMode) || nav.down(e, navMode)) {
           e.preventDefault();
-          const dir = key === "ArrowUp" ? -1 : 1;
+          const dir = nav.up(e, navMode) ? -1 : 1;
           if (mbActiveCol === "left") {
             const cur = selectedBoardSetUuid ? queue.indexOf(selectedBoardSetUuid) : -1;
             const next = cur < 0
@@ -912,31 +919,39 @@ export default function LabelPage() {
             return;
           }
 
-          // Arrow navigation — behaviour depends on scope
+          // Directional navigation — arrow keys and/or hjkl depending on navMode
           if (!ctrl) {
-            if (key === "ArrowUp") {
+            if (nav.up(e, navMode)) {
               e.preventDefault();
-              if (zoneModeScope === "cell" || zoneModeScope === "row") {
-                if (!shift) setZoneModeCursor(c => c && c.row > 0 ? { ...c, row: c.row - 1 } : c);
-                else setZoneModeCursor(c => c ? { ...c, row: 0 } : c);
-              }
+              if (zoneModeScope === "cell" || zoneModeScope === "row")
+                setZoneModeCursor(c => c && c.row > 0 ? { ...c, row: c.row - 1 } : c);
               return;
             }
-            if (key === "ArrowDown") {
+            if (nav.shiftUp(e, navMode)) {
               e.preventDefault();
-              if (zoneModeScope === "cell" || zoneModeScope === "row") {
-                if (!shift) setZoneModeCursor(c => c && c.row < zmZones.length - 1 ? { ...c, row: c.row + 1 } : c);
-                else setZoneModeCursor(c => c ? { ...c, row: zmZones.length - 1 } : c);
-              }
+              if (zoneModeScope === "cell" || zoneModeScope === "row")
+                setZoneModeCursor(c => c ? { ...c, row: 0 } : c);
               return;
             }
-            if (key === "ArrowLeft") {
+            if (nav.down(e, navMode)) {
+              e.preventDefault();
+              if (zoneModeScope === "cell" || zoneModeScope === "row")
+                setZoneModeCursor(c => c && c.row < zmZones.length - 1 ? { ...c, row: c.row + 1 } : c);
+              return;
+            }
+            if (nav.shiftDown(e, navMode)) {
+              e.preventDefault();
+              if (zoneModeScope === "cell" || zoneModeScope === "row")
+                setZoneModeCursor(c => c ? { ...c, row: zmZones.length - 1 } : c);
+              return;
+            }
+            if (nav.left(e, navMode)) {
               e.preventDefault();
               if (zoneModeScope === "cell" || zoneModeScope === "col")
                 setZoneModeCursor(c => c ? { ...c, col: "left" } : c);
               return;
             }
-            if (key === "ArrowRight") {
+            if (nav.right(e, navMode)) {
               e.preventDefault();
               if (zoneModeScope === "cell" || zoneModeScope === "col")
                 setZoneModeCursor(c => c ? { ...c, col: "right" } : c);
@@ -1107,7 +1122,7 @@ export default function LabelPage() {
           >
             {wideMode ? <ChevronLeft className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
             <span className="text-xs font-medium">{wideMode ? "Collapse" : "Wide Mode"}</span>
-            <kbd className="font-mono border border-white/30 bg-white/10 px-1 py-0.5 rounded text-[10px] leading-none">P</kbd>
+            {showKbdHints && <kbd className="font-mono border border-white/30 bg-white/10 px-1 py-0.5 rounded text-xs leading-none">P</kbd>}
           </button>
         )}
       </div>
@@ -1132,7 +1147,7 @@ export default function LabelPage() {
                   {tab === "annotation" ? "Image Annotation" : "Image Set Evaluation"}
                 </button>
               ))}
-              <kbd className="ml-auto font-mono border border-border bg-muted px-1.5 py-0.5 rounded text-[10px] leading-none text-muted-foreground shrink-0 mr-2">Shift+P</kbd>
+              {showKbdHints && <kbd className="ml-auto font-mono border border-primary/50 bg-background text-primary px-1.5 py-0.5 rounded text-xs leading-none shrink-0 mr-2">Shift+P</kbd>}
             </div>
             {/* Active tab content */}
             {wideModeTab === "annotation" ? (
@@ -1148,7 +1163,7 @@ export default function LabelPage() {
                       <p className="text-base text-muted-foreground">Image 1 of 1</p>
                     ) : (
                       <div className="flex items-end gap-2">
-                        <WithTooltip content={<span className="flex items-center gap-2"><span>Previous image</span><TooltipKbd>←</TooltipKbd></span>} side="top">
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Previous image</span><NavKbd dir="left" /></span>} side="top">
                           <Button
                             variant="outline" size="icon" className="h-8 w-8 shrink-0"
                             onClick={() => {
@@ -1176,7 +1191,7 @@ export default function LabelPage() {
                           />
                         </WithTooltip>
                         <span className="text-base text-muted-foreground shrink-0">of {images.length}</span>
-                        <WithTooltip content={<span className="flex items-center gap-2"><span>Next image</span><TooltipKbd>→</TooltipKbd></span>} side="top">
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Next image</span><NavKbd dir="right" /></span>} side="top">
                           <Button
                             variant="outline" size="icon" className="h-8 w-8 shrink-0"
                             onClick={() => {
@@ -1189,7 +1204,7 @@ export default function LabelPage() {
                           </Button>
                         </WithTooltip>
                         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                          <span className="text-[10px] text-muted-foreground leading-none">Jump to Image</span>
+                          <span className="text-xs text-muted-foreground leading-none">Jump to Image</span>
                           <input
                             type="range"
                             min={1}
@@ -1296,7 +1311,7 @@ export default function LabelPage() {
                       </p>
                       {queue.length > 1 && (
                         <div className="flex items-center gap-2">
-                          <WithTooltip content={<span className="flex items-center gap-2"><span>Previous image set</span><TooltipKbd>Shift+←</TooltipKbd></span>} side="top">
+                          <WithTooltip content={<span className="flex items-center gap-2"><span>Previous image set</span><NavKbd dir="shiftLeft" /></span>} side="top">
                             <Button
                               variant="outline" size="icon" className="h-8 w-8 shrink-0"
                               disabled={navigating}
@@ -1321,7 +1336,7 @@ export default function LabelPage() {
                             />
                           </WithTooltip>
                           <span className="text-sm text-muted-foreground shrink-0">of {queue.length}</span>
-                          <WithTooltip content={<span className="flex items-center gap-2"><span>Next image set</span><TooltipKbd>Shift+→</TooltipKbd></span>} side="top">
+                          <WithTooltip content={<span className="flex items-center gap-2"><span>Next image set</span><NavKbd dir="shiftRight" /></span>} side="top">
                             <Button
                               variant="outline" size="icon" className="h-8 w-8 shrink-0"
                               disabled={navigating}
@@ -1375,7 +1390,7 @@ export default function LabelPage() {
                             Annotation Info
                           </button>
                         )}
-                        <kbd className="ml-auto font-mono border border-border bg-muted px-1.5 py-0.5 rounded text-[10px] leading-none text-muted-foreground shrink-0">Shift+Tab</kbd>
+                        {showKbdHints && <kbd className="ml-auto font-mono border border-primary/50 bg-background text-primary px-1.5 py-0.5 rounded text-xs leading-none shrink-0">Shift+Tab</kbd>}
                       </div>
 
                       {/* ── Set Information ── */}
@@ -1460,7 +1475,7 @@ export default function LabelPage() {
                             <span className="text-muted-foreground w-20 shrink-0">Time</span>
                             <span className="text-sm">
                               {annotationMeta?.timestamp
-                                ? new Date(annotationMeta.timestamp).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+                                ? new Date(annotationMeta.timestamp).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" })
                                 : "—"}
                             </span>
                           </div>
@@ -1597,7 +1612,7 @@ export default function LabelPage() {
                       <p className="text-base text-muted-foreground">Image 1 of 1</p>
                     ) : (
                       <div className="flex items-end gap-2">
-                        <WithTooltip content={<span className="flex items-center gap-2"><span>Previous image</span><TooltipKbd>←</TooltipKbd></span>} side="top">
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Previous image</span><NavKbd dir="left" /></span>} side="top">
                           <Button
                             variant="outline" size="icon" className="h-8 w-8 shrink-0"
                             onClick={() => {
@@ -1625,7 +1640,7 @@ export default function LabelPage() {
                           />
                         </WithTooltip>
                         <span className="text-base text-muted-foreground shrink-0">of {images.length}</span>
-                        <WithTooltip content={<span className="flex items-center gap-2"><span>Next image</span><TooltipKbd>→</TooltipKbd></span>} side="top">
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Next image</span><NavKbd dir="right" /></span>} side="top">
                           <Button
                             variant="outline" size="icon" className="h-8 w-8 shrink-0"
                             onClick={() => {
@@ -1638,7 +1653,7 @@ export default function LabelPage() {
                           </Button>
                         </WithTooltip>
                         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                          <span className="text-[10px] text-muted-foreground leading-none">Jump to Image</span>
+                          <span className="text-xs text-muted-foreground leading-none">Jump to Image</span>
                           <input
                             type="range"
                             min={1}
@@ -1745,7 +1760,7 @@ export default function LabelPage() {
                     </p>
                     {queue.length > 1 && (
                       <div className="flex items-center gap-2">
-                        <WithTooltip content={<span className="flex items-center gap-2"><span>Previous image set</span><TooltipKbd>Shift+←</TooltipKbd></span>} side="top">
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Previous image set</span><NavKbd dir="shiftLeft" /></span>} side="top">
                           <Button
                             variant="outline" size="icon" className="h-8 w-8 shrink-0"
                             disabled={navigating}
@@ -1770,7 +1785,7 @@ export default function LabelPage() {
                           />
                         </WithTooltip>
                         <span className="text-sm text-muted-foreground shrink-0">of {queue.length}</span>
-                        <WithTooltip content={<span className="flex items-center gap-2"><span>Next image set</span><TooltipKbd>Shift+→</TooltipKbd></span>} side="top">
+                        <WithTooltip content={<span className="flex items-center gap-2"><span>Next image set</span><NavKbd dir="shiftRight" /></span>} side="top">
                           <Button
                             variant="outline" size="icon" className="h-8 w-8 shrink-0"
                             disabled={navigating}
@@ -1824,7 +1839,7 @@ export default function LabelPage() {
                           Annotation Info
                         </button>
                       )}
-                      <kbd className="ml-auto font-mono border border-border bg-muted px-1.5 py-0.5 rounded text-[10px] leading-none text-muted-foreground shrink-0">Shift+Tab</kbd>
+                      {showKbdHints && <kbd className="ml-auto font-mono border border-primary/50 bg-background text-primary px-1.5 py-0.5 rounded text-xs leading-none shrink-0">Shift+Tab</kbd>}
                     </div>
 
                     {/* ── Set Information ── */}
@@ -1909,7 +1924,7 @@ export default function LabelPage() {
                           <span className="text-muted-foreground w-20 shrink-0">Time</span>
                           <span className="text-sm">
                             {annotationMeta?.timestamp
-                              ? new Date(annotationMeta.timestamp).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+                              ? new Date(annotationMeta.timestamp).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" })
                               : "—"}
                           </span>
                         </div>
@@ -2046,7 +2061,7 @@ export default function LabelPage() {
                 <p className="text-lg font-semibold">{queue.length > 1 ? `Set ${queuePos + 1} of ${queue.length}` : "Set"}</p>
                 {queue.length > 1 && (
                   <div className="flex items-center gap-2">
-                    <WithTooltip content={<span className="flex items-center gap-2"><span>Previous image set</span><TooltipKbd>Shift+←</TooltipKbd></span>} side="top">
+                    <WithTooltip content={<span className="flex items-center gap-2"><span>Previous image set</span><NavKbd dir="shiftLeft" /></span>} side="top">
                       <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" disabled={navigating}
                         onClick={() => goToSet(queue[(queuePos - 1 + queue.length) % queue.length])}>
                         <ChevronLeft className="h-4 w-4" />
@@ -2064,7 +2079,7 @@ export default function LabelPage() {
                         min={1} max={queue.length} />
                     </WithTooltip>
                     <span className="text-sm text-muted-foreground shrink-0">of {queue.length}</span>
-                    <WithTooltip content={<span className="flex items-center gap-2"><span>Next image set</span><TooltipKbd>Shift+→</TooltipKbd></span>} side="top">
+                    <WithTooltip content={<span className="flex items-center gap-2"><span>Next image set</span><NavKbd dir="shiftRight" /></span>} side="top">
                       <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" disabled={navigating}
                         onClick={() => goToSet(queue[(queuePos + 1) % queue.length])}>
                         <ChevronRight className="h-4 w-4" />
@@ -2109,7 +2124,7 @@ export default function LabelPage() {
                   <p className="text-base text-muted-foreground">Image 1 of 1</p>
                 ) : (
                   <div className="flex items-end gap-2">
-                    <WithTooltip content={<span className="flex items-center gap-2"><span>Previous image</span><TooltipKbd>←</TooltipKbd></span>} side="top">
+                    <WithTooltip content={<span className="flex items-center gap-2"><span>Previous image</span><NavKbd dir="left" /></span>} side="top">
                       <Button variant="outline" size="icon" className="h-8 w-8 shrink-0"
                         onClick={() => { const n = (currentIndex - 1 + images.length) % images.length; setCurrentIndex(n); setJumpImgInput(String(n + 1)); }}>
                         <ChevronLeft className="h-4 w-4" />
@@ -2128,14 +2143,14 @@ export default function LabelPage() {
                         min={1} max={images.length} />
                     </WithTooltip>
                     <span className="text-base text-muted-foreground shrink-0">of {images.length}</span>
-                    <WithTooltip content={<span className="flex items-center gap-2"><span>Next image</span><TooltipKbd>→</TooltipKbd></span>} side="top">
+                    <WithTooltip content={<span className="flex items-center gap-2"><span>Next image</span><NavKbd dir="right" /></span>} side="top">
                       <Button variant="outline" size="icon" className="h-8 w-8 shrink-0"
                         onClick={() => { const n = (currentIndex + 1) % images.length; setCurrentIndex(n); setJumpImgInput(String(n + 1)); }}>
                         <ChevronRight className="h-4 w-4" />
                       </Button>
                     </WithTooltip>
                     <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                      <span className="text-[10px] text-muted-foreground leading-none">Jump to Image</span>
+                      <span className="text-xs text-muted-foreground leading-none">Jump to Image</span>
                       <input type="range" min={1} max={images.length} value={currentIndex + 1}
                         onChange={(e) => { const n = parseInt(e.target.value); setCurrentIndex(n - 1); setJumpImgInput(String(n)); }}
                         className="w-full cursor-pointer accent-primary" />
@@ -2233,12 +2248,12 @@ export default function LabelPage() {
           defaultFocusIndex={1}
           buttons={[
             {
-              label: <span>Yes, Delete <kbd className="ml-1.5 rounded border border-red-300/40 bg-red-500/20 px-1 py-0.5 font-mono text-xs">Y</kbd></span>,
+              label: <span>Yes, Delete {showKbdHints && <kbd className="ml-1.5 rounded border border-red-300/40 bg-red-500/20 px-1 py-0.5 font-mono text-xs">Y</kbd>}</span>,
               onClick: () => { setConfirmReset(false); handleResetAll(); },
               className: "bg-red-600 hover:bg-red-700 text-white",
             },
             {
-              label: <span>No, Cancel <kbd className="ml-1.5 rounded border border-blue-300/40 bg-blue-500/20 px-1 py-0.5 font-mono text-xs">N</kbd></span>,
+              label: <span>No, Cancel {showKbdHints && <kbd className="ml-1.5 rounded border border-blue-300/40 bg-blue-500/20 px-1 py-0.5 font-mono text-xs">N</kbd>}</span>,
               onClick: () => setConfirmReset(false),
               className: "bg-blue-600 hover:bg-blue-700 text-white",
             },

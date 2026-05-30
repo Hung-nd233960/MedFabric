@@ -6,6 +6,8 @@
  */
 import React from "react";
 import { useLabelStore } from "@/store/labelStore";
+import { useAppearanceStore } from "@/store/appearanceStore";
+import { navLabel } from "@/lib/navKeys";
 import type { RegionScore, Zone } from "@/lib/types";
 import { BASAL_ZONES, CORONA_ZONES, SCORE_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -74,7 +76,7 @@ function ScoreButton({
         <span className="flex items-center gap-1">
           {SCORE_LABELS[value]}
           <kbd className={cn(
-            "font-mono border px-1 py-0 rounded text-[10px] leading-none",
+            "font-mono border px-1 py-0 rounded text-xs leading-none",
             isVis
               ? "border-rose-400/50 bg-rose-400/15 text-rose-300"
               : "border-amber-400/50 bg-amber-400/15 text-amber-300"
@@ -100,6 +102,7 @@ interface ZoneRowProps {
 
 function ZoneRow({ zone, imageUuid, readOnly, rowIndex, zoneModeCell, zoneModeAnchor, zoneModeScope, onExitZoneMode }: ZoneRowProps) {
   const { slices, setScore } = useLabelStore();
+  const { showKbdHints } = useAppearanceStore();
   const slice = slices[imageUuid];
   const leftKey = `${zone}_left_score`;
   const rightKey = `${zone}_right_score`;
@@ -132,17 +135,19 @@ function ZoneRow({ zone, imageUuid, readOnly, rowIndex, zoneModeCell, zoneModeAn
   const selRight = inSel("right") && !hlRight;
 
   return (
-    <div className="grid grid-cols-[5%_4%_1fr_1fr] items-center py-1">
-      <div className="flex justify-center">
-        {zoneModeCell != null ? (
-          <kbd className={cn(
-            "font-mono border px-1 py-0.5 rounded text-[10px] leading-none",
-            inVis ? "border-rose-400/50 bg-rose-400/15 text-rose-300" : "border-amber-400/50 bg-amber-400/15 text-amber-300"
-          )}>{rowIndex + 1}</kbd>
-        ) : (
-          <span className="text-[10px] text-muted-foreground/30 font-mono">{rowIndex + 1}</span>
-        )}
-      </div>
+    <div className={cn("items-center py-1", showKbdHints ? "grid grid-cols-[5%_4%_1fr_1fr]" : "grid grid-cols-[4%_1fr_1fr]")}>
+      {showKbdHints && (
+        <div className="flex justify-center">
+          {zoneModeCell != null ? (
+            <kbd className={cn(
+              "font-mono border px-1 py-0.5 rounded text-xs leading-none",
+              inVis ? "border-rose-400/50 bg-rose-400/15 text-rose-300" : "border-amber-400/50 bg-amber-400/15 text-amber-300"
+            )}>{rowIndex + 1}</kbd>
+          ) : (
+            <span className="text-xs text-muted-foreground/30 font-mono">{rowIndex + 1}</span>
+          )}
+        </div>
+      )}
       <WithTooltip
         type="medical"
         content={ZONE_TOOLTIPS[zone] ?? zone}
@@ -170,7 +175,7 @@ function ZoneRow({ zone, imageUuid, readOnly, rowIndex, zoneModeCell, zoneModeAn
             current={leftScore}
             onClick={() => { setScore(imageUuid, leftKey, leftScore === s ? null : s); onExitZoneMode?.(); }}
             readOnly={readOnly}
-            showKbd={hlLeft || selLeft}
+            showKbd={(hlLeft || selLeft) && showKbdHints}
             isVis={inVis}
           />
         ))}
@@ -187,7 +192,7 @@ function ZoneRow({ zone, imageUuid, readOnly, rowIndex, zoneModeCell, zoneModeAn
             current={rightScore}
             onClick={() => { setScore(imageUuid, rightKey, rightScore === s ? null : s); onExitZoneMode?.(); }}
             readOnly={readOnly}
-            showKbd={hlRight || selRight}
+            showKbd={(hlRight || selRight) && showKbdHints}
             isVis={inVis}
           />
         ))}
@@ -207,6 +212,9 @@ interface ZoneScoreGridProps {
 
 export default function ZoneScoreGrid({ imageUuid, readOnly, zoneModeCell, zoneModeAnchor, zoneModeScope, onExitZoneMode }: ZoneScoreGridProps) {
   const { slices } = useLabelStore();
+  const { showKbdHints, navMode } = useAppearanceStore();
+
+  const ARROW_DIR = { "↑": "up", "↓": "down", "←": "left", "→": "right" } as const;
   const slice = slices[imageUuid];
   const region = slice?.region ?? "None";
 
@@ -238,15 +246,15 @@ export default function ZoneScoreGrid({ imageUuid, readOnly, zoneModeCell, zoneM
       </div>
 
       {/* Header — same grid-cols as ZoneRow so columns align */}
-      <div className="grid grid-cols-[5%_4%_1fr_1fr]">
-        <div /><div />
+      <div className={showKbdHints ? "grid grid-cols-[5%_4%_1fr_1fr]" : "grid grid-cols-[4%_1fr_1fr]"}>
+        {showKbdHints && <div />}<div />
         <div className={cn(
           "text-sm font-semibold pb-1 border-b border-border flex items-center",
           leftComplete ? "text-green-400 border-green-400/40" : "text-red-400 border-red-400/40"
         )}>
-          {zoneModeCell != null && (
+          {zoneModeCell != null && showKbdHints && (
             <kbd className={cn(
-              "font-mono border px-1 py-0.5 rounded text-[10px] leading-none shrink-0",
+              "font-mono border px-1 py-0.5 rounded text-xs leading-none shrink-0",
               isVisual ? "border-rose-400/40 bg-rose-400/10 text-rose-300/80" : "border-amber-400/40 bg-amber-400/10 text-amber-300/80"
             )}>&lt;</kbd>
           )}
@@ -257,9 +265,9 @@ export default function ZoneScoreGrid({ imageUuid, readOnly, zoneModeCell, zoneM
           rightComplete ? "text-green-400 border-green-400/40" : "text-red-400 border-red-400/40"
         )}>
           <span className="flex-1 text-center">Right</span>
-          {zoneModeCell != null && (
+          {zoneModeCell != null && showKbdHints && (
             <kbd className={cn(
-              "font-mono border px-1 py-0.5 rounded text-[10px] leading-none shrink-0",
+              "font-mono border px-1 py-0.5 rounded text-xs leading-none shrink-0",
               isVisual ? "border-rose-400/40 bg-rose-400/10 text-rose-300/80" : "border-amber-400/40 bg-amber-400/10 text-amber-300/80"
             )}>&gt;</kbd>
           )}
@@ -274,18 +282,18 @@ export default function ZoneScoreGrid({ imageUuid, readOnly, zoneModeCell, zoneM
         const scope = zoneModeScope ?? "cell";
         const AKbd = ({ children }: { children: React.ReactNode }) => (
           <kbd className={cn(
-            "font-mono border px-1.5 py-0.5 rounded text-[10px] leading-none",
+            "font-mono border px-1.5 py-0.5 rounded text-xs leading-none",
             isVisual ? "border-rose-400/50 bg-rose-400/15 text-rose-300" : "border-amber-400/50 bg-amber-400/15 text-amber-300"
           )}>{children}</kbd>
         );
         const ADim = ({ children }: { children: React.ReactNode }) => (
           <kbd className={cn(
-            "font-mono border px-1 py-0.5 rounded text-[10px] leading-none",
+            "font-mono border px-1 py-0.5 rounded text-xs leading-none",
             isVisual ? "border-rose-400/30 bg-rose-400/10 text-rose-300/70" : "border-amber-400/30 bg-amber-400/10 text-amber-300/70"
           )}>{children}</kbd>
         );
         const hint = ({ children }: { children: React.ReactNode }) => (
-          <span className={cn("flex items-center gap-1 text-[10px]", isVisual ? "text-rose-200/60" : "text-amber-200/60")}>{children}</span>
+          <span className={cn("flex items-center gap-1 text-xs", isVisual ? "text-rose-200/60" : "text-amber-200/60")}>{children}</span>
         );
 
         const scopeLabel = isVisual ? "Vis" : scope === "row" ? "Row" : scope === "col" ? "Col" : scope === "all" ? "All" : "Cell";
@@ -314,20 +322,20 @@ export default function ZoneScoreGrid({ imageUuid, readOnly, zoneModeCell, zoneM
                 {(["1","2","3","0"] as const).map((k, i) => (
                   <span key={k} className="flex items-center gap-1">
                     <AKbd>{k}</AKbd>
-                    <span className={cn("text-[10px]", isVisual ? "text-rose-200/70" : "text-amber-200/70")}>{["DMG","OK","NV","CLR"][i]}</span>
+                    <span className={cn("text-xs", isVisual ? "text-rose-200/70" : "text-amber-200/70")}>{["DMG","OK","NV","CLR"][i]}</span>
                   </span>
                 ))}
               </span>
             </div>
-            {/* Line 2 */}
+            {/* Lines 2–4: navigation hints, hidden when keyboard hints are off */}
+            {showKbdHints && (<>
             <div className="flex items-center justify-between gap-2">
               {hint({ children: navArrows.length > 0
-                ? <><span>Navigate</span>{navArrows.map(k => <ADim key={k}>{k}</ADim>)}</>
+                ? <><span>Navigate</span>{navArrows.map(k => <ADim key={k}>{navLabel(ARROW_DIR[k as keyof typeof ARROW_DIR], navMode)}</ADim>)}</>
                 : <span className={cn("italic", isVisual ? "text-rose-200/30" : "text-amber-200/30")}>no navigation</span>
               })}
               {hint({ children: <><ADim>Shift</ADim><span>+num or</span><ADim>&lt;</ADim><ADim>&gt;</ADim><span>to select</span></> })}
             </div>
-            {/* Line 3 */}
             <div className="flex items-center justify-between gap-2">
               {hint({ children: isVisual
                 ? <><ADim>V</ADim><span>/</span><ADim>Esc</ADim><span>exit Vis</span></>
@@ -340,27 +348,27 @@ export default function ZoneScoreGrid({ imageUuid, readOnly, zoneModeCell, zoneM
                 : <><ADim>Esc</ADim><span>Cell Mode</span></>
               })}
             </div>
-            {/* Line 4 — Ctrl+A select/unselect all, centered */}
             <div className="flex justify-center">
               {hint({ children: ctrlAIsUnselect
                 ? <><ADim>Ctrl+A</ADim><span>to unselect</span></>
                 : <><ADim>Ctrl+A</ADim><span>to select all</span></>
               })}
             </div>
+            </>)}
           </div>
         );
-      })() : (
+      })() : showKbdHints ? (
         <div className="border-t border-border/40 bg-muted/20 px-2 py-1 text-xs font-mono select-none flex items-center gap-1.5 rounded-b mt-1">
           <span className="text-muted-foreground/60">Press</span>
-          <kbd className="font-mono border border-border/60 bg-muted px-1 py-0.5 rounded text-[10px] leading-none">Z</kbd>
+          <kbd className="font-mono border border-amber-500/50 bg-background text-amber-400 px-1.5 py-0.5 rounded text-xs leading-none">Z</kbd>
           <span className="text-muted-foreground/60">for</span>
           <span className="text-amber-400/80 font-semibold">Zone Mode</span>
           <span className="text-muted-foreground/40 mx-0.5">·</span>
-          <kbd className="font-mono border border-border/60 bg-muted px-1 py-0.5 rounded text-[10px] leading-none">V</kbd>
+          <kbd className="font-mono border border-rose-500/50 bg-background text-rose-400 px-1.5 py-0.5 rounded text-xs leading-none">V</kbd>
           <span className="text-muted-foreground/60">for</span>
           <span className="text-rose-400/80 font-semibold">Vis</span>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

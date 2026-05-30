@@ -5,6 +5,7 @@
  *   - Optional notes
  */
 import { useEffect, useRef, useState } from "react";
+import { useAppearanceStore } from "@/store/appearanceStore";
 import type { RefObject, ReactNode } from "react";
 import { useLabelStore } from "@/store/labelStore";
 import type { ImageSetUsability } from "@/lib/types";
@@ -27,6 +28,13 @@ const USABILITY_COLORS: Record<ImageSetUsability, string> = {
   HemorrhagicPresent:  "border-red-500 bg-red-500/10 text-red-400",
   Anomaly:             "border-yellow-500 bg-yellow-500/10 text-yellow-400",
   Irrelevant:          "border-purple-500 bg-purple-500/10 text-purple-400",
+};
+
+const USABILITY_KBD_COLORS: Record<ImageSetUsability, string> = {
+  IschemicAssessable: "bg-background text-blue-400 border-blue-500/50",
+  HemorrhagicPresent: "bg-background text-red-400 border-red-500/50",
+  Anomaly:            "bg-background text-yellow-400 border-yellow-500/50",
+  Irrelevant:         "bg-background text-purple-400 border-purple-500/50",
 };
 
 const USABILITY_KEYS: Record<ImageSetUsability, string> = {
@@ -66,6 +74,7 @@ export default function SetLevelEvaluation({
   const notesTextareaRef = externalNotesRef ?? internalNotesRef;
   const lqInteractive = !readOnly && usability === "IschemicAssessable";
   const [notesFocused, setNotesFocused] = useState(false);
+  const { showKbdHints } = useAppearanceStore();
 
   // Auto-focus notes textarea when Anomaly/Irrelevant is selected (notes are required)
   useEffect(() => {
@@ -82,10 +91,12 @@ export default function SetLevelEvaluation({
           {!readOnly && (
             zoneMode
               ? <span className="text-xs text-muted-foreground shrink-0">Disable Zone Mode to change usability</span>
-              : <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                  <kbd className="font-mono border border-border bg-muted px-1 py-0.5 rounded text-[10px] leading-none">Shift+0</kbd>
+              : showKbdHints
+              ? <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                  <kbd className="font-mono border border-primary/50 bg-background text-primary px-1.5 py-0.5 rounded text-xs leading-none">Shift+0</kbd>
                   <span>to unselect</span>
                 </span>
+              : null
           )}
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -111,8 +122,8 @@ export default function SetLevelEvaluation({
               >
                 <span className="flex items-center justify-between gap-2">
                   {USABILITY_LABELS[u]}
-                  {!readOnly && !zoneMode && (
-                    <kbd className="font-mono border border-border bg-background/40 px-1 py-0.5 rounded text-[10px] leading-none text-muted-foreground shrink-0">
+                  {!readOnly && !zoneMode && showKbdHints && (
+                    <kbd className={`font-mono border px-1.5 py-0.5 rounded text-xs leading-none shrink-0 ${USABILITY_KBD_COLORS[u]}`}>
                       {USABILITY_KEYS[u]}
                     </kbd>
                   )}
@@ -125,7 +136,7 @@ export default function SetLevelEvaluation({
 
       {/* Low Quality — tickbox, only active for IschemicAssessable */}
       <WithTooltip
-        type="functional"
+        type="medical"
         content={<span className="flex items-center gap-2"><span>Poor image quality — artifacts or technical issues reducing diagnostic confidence</span><TooltipKbd>Shift+Q</TooltipKbd></span>}
         side="top"
       >
@@ -143,8 +154,8 @@ export default function SetLevelEvaluation({
             Low Quality
           </Label>
           <div className="flex items-center gap-2">
-            {!readOnly && !zoneMode && (
-              <kbd className="font-mono border border-border bg-muted px-1.5 py-0.5 rounded text-[10px] leading-none text-muted-foreground shrink-0">Shift+Q</kbd>
+            {!readOnly && !zoneMode && showKbdHints && (
+              <kbd className="font-mono border border-orange-500/50 bg-background text-orange-400 px-1.5 py-0.5 rounded text-xs leading-none shrink-0">Shift+Q</kbd>
             )}
           <button
             type="button"
@@ -180,15 +191,15 @@ export default function SetLevelEvaluation({
               <Label className={cn("text-base", notesRequired ? "text-foreground font-medium" : "text-muted-foreground")}>
                 Set-level notes{notesRequired ? <span className="text-destructive ml-1">*</span> : " (optional)"}
               </Label>
-              {!readOnly && (
+              {!readOnly && showKbdHints && (
                 zoneMode
                   ? <span className="text-xs text-muted-foreground shrink-0">N goes to slice notes here</span>
                   : notesFocused
                   ? <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                      <kbd className="font-mono border border-border bg-muted px-1 py-0.5 rounded text-[10px] leading-none">Esc</kbd>
+                      <kbd className="font-mono border border-primary/50 bg-background text-primary px-1.5 py-0.5 rounded text-xs leading-none">Esc</kbd>
                       <span>when done</span>
                     </span>
-                  : <kbd className="font-mono border border-border bg-muted px-1.5 py-0.5 rounded text-[10px] leading-none text-muted-foreground shrink-0">N</kbd>
+                  : <kbd className="font-mono border border-primary/50 bg-background text-primary px-1.5 py-0.5 rounded text-xs leading-none shrink-0">N</kbd>
               )}
             </div>
             <Textarea

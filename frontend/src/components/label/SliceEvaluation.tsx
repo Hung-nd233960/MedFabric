@@ -3,6 +3,7 @@
  * Only rendered when ASPECTS scoring is enabled at set level.
  */
 import React, { useRef, useState } from "react";
+import { useAppearanceStore } from "@/store/appearanceStore";
 import type { RefObject } from "react";
 import { CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import type { Region } from "@/lib/types";
@@ -27,6 +28,12 @@ const REGION_COLORS: Record<Region, string> = {
   None: "border-muted-foreground/50 bg-muted/50 text-muted-foreground",
   BasalGanglia: "border-purple-500 bg-purple-500/10 text-purple-400",
   CoronaRadiata: "border-cyan-500 bg-cyan-500/10 text-cyan-400",
+};
+
+const REGION_KBD_COLORS: Record<Region, string> = {
+  None:          "bg-background text-zinc-400 border-zinc-500/50",
+  BasalGanglia:  "bg-background text-purple-400 border-purple-500/50",
+  CoronaRadiata: "bg-background text-cyan-400 border-cyan-500/50",
 };
 
 const REGION_KEYS: Record<Region, string> = {
@@ -56,6 +63,7 @@ export default function SliceEvaluation({ imageUuid, readOnly, zoneModeCell, zon
   const internalNotesRef = useRef<HTMLTextAreaElement>(null);
   const notesRef = sliceNotesRef ?? internalNotesRef;
   const [notesFocused, setNotesFocused] = useState(false);
+  const { showKbdHints } = useAppearanceStore();
   const inZoneMode = zoneModeCell != null;
   const slice = slices[imageUuid];
   const region = slice?.region ?? "None";
@@ -100,8 +108,8 @@ export default function SliceEvaluation({ imageUuid, readOnly, zoneModeCell, zon
               >
                 <span className="flex flex-col items-center gap-0.5">
                   {REGION_LABELS[r]}
-                  {!readOnly && (
-                    <kbd className="font-mono border border-current/30 rounded px-1 py-0.5 text-[10px] leading-none opacity-50">
+                  {!readOnly && showKbdHints && (
+                    <kbd className={`font-mono border rounded px-1.5 py-0.5 text-xs leading-none ${REGION_KBD_COLORS[r]}`}>
                       {REGION_KEYS[r]}
                     </kbd>
                   )}
@@ -117,13 +125,13 @@ export default function SliceEvaluation({ imageUuid, readOnly, zoneModeCell, zon
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
           <Label className="text-base text-muted-foreground">Slice notes (optional)</Label>
-          {!readOnly && (inZoneMode || region === "None") && (
+          {!readOnly && showKbdHints && (inZoneMode || region === "None") && (
             notesFocused
               ? <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                  <kbd className="font-mono border border-border bg-muted px-1 py-0.5 rounded text-[10px] leading-none">Esc</kbd>
+                  <kbd className="font-mono border border-primary/50 bg-background text-primary px-1.5 py-0.5 rounded text-xs leading-none">Esc</kbd>
                   <span>when done</span>
                 </span>
-              : <kbd className="font-mono border border-border bg-muted px-1.5 py-0.5 rounded text-[10px] leading-none text-muted-foreground shrink-0">
+              : <kbd className="font-mono border border-primary/50 bg-background text-primary px-1.5 py-0.5 rounded text-xs leading-none shrink-0">
                   {region === "None" ? "Shift+N" : "N"}
                 </kbd>
           )}

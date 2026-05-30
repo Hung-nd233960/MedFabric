@@ -1,5 +1,8 @@
 import axios from "axios";
 import { useAuthStore } from "@/store/authStore";
+import type { UserPreferences } from "@/store/appearanceStore";
+
+type AuthResponse = { access_token: string; must_change_password: boolean; must_set_name: boolean; preferences: UserPreferences };
 
 export const api = axios.create({
   baseURL: "/api",
@@ -22,15 +25,15 @@ api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config;
-    const isAuthEndpoint = original.url?.startsWith("/auth/");
-    if (error.response?.status === 401 && !original._retried && !isAuthEndpoint) {
+    const noRetry = original.url === "/auth/refresh" || original.url === "/auth/login" || original.url === "/auth/logout";
+    if (error.response?.status === 401 && !original._retried && !noRetry) {
       original._retried = true;
 
       if (!refreshing) {
         refreshing = api
-          .post<{ access_token: string; must_change_password: boolean; must_set_name: boolean }>("/auth/refresh")
+          .post<AuthResponse>("/auth/refresh")
           .then((r) => {
-            useAuthStore.getState().setAccessToken(r.data.access_token, r.data.must_change_password, r.data.must_set_name);
+            useAuthStore.getState().setAccessToken(r.data.access_token, r.data.must_change_password, r.data.must_set_name, r.data.preferences);
             return r.data.access_token;
           })
           .catch(() => {
@@ -55,15 +58,21 @@ api.interceptors.response.use(
 // Typed helpers
 export const authApi = {
   login: (username: string, password: string) =>
-    api.post<{ access_token: string; must_change_password: boolean; must_set_name: boolean }>("/auth/login", { username, password }),
+    api.post<AuthResponse>("/auth/login", { username, password }),
   register: (username: string, password: string, full_name: string, email?: string, invitation_code?: string) =>
-    api.post<{ access_token: string; must_change_password: boolean; must_set_name: boolean }>("/auth/register", { username, password, full_name, email, invitation_code }),
+    api.post<AuthResponse>("/auth/register", { username, password, full_name, email, invitation_code }),
   logout: () => api.post("/auth/logout"),
   changePassword: (data: { new_password: string; current_password?: string }) =>
     api.post("/auth/change-password", data),
   setupAccount: (data: { full_name?: string; new_password?: string }) =>
     api.post("/auth/setup-account", data),
   heartbeat: () => api.post("/auth/heartbeat"),
+  me: () => api.get<{ uuid: string; username: string; email: string | null; full_name: string | null; role: string; is_test: boolean; created_at: string | null }>("/auth/me"),
+};
+
+export const preferencesApi = {
+  get: () => api.get<UserPreferences>("/auth/preferences"),
+  save: (prefs: UserPreferences) => api.put("/auth/preferences", prefs),
 };
 
 export const dashboardApi = {

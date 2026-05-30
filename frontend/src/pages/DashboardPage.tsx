@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { PlayCircle, Trash2, Clock, CheckCircle2, FileEdit, Stethoscope, Globe, Layers, BookOpen, ScanEye, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle } from "lucide-react";
+import { PlayCircle, Trash2, Clock, CheckCircle2, FileEdit, Stethoscope, Globe, Layers, BookOpen, ScanEye, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, ChevronLeft, ChevronRight, Keyboard, Minus } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -15,6 +15,8 @@ import type { DashboardStats, DraftItem, HistoryEvent, ImageSetWithProgress } fr
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useUiStore } from "@/store/uiStore";
 import { useAuthStore } from "@/store/authStore";
+import { useAppearanceStore } from "@/store/appearanceStore";
+import { nav, navLabel } from "@/lib/navKeys";
 
 type Tab = "image-sets" | "drafts" | "history";
 type SortDir = "asc" | "desc";
@@ -91,7 +93,7 @@ function StatCard({
 
 function formatDateTime(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" });
 }
 
 const EVENT_VARIANTS: Record<string, "success" | "warning" | "destructive" | "outline"> = {
@@ -147,6 +149,7 @@ export default function DashboardPage() {
   const [sortHistCol, setSortHistCol] = useState<HistSortCol>("time");
   const [sortHistDir, setSortHistDir] = useState<SortDir>("desc");
   const { mode, setMode } = useLabelStore();
+  const { showKbdHints, dashboardHintOpen, setDashboardHintOpen, navMode } = useAppearanceStore();
   const [kbHighlight, setKbHighlight] = useState(-1);
   const [visualMode, setVisualMode] = useState(false);
   const [visualAnchor, setVisualAnchor] = useState(-1);
@@ -488,11 +491,11 @@ export default function DashboardPage() {
         return;
       }
 
-      // I / D / H — switch tabs directly
+      // 1 / 2 / 3 — switch tabs directly
       if (!shift && !ctrl) {
-        if (UP === "I") { setActiveTab("image-sets"); setKbHighlight(-1); setSelectedSets(new Set()); setSelectedDrafts(new Set()); return; }
-        if (UP === "D") { setActiveTab("drafts");     setKbHighlight(-1); setSelectedSets(new Set()); setSelectedDrafts(new Set()); return; }
-        if (UP === "H") { setActiveTab("history");    setKbHighlight(-1); setSelectedSets(new Set()); setSelectedDrafts(new Set()); return; }
+        if (key === "1") { setActiveTab("image-sets"); setKbHighlight(-1); setSelectedSets(new Set()); setSelectedDrafts(new Set()); return; }
+        if (key === "2") { setActiveTab("drafts");     setKbHighlight(-1); setSelectedSets(new Set()); setSelectedDrafts(new Set()); return; }
+        if (key === "3") { setActiveTab("history");    setKbHighlight(-1); setSelectedSets(new Set()); setSelectedDrafts(new Set()); return; }
       }
 
       // Drafts tab: Del (no shift) or Shift+D — open delete confirm
@@ -531,22 +534,22 @@ export default function DashboardPage() {
       }
 
       // Row navigation
-      if (key === "ArrowUp" && !shift && !ctrl) {
+      if (!ctrl && nav.up(e, navMode)) {
         e.preventDefault();
         setKbHighlight((h) => (sortedSets.length === 0 ? -1 : h <= 0 ? sortedSets.length - 1 : h - 1));
         return;
       }
-      if (key === "ArrowDown" && !shift && !ctrl) {
+      if (!ctrl && nav.down(e, navMode)) {
         e.preventDefault();
         setKbHighlight((h) => (sortedSets.length === 0 ? -1 : h >= sortedSets.length - 1 ? 0 : h + 1));
         return;
       }
-      if (shift && !ctrl && key === "ArrowUp") {
+      if (!ctrl && nav.shiftUp(e, navMode)) {
         e.preventDefault();
         if (sortedSets.length > 0) setKbHighlight(0);
         return;
       }
-      if (shift && !ctrl && key === "ArrowDown") {
+      if (!ctrl && nav.shiftDown(e, navMode)) {
         e.preventDefault();
         if (sortedSets.length > 0) setKbHighlight(sortedSets.length - 1);
         return;
@@ -686,9 +689,19 @@ export default function DashboardPage() {
 
             {/* Tab bar + mode toggle */}
             <div className="shrink-0 flex items-center justify-between gap-4 border-b border-border pb-0">
-              <div className="flex gap-1">
-                {(["image-sets", "drafts", "history"] as Tab[]).map((tab) => {
-                  const labels: Record<Tab, string> = { "image-sets": "Image Sets", drafts: `Drafts (${drafts.length})`, history: "History" };
+              <div className="flex items-center">
+                {showKbdHints && (
+                  <button
+                    type="button"
+                    onClick={() => { const idx = TABS.indexOf(activeTab); setActiveTab(TABS[(idx - 1 + TABS.length) % TABS.length]); setSelectedSets(new Set()); setSelectedDrafts(new Set()); }}
+                    className="flex items-center gap-1 px-2 py-2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    <kbd className="font-mono border border-primary/40 bg-primary text-black px-1.5 py-0.5 rounded text-xs leading-none">Shift+Tab</kbd>
+                  </button>
+                )}
+                {(["image-sets", "drafts", "history"] as Tab[]).map((tab, i) => {
+                  const labels: Record<Tab, string> = { "image-sets": "Image Sets", drafts: "Drafts", history: "History" };
                   return (
                     <button
                       key={tab}
@@ -700,10 +713,32 @@ export default function DashboardPage() {
                           : "border-transparent text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      {labels[tab]}
+                      <span className="flex items-center gap-1.5">
+                        {labels[tab]}
+                        {tab === "drafts" && (
+                          <span className={`rounded-full border px-1.5 py-0 text-xs font-semibold leading-5 tabular-nums transition-colors ${
+                            drafts.length > 0
+                              ? "border-amber-500/50 bg-amber-500/15 text-amber-400"
+                              : "border-muted-foreground/20 bg-muted/30 text-muted-foreground/50"
+                          }`}>
+                            {drafts.length}
+                          </span>
+                        )}
+                        {showKbdHints && <kbd className="font-mono border border-primary/40 bg-primary text-black px-1.5 py-0.5 rounded text-xs leading-none">{i + 1}</kbd>}
+                      </span>
                     </button>
                   );
                 })}
+                {showKbdHints && (
+                  <button
+                    type="button"
+                    onClick={() => { const idx = TABS.indexOf(activeTab); setActiveTab(TABS[(idx + 1) % TABS.length]); setSelectedSets(new Set()); setSelectedDrafts(new Set()); }}
+                    className="flex items-center gap-1 px-2 py-2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <kbd className="font-mono border border-primary/40 bg-primary text-black px-1.5 py-0.5 rounded text-xs leading-none">Tab</kbd>
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
               {(activeTab === "image-sets" || activeTab === "drafts") && (
                 <div className="flex items-center gap-1 rounded-lg border border-border p-0.5 mb-1">
@@ -715,7 +750,7 @@ export default function DashboardPage() {
                         mode === "annotate" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      <PlayCircle className="h-3.5 w-3.5" /> Annotate
+                      <PlayCircle className="h-3.5 w-3.5" /> Annotate {showKbdHints && <kbd className={`font-mono border rounded px-1.5 py-0.5 text-xs leading-none ${mode === "annotate" ? "bg-background text-primary border-primary/40" : "bg-primary text-primary-foreground border-primary/20"}`}>A</kbd>}
                     </button>
                   </WithTooltip>
                   <WithTooltip content="Review your submitted or saved annotations (read-only)" side="bottom">
@@ -726,7 +761,7 @@ export default function DashboardPage() {
                         mode === "read" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      <BookOpen className="h-3.5 w-3.5" /> Reader
+                      <BookOpen className="h-3.5 w-3.5" /> Reader {showKbdHints && <kbd className={`font-mono border rounded px-1.5 py-0.5 text-xs leading-none ${mode === "read" ? "bg-background text-primary border-primary/40" : "bg-primary text-primary-foreground border-primary/20"}`}>R</kbd>}
                     </button>
                   </WithTooltip>
                 </div>
@@ -754,18 +789,18 @@ export default function DashboardPage() {
                         </span>
                         {mode === "read" ? (
                           <Button size="sm" className="gap-1.5 shrink-0" onClick={handleReadSets}>
-                            <BookOpen className="h-4 w-4" /> Read
+                            <BookOpen className="h-4 w-4" /> Read {showKbdHints && <kbd className="font-mono border border-primary/40 bg-background text-primary rounded px-1.5 py-0.5 text-xs leading-none">Shift+R</kbd>}
                           </Button>
                         ) : (
                           <div className="flex gap-2">
                             <WithTooltip content="Browse images without starting an annotation session" side="top">
                               <Button size="sm" variant="outline" className="gap-1.5 shrink-0 border-orange-500/60 text-orange-400 hover:bg-orange-500/10" onClick={handlePreviewSets}>
-                                <ScanEye className="h-4 w-4" /> Preview
+                                <ScanEye className="h-4 w-4" /> Preview {showKbdHints && <kbd className="font-mono border border-amber-600/40 bg-amber-500 text-black rounded px-1.5 py-0.5 text-xs leading-none">Shift+P</kbd>}
                               </Button>
                             </WithTooltip>
                             <Button size="sm" className="gap-1.5 shrink-0" disabled={starting} onClick={handleAnnotateSets}>
                               <PlayCircle className="h-4 w-4" />
-                              {starting ? "Starting…" : "Annotate"}
+                              {starting ? "Starting…" : <>Annotate {showKbdHints && <kbd className="font-mono border border-primary/40 bg-background text-primary rounded px-1.5 py-0.5 text-xs leading-none">Shift+A</kbd>}</>}
                             </Button>
                           </div>
                         )}
@@ -1079,6 +1114,55 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* ── Keyboard shortcut hint panel ── */}
+      {showKbdHints && dashboardHintOpen ? (
+        <div className="fixed bottom-4 right-2 w-56 rounded-lg border border-border bg-background/95 shadow-xl backdrop-blur-sm z-30 text-xs">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+            <span className="font-semibold text-muted-foreground flex items-center gap-1.5">
+              <Keyboard className="h-3.5 w-3.5" /> Shortcuts
+            </span>
+            <button type="button" onClick={() => setDashboardHintOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors" title="Minimize">
+              <Minus className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="px-3 py-2 space-y-0.5">
+            {([
+              { combo: "Tab / Shift+Tab", desc: "Cycle tabs" },
+              { combo: "1 / 2 / 3",       desc: "Jump to tab" },
+              { combo: "A / R",            desc: "Switch mode" },
+              null,
+              { combo: `${navLabel("up", navMode)} / ${navLabel("down", navMode)}`, desc: "Navigate rows" },
+              { combo: "Space / Enter",    desc: "Toggle row" },
+              { combo: "V",                desc: "Visual mode" },
+              { combo: "Ctrl+A",           desc: "Select all" },
+              { combo: "Shift+Q",          desc: "First pending" },
+              null,
+              { combo: "Shift+A / R / P",  desc: "Launch sets" },
+              { combo: "Del / Shift+D",    desc: "Delete drafts" },
+              { combo: "Esc",              desc: "Clear / deselect" },
+            ] as ({ combo: string; desc: string } | null)[]).map((row, i) =>
+              row === null
+                ? <hr key={i} className="border-border my-1" />
+                : (
+                  <div key={row.combo} className="flex items-center justify-between gap-2 py-0.5">
+                    <span className="text-muted-foreground">{row.desc}</span>
+                    <kbd className="font-mono border border-primary/40 bg-primary text-black px-1.5 py-0.5 rounded text-xs leading-none shrink-0">{row.combo}</kbd>
+                  </div>
+                )
+            )}
+          </div>
+        </div>
+      ) : showKbdHints ? (
+        <button
+          type="button"
+          onClick={() => setDashboardHintOpen(true)}
+          className="fixed right-0 bottom-32 rounded-l-md border border-r-0 border-border bg-background/95 backdrop-blur-sm shadow-md px-1.5 py-3 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors z-30"
+          title="Show shortcuts"
+        >
+          <Keyboard className="h-4 w-4" />
+        </button>
+      ) : null}
 
       {/* ── Delete drafts confirm dialog ── */}
       {confirmDeleteDrafts && (

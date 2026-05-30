@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { LogOut, Settings, LayoutDashboard, KeyRound, ChevronDown, User, BookOpen, PenLine, FlaskConical, ScanEye, Palette, Info, Stethoscope } from "lucide-react";
+import { LogOut, Settings, LayoutDashboard, ChevronDown, User, BookOpen, PenLine, FlaskConical, ScanEye, Wrench, Info, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import AppearanceDialog from "./AppearanceDialog";
+
 import AboutDialog from "./AboutDialog";
 import { useAuthStore } from "@/store/authStore";
 import { useNavGuardStore } from "@/store/navGuardStore";
@@ -21,7 +21,6 @@ export default function Navbar() {
   const isLabeling = location.pathname.startsWith("/label");
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -159,21 +158,12 @@ export default function Navbar() {
 
               {menuOpen && (
                 <div className="absolute right-0 top-full mt-1 w-52 rounded-md border border-border bg-background shadow-lg z-50 py-1">
-                  {!isLabeling && (
-                    <button
-                      className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
-                      onClick={() => handleNav("/change-password")}
-                    >
-                      <KeyRound className="h-4 w-4" />
-                      Change Password
-                    </button>
-                  )}
                   <button
                     className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
-                    onClick={() => { setMenuOpen(false); setAppearanceOpen(true); }}
+                    onClick={() => { setMenuOpen(false); handleNav("/settings"); }}
                   >
-                    <Palette className="h-4 w-4" />
-                    Appearance Settings
+                    <Wrench className="h-4 w-4" />
+                    Settings
                   </button>
                   <button
                     className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
@@ -197,7 +187,6 @@ export default function Navbar() {
         </div>
       </header>
 
-      <AppearanceDialog open={appearanceOpen} onOpenChange={setAppearanceOpen} />
       <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
     </>
   );

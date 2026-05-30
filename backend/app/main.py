@@ -65,6 +65,7 @@ def _add_missing_columns() -> None:
         "ALTER TABLE doctors ADD COLUMN IF NOT EXISTS is_test BOOLEAN NOT NULL DEFAULT FALSE",
         "UPDATE doctors SET is_test = TRUE WHERE role = 'Admin' AND is_test = FALSE",
         "ALTER TABLE doctors ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ",
+        "ALTER TABLE doctors ADD COLUMN IF NOT EXISTS preferences JSONB",
     ]
     with engine.connect() as conn:
         for sql in migrations:
