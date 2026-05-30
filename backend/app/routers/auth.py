@@ -18,7 +18,15 @@ from app.core.security import (
     verify_refresh_token,
 )
 from app.db.models import Doctors
-from app.db.schemas import ChangePasswordRequest, DoctorMeResponse, LoginRequest, RegisterRequest, SetupAccountRequest, TokenResponse, UserPreferences
+from app.db.schemas import (
+    ChangePasswordRequest,
+    DoctorMeResponse,
+    LoginRequest,
+    RegisterRequest,
+    SetupAccountRequest,
+    TokenResponse,
+    UserPreferences,
+)
 from app.deps import get_current_doctor, get_refresh_token_from_cookie
 from app.services.credentials import (
     authenticate_doctor,
@@ -61,12 +69,16 @@ def _doctor_preferences(doctor: Doctors) -> UserPreferences:
         dark=raw.get("dark", defaults.dark),
         tooltip_mode=raw.get("tooltip_mode", defaults.tooltip_mode),
         show_kbd_hints=raw.get("show_kbd_hints", defaults.show_kbd_hints),
-        dashboard_hint_open=raw.get("dashboard_hint_open", defaults.dashboard_hint_open),
+        dashboard_hint_open=raw.get(
+            "dashboard_hint_open", defaults.dashboard_hint_open
+        ),
         nav_mode=raw.get("nav_mode", defaults.nav_mode),
     )
 
 
-def _build_token_response(doctor: Doctors, response: Response, db: Session) -> TokenResponse:
+def _build_token_response(
+    doctor: Doctors, response: Response, db: Session
+) -> TokenResponse:
     """Issue a new access+refresh token pair and record the login session."""
     session = create_login_session(db, doctor.uuid)
     access = create_access_token(
@@ -88,13 +100,25 @@ def _build_token_response(doctor: Doctors, response: Response, db: Session) -> T
     )
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED
+)
 @limiter.limit("5/minute")
-def register(request: Request, body: RegisterRequest, response: Response, db: Session = Depends(get_db)):
+def register(
+    request: Request,
+    body: RegisterRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+):
     if not registration_enabled():
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Self-registration is disabled.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Self-registration is disabled.",
+        )
     if not verify_invite_code(body.invitation_code):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid invitation code.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid invitation code."
+        )
     try:
         doctor = register_doctor(
             db,
@@ -111,7 +135,12 @@ def register(request: Request, body: RegisterRequest, response: Response, db: Se
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("10/minute")
-def login(request: Request, body: LoginRequest, response: Response, db: Session = Depends(get_db)):
+def login(
+    request: Request,
+    body: LoginRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+):
     try:
         doctor = authenticate_doctor(db, body.username, body.password)
     except (UserNotFoundError, InvalidCredentialsError):
@@ -148,11 +177,16 @@ def refresh(
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(request: Request, response: Response, db: Session = Depends(get_db), doctor=Depends(get_current_doctor)):
+def logout(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    doctor=Depends(get_current_doctor),
+):
     # Deactivate the specific login session bound to this access token
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
-        claims = decode_access_token_claims(auth_header[len("Bearer "):])
+        claims = decode_access_token_claims(auth_header[len("Bearer ") :])
         if claims and claims.get("sid"):
             try:
                 deactivate_login_session(db, _uuid.UUID(claims["sid"]))
@@ -200,7 +234,9 @@ def change_password_endpoint(
 
 
 @router.post("/heartbeat", status_code=status.HTTP_204_NO_CONTENT)
-def heartbeat(db: Session = Depends(get_db), doctor: Doctors = Depends(get_current_doctor)):
+def heartbeat(
+    db: Session = Depends(get_db), doctor: Doctors = Depends(get_current_doctor)
+):
     """Update last_seen timestamp for the authenticated doctor."""
     doctor.last_seen = datetime.now(timezone.utc)
     db.commit()

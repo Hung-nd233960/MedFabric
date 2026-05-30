@@ -215,8 +215,8 @@ DATABASE_URL=postgresql+psycopg2://medfabric:changeme@localhost:5432/medfabric \
 
 ```bash
 cd frontend
-npm install
-npm run dev          # starts Vite dev server at http://localhost:5173
+bun install
+bun run dev          # starts Vite dev server at http://localhost:5173
 ```
 
 The dev server proxies `/api` to `http://localhost:8000` via Vite config.

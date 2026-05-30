@@ -567,6 +567,9 @@ export default function LabelPage() {
       const ctrl = e.ctrlKey || e.metaKey;
       const UP = key.toUpperCase();
 
+      // Block browser Ctrl+A select-all outside Zone Mode
+      if (ctrl && !shift && UP === "A" && !zoneModeActive) { e.preventDefault(); return; }
+
       // Y/N keyboard answer for confirmReset dialog (fires before the guard below)
       if (confirmReset && !ctrl) {
         if (UP === "Y") { e.preventDefault(); setConfirmReset(false); handleResetAll(); return; }
@@ -664,7 +667,20 @@ export default function LabelPage() {
         if (nav.left(e, navMode) || nav.right(e, navMode)) {
           if (!isPreviewMode) {
             e.preventDefault();
-            setMbActiveCol(c => c === "left" ? "right" : "left");
+            const goingRight = nav.right(e, navMode);
+            if (goingRight && mbActiveCol === "left") {
+              // Only switch to right column if there are annotated rows to show
+              if (selectedBoardSetUuid) {
+                const snap = getSnapForMB(selectedBoardSetUuid);
+                const imgList = getMBImagesForUuid(selectedBoardSetUuid);
+                const mbSlicesNow = getMBSlicesForUuid(selectedBoardSetUuid);
+                const hasRows = snap?.usability === "IschemicAssessable" && !snap.lowQuality &&
+                  imgList.some(({ uuid }) => { const s = mbSlicesNow[uuid]; return s && s.region !== "None"; });
+                if (hasRows) setMbActiveCol("right");
+              }
+            } else {
+              setMbActiveCol(c => c === "left" ? "right" : "left");
+            }
           }
           return;
         }
@@ -959,10 +975,18 @@ export default function LabelPage() {
             }
           }
 
-          // 0 / Del / Backspace — clear current scope selection back to null
+          // 0 / Del / Backspace — clear current scope or Vis selection back to null
           if (!shift && !ctrl && (key === "0" || key === "Delete" || key === "Backspace")) {
             e.preventDefault();
-            if (zoneModeScope === "row") {
+            if (zoneModeVisual && zoneModeAnchor) {
+              const rMin = Math.min(zoneModeAnchor.row, zoneModeCursor.row);
+              const rMax = Math.max(zoneModeAnchor.row, zoneModeCursor.row);
+              const selCols = new Set([zoneModeAnchor.col, zoneModeCursor.col]);
+              const cols = (["left", "right"] as const).filter((c) => selCols.has(c));
+              for (let r = rMin; r <= rMax; r++)
+                for (const col of cols)
+                  setScore(zmImg.uuid, `${zmZones[r]}_${col}_score`, null);
+            } else if (zoneModeScope === "row") {
               setScore(zmImg.uuid, `${zmZones[zoneModeCursor.row]}_left_score`, null);
               setScore(zmImg.uuid, `${zmZones[zoneModeCursor.row]}_right_score`, null);
             } else if (zoneModeScope === "col") {

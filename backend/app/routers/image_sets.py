@@ -8,8 +8,13 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db.models import AnnotationSession, Doctors, ImageSet, Patient
-from app.db.schemas import ImageSetCreate, ImageSetRead, ImageSetUpdate, ImageSetWithProgress
+from app.db.models import AnnotationSession, Doctors, Patient
+from app.db.schemas import (
+    ImageSetCreate,
+    ImageSetRead,
+    ImageSetUpdate,
+    ImageSetWithProgress,
+)
 from app.deps import get_current_admin, get_current_doctor
 from app.services.errors import (
     ImageSetAlreadyExistsError,
@@ -76,11 +81,15 @@ def list_for_dataset(
     )
 
     patient_uuids = {s.patient_uuid for s in image_sets}
-    patient_id_map = dict(
-        db.query(Patient.patient_uuid, Patient.patient_id)
-        .filter(Patient.patient_uuid.in_(patient_uuids))
-        .all()
-    ) if patient_uuids else {}
+    patient_id_map = (
+        dict(
+            db.query(Patient.patient_uuid, Patient.patient_id)
+            .filter(Patient.patient_uuid.in_(patient_uuids))
+            .all()
+        )
+        if patient_uuids
+        else {}
+    )
 
     result = []
     for idx, img_set in enumerate(image_sets, start=1):
@@ -100,7 +109,8 @@ def list_for_dataset(
                 icd_code=img_set.icd_code,
                 is_active=img_set.is_active,
                 evaluated_by_me=img_set.uuid in submitted_by_me,
-                in_draft_by_me=img_set.uuid in draft_by_me and img_set.uuid not in submitted_by_me,
+                in_draft_by_me=img_set.uuid in draft_by_me
+                and img_set.uuid not in submitted_by_me,
                 total_evaluators=evaluator_counts.get(img_set.uuid, 0),
             )
         )
@@ -127,7 +137,9 @@ def register_new_image_set(
             icd_code=body.icd_code,
         )
     except InvalidImageSetPathError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
     except ImageSetAlreadyExistsError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
@@ -142,12 +154,18 @@ def get_one_image_set(
         img_set = get_image_set(db, image_set_uuid)
     except ImageSetNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    patient = db.query(Patient).filter(Patient.patient_uuid == img_set.patient_uuid).first()
-    return ImageSetRead.model_validate(img_set).model_copy(update={
-        "patient_id": patient.patient_id if patient else None,
-        "patient_age": patient.age if patient else None,
-        "patient_gender": patient.gender.value if patient and patient.gender else None,
-    })
+    patient = (
+        db.query(Patient).filter(Patient.patient_uuid == img_set.patient_uuid).first()
+    )
+    return ImageSetRead.model_validate(img_set).model_copy(
+        update={
+            "patient_id": patient.patient_id if patient else None,
+            "patient_age": patient.age if patient else None,
+            "patient_gender": (
+                patient.gender.value if patient and patient.gender else None
+            ),
+        }
+    )
 
 
 @router.patch("/{image_set_uuid}", response_model=ImageSetRead)

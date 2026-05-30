@@ -13,7 +13,9 @@ class Settings(BaseSettings):
     )
 
     # Database
-    database_url: str = "postgresql+psycopg2://medfabric:changeme@localhost:5432/medfabric"
+    database_url: str = (
+        "postgresql+psycopg2://medfabric:changeme@localhost:5432/medfabric"
+    )
 
     # JWT
     jwt_secret_key: str = "INSECURE_DEFAULT_CHANGE_ME"

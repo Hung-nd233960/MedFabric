@@ -156,7 +156,7 @@ export default function SettingsPage() {
     <div className="flex overflow-hidden" style={{ height: "calc(100vh - 3.3rem)" }}>
 
       {/* ── Left sidebar (20%) ── */}
-      <div className="w-[20%] shrink-0 flex flex-col border-r border-border/40 bg-muted/20">
+      <div className="w-52 shrink-0 flex flex-col border-r border-border/40 bg-muted/20">
         <div className="flex-1 overflow-y-auto px-6 pt-10 pb-6 space-y-0.5">
           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground px-3 pb-3">Settings</p>
           {SECTIONS.map(({ id, label }) => (
@@ -182,13 +182,13 @@ export default function SettingsPage() {
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full px-3 py-1.5 rounded-md hover:bg-muted/50"
           >
             <ArrowLeft className="h-4 w-4 shrink-0" />
-            Return to Dashboard
+            Dashboard
           </button>
         </div>
       </div>
 
       {/* ── Main settings area (60%) ── */}
-      <div className="w-[60%] overflow-y-auto px-12 pb-20">
+      <div className="w-[70%] overflow-y-auto px-12 pb-20">
 
         {/* Appearance */}
         <SectionHeading id="appearance">Appearance</SectionHeading>

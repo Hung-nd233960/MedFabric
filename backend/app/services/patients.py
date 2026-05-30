@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from app.db.models import Gender, Patient
 from app.services.errors import (
     DatabaseError,
-    DataSetNotFoundError,
     PatientAlreadyExistsError,
     PatientNotFoundError,
 )

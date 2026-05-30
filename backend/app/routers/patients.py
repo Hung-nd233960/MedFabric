@@ -10,11 +10,15 @@ from app.core.database import get_db
 from app.db.schemas import PatientCreate, PatientRead, PatientUpdate
 from app.deps import get_current_admin, get_current_doctor
 from app.services.errors import (
-    DataSetNotFoundError,
     PatientAlreadyExistsError,
     PatientNotFoundError,
 )
-from app.services.patients import create_patient, get_patient, list_patients, update_patient
+from app.services.patients import (
+    create_patient,
+    get_patient,
+    list_patients,
+    update_patient,
+)
 
 router = APIRouter(prefix="/patients", tags=["patients"])
 

@@ -1,7 +1,6 @@
 """Dashboard statistics service."""
 
 import uuid
-from typing import Optional
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -16,11 +15,14 @@ def get_dashboard_stats(db: Session, doctor_uuid: uuid.UUID) -> DashboardStats:
     assigned_dataset = None
 
     if assignment:
-        ds = db.query(DataSet).filter(
-            DataSet.dataset_uuid == assignment.dataset_uuid
-        ).first()
+        ds = (
+            db.query(DataSet)
+            .filter(DataSet.dataset_uuid == assignment.dataset_uuid)
+            .first()
+        )
         if ds:
             from app.db.schemas import DataSetRead
+
             assigned_dataset = DataSetRead.model_validate(ds)
 
     dataset_uuid = assignment.dataset_uuid if assignment else None

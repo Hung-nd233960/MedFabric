@@ -661,7 +661,7 @@ export default function DashboardPage() {
         {/* Stats */}
         {stats && (
           <div className="shrink-0 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard icon={Layers} label="Total Image Sets" value={stats.total_image_sets} color="blue" />
+            <StatCard icon={Layers} label="Total Image Sets" value={stats.total_image_sets} color="blue" sub={stats.assigned_dataset ? stats.assigned_dataset.name : "No dataset assigned"} />
             <StatCard
               icon={Stethoscope}
               label="My Progress"
@@ -750,7 +750,7 @@ export default function DashboardPage() {
                         mode === "annotate" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      <PlayCircle className="h-3.5 w-3.5" /> Annotate {showKbdHints && <kbd className={`font-mono border rounded px-1.5 py-0.5 text-xs leading-none ${mode === "annotate" ? "bg-background text-primary border-primary/40" : "bg-primary text-primary-foreground border-primary/20"}`}>A</kbd>}
+                      <PlayCircle className="h-3.5 w-3.5" /> Annotate {showKbdHints && <kbd className={`font-mono border rounded px-1.5 py-0.5 text-xs leading-none bg-primary text-primary-foreground border-primary/20 ${mode === "annotate" ? "invisible" : ""}`}>A</kbd>}
                     </button>
                   </WithTooltip>
                   <WithTooltip content="Review your submitted or saved annotations (read-only)" side="bottom">
@@ -761,7 +761,7 @@ export default function DashboardPage() {
                         mode === "read" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      <BookOpen className="h-3.5 w-3.5" /> Reader {showKbdHints && <kbd className={`font-mono border rounded px-1.5 py-0.5 text-xs leading-none ${mode === "read" ? "bg-background text-primary border-primary/40" : "bg-primary text-primary-foreground border-primary/20"}`}>R</kbd>}
+                      <BookOpen className="h-3.5 w-3.5" /> Reader {showKbdHints && <kbd className={`font-mono border rounded px-1.5 py-0.5 text-xs leading-none bg-primary text-primary-foreground border-primary/20 ${mode === "read" ? "invisible" : ""}`}>R</kbd>}
                     </button>
                   </WithTooltip>
                 </div>

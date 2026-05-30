@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { LogOut, Settings, LayoutDashboard, ChevronDown, User, BookOpen, PenLine, FlaskConical, ScanEye, Wrench, Info, Stethoscope } from "lucide-react";
+import { LogOut, Settings, LayoutDashboard, ChevronDown, User, BookOpen, PenLine, FlaskConical, ScanEye, Wrench, Info, Stethoscope, MessageSquareWarning } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
 import AboutDialog from "./AboutDialog";
+import BugReportDialog from "./BugReportDialog";
 import { useAuthStore } from "@/store/authStore";
 import { useNavGuardStore } from "@/store/navGuardStore";
 import { useLabelStore } from "@/store/labelStore";
@@ -22,6 +23,7 @@ export default function Navbar() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [bugReportOpen, setBugReportOpen] = useState(false);
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -172,6 +174,13 @@ export default function Navbar() {
                     <Info className="h-4 w-4" />
                     About
                   </button>
+                  <button
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                    onClick={() => { setMenuOpen(false); setBugReportOpen(true); }}
+                  >
+                    <MessageSquareWarning className="h-4 w-4" />
+                    Bug Report / Feature
+                  </button>
                   <div className="my-1 border-t border-border" />
                   <button
                     className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-accent transition-colors"
@@ -188,6 +197,7 @@ export default function Navbar() {
       </header>
 
       <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
+      <BugReportDialog open={bugReportOpen} onOpenChange={setBugReportOpen} />
     </>
   );
 }

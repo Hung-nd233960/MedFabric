@@ -11,8 +11,17 @@ from app.core.database import get_db
 from app.db.models import AnnotationSession, Doctors, ImageSet
 from app.db.schemas import DataSetCreate, DataSetRead, DataSetUpdate
 from app.deps import get_current_admin, get_current_doctor
-from app.services.datasets import create_dataset, get_dataset, list_datasets, update_dataset
-from app.services.errors import DataSetAlreadyExistsError, DataSetNotFoundError, InvalidDataSetError
+from app.services.datasets import (
+    create_dataset,
+    get_dataset,
+    list_datasets,
+    update_dataset,
+)
+from app.services.errors import (
+    DataSetAlreadyExistsError,
+    DataSetNotFoundError,
+    InvalidDataSetError,
+)
 
 router = APIRouter(prefix="/datasets", tags=["datasets"])
 
@@ -29,7 +38,8 @@ def list_all_datasets(
         total = (
             db.query(func.count(ImageSet.uuid))
             .filter(ImageSet.dataset_uuid == ds.dataset_uuid)
-            .scalar() or 0
+            .scalar()
+            or 0
         )
         global_prog = (
             db.query(func.count(func.distinct(AnnotationSession.image_set_uuid)))
@@ -40,17 +50,20 @@ def list_all_datasets(
                 AnnotationSession.submitted_at.isnot(None),
                 Doctors.is_test.is_(False),
             )
-            .scalar() or 0
+            .scalar()
+            or 0
         )
-        result.append(DataSetRead(
-            dataset_uuid=ds.dataset_uuid,
-            name=ds.name,
-            description=ds.description,
-            is_active=ds.is_active,
-            created_at=ds.created_at,
-            total_image_sets=total,
-            global_progress=global_prog,
-        ))
+        result.append(
+            DataSetRead(
+                dataset_uuid=ds.dataset_uuid,
+                name=ds.name,
+                description=ds.description,
+                is_active=ds.is_active,
+                created_at=ds.created_at,
+                total_image_sets=total,
+                global_progress=global_prog,
+            )
+        )
     return result
 
 
@@ -65,7 +78,9 @@ def create_new_dataset(
     except DataSetAlreadyExistsError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     except InvalidDataSetError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
 
 
 @router.get("/{dataset_uuid}", response_model=DataSetRead)

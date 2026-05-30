@@ -26,21 +26,30 @@ from app.services.errors import (
     InvalidEvaluationError,
 )
 
-
 # Ordered field names matching ImageEvaluation columns
 _ALL_SCORE_FIELDS = [
-    "c_left_score", "c_right_score",
-    "ic_left_score", "ic_right_score",
-    "l_left_score", "l_right_score",
-    "i_left_score", "i_right_score",
-    "m1_left_score", "m1_right_score",
-    "m2_left_score", "m2_right_score",
-    "m3_left_score", "m3_right_score",
-    "m4_left_score", "m4_right_score",
-    "m5_left_score", "m5_right_score",
-    "m6_left_score", "m6_right_score",
+    "c_left_score",
+    "c_right_score",
+    "ic_left_score",
+    "ic_right_score",
+    "l_left_score",
+    "l_right_score",
+    "i_left_score",
+    "i_right_score",
+    "m1_left_score",
+    "m1_right_score",
+    "m2_left_score",
+    "m2_right_score",
+    "m3_left_score",
+    "m3_right_score",
+    "m4_left_score",
+    "m4_right_score",
+    "m5_left_score",
+    "m5_right_score",
+    "m6_left_score",
+    "m6_right_score",
 ]
-_BASAL_FIELDS = _ALL_SCORE_FIELDS[:14]   # c, ic, l, i, m1, m2, m3
+_BASAL_FIELDS = _ALL_SCORE_FIELDS[:14]  # c, ic, l, i, m1, m2, m3
 _CORONA_FIELDS = _ALL_SCORE_FIELDS[14:]  # m4, m5, m6
 
 
@@ -122,6 +131,7 @@ def submit_annotation(db: Session, payload: SubmitAnnotation) -> AnnotationSessi
             db.add(img_eval)
 
     from datetime import datetime, timezone
+
     ann_sess.submitted_at = datetime.now(timezone.utc)
     ann_sess.auto_draft_payload = None
     ann_sess.auto_draft_saved_at = None
@@ -135,9 +145,7 @@ def get_image_set_evaluation(
 ) -> Optional[ImageSetEvaluation]:
     return (
         db.query(ImageSetEvaluation)
-        .filter(
-            ImageSetEvaluation.annotation_session_uuid == annotation_session_uuid
-        )
+        .filter(ImageSetEvaluation.annotation_session_uuid == annotation_session_uuid)
         .first()
     )
 

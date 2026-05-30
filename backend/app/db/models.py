@@ -37,10 +37,10 @@ from sqlalchemy.types import CHAR, TypeDecorator
 
 from app.core.database import Base
 
-
 # ---------------------------------------------------------------------------
 # Custom UUID type (PostgreSQL native UUID, SQLite CHAR(36))
 # ---------------------------------------------------------------------------
+
 
 class GUID(TypeDecorator):
     impl = CHAR
@@ -55,7 +55,9 @@ class GUID(TypeDecorator):
         if value is None:
             return None
         if dialect.name == "postgresql":
-            return value if isinstance(value, uuid_lib.UUID) else uuid_lib.UUID(str(value))
+            return (
+                value if isinstance(value, uuid_lib.UUID) else uuid_lib.UUID(str(value))
+            )
         return str(value)
 
     def process_result_value(self, value, dialect):
@@ -69,6 +71,7 @@ class GUID(TypeDecorator):
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
+
 
 class ImageFormat(enum.Enum):
     DICOM = "DICOM"
@@ -111,6 +114,7 @@ class DoctorRole(enum.Enum):
 # Core tables
 # ---------------------------------------------------------------------------
 
+
 class DataSet(Base):
     __tablename__ = "datasets"
 
@@ -121,12 +125,15 @@ class DataSet(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         default=lambda: datetime.now(timezone.utc),
         server_default=text("CURRENT_TIMESTAMP"),
     )
 
-    patients: Mapped[List["Patient"]] = relationship("Patient", back_populates="dataset")
+    patients: Mapped[List["Patient"]] = relationship(
+        "Patient", back_populates="dataset"
+    )
     assignments: Mapped[List["DoctorDatasetAssignment"]] = relationship(
         "DoctorDatasetAssignment", back_populates="dataset"
     )
@@ -166,24 +173,35 @@ class Doctors(Base):
     role: Mapped[DoctorRole] = mapped_column(
         Enum(DoctorRole), nullable=False, default=DoctorRole.Doctor
     )
-    email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(
+        String(255), unique=True, nullable=True
+    )
     password_hash: Mapped[str] = mapped_column(String(1024), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_test: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    must_change_password: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
     must_set_name: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    registration_source: Mapped[str] = mapped_column(String(64), nullable=False, default="admin_created")
+    registration_source: Mapped[str] = mapped_column(
+        String(64), nullable=False, default="admin_created"
+    )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         default=lambda: datetime.now(timezone.utc),
         server_default=text("CURRENT_TIMESTAMP"),
     )
     last_seen: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True, default=None,
+        DateTime(timezone=True),
+        nullable=True,
+        default=None,
     )
     preferences: Mapped[Optional[dict]] = mapped_column(
-        JSON, nullable=True, default=None,
+        JSON,
+        nullable=True,
+        default=None,
     )
 
     login_sessions: Mapped[List["LoginSession"]] = relationship(
@@ -230,7 +248,8 @@ class ImageSet(Base):
     icd_code: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         default=lambda: datetime.now(timezone.utc),
         server_default=text("CURRENT_TIMESTAMP"),
     )
@@ -272,6 +291,7 @@ class Image(Base):
 # Session tables
 # ---------------------------------------------------------------------------
 
+
 class LoginSession(Base):
     """Records each doctor login event (JWT issuance)."""
 
@@ -284,7 +304,8 @@ class LoginSession(Base):
         GUID(), ForeignKey("doctors.uuid"), nullable=False
     )
     login_time: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         default=lambda: datetime.now(timezone.utc),
         server_default=text("CURRENT_TIMESTAMP"),
     )
@@ -317,25 +338,22 @@ class AnnotationSession(Base):
         GUID(), ForeignKey("login_sessions.session_uuid"), nullable=False
     )
     started_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         default=lambda: datetime.now(timezone.utc),
         server_default=text("CURRENT_TIMESTAMP"),
     )
     submitted_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    draft_payload: Mapped[Optional[str]] = mapped_column(
-        Text(), nullable=True
-    )
+    draft_payload: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
     draft_saved_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     draft_deleted_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    auto_draft_payload: Mapped[Optional[str]] = mapped_column(
-        Text(), nullable=True
-    )
+    auto_draft_payload: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
     auto_draft_saved_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -355,6 +373,7 @@ class AnnotationSession(Base):
 # Evaluation tables
 # ---------------------------------------------------------------------------
 
+
 class ImageSetEvaluation(Base):
     """Set-level classification (usability + low quality flag)."""
 
@@ -362,7 +381,10 @@ class ImageSetEvaluation(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     annotation_session_uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        GUID(), ForeignKey("annotation_sessions.annotation_session_uuid"), nullable=False, unique=True
+        GUID(),
+        ForeignKey("annotation_sessions.annotation_session_uuid"),
+        nullable=False,
+        unique=True,
     )
     image_set_uuid: Mapped[uuid_lib.UUID] = mapped_column(
         GUID(), ForeignKey("image_sets.uuid"), nullable=False
@@ -385,7 +407,9 @@ class ImageEvaluation(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     annotation_session_uuid: Mapped[uuid_lib.UUID] = mapped_column(
-        GUID(), ForeignKey("annotation_sessions.annotation_session_uuid"), nullable=False
+        GUID(),
+        ForeignKey("annotation_sessions.annotation_session_uuid"),
+        nullable=False,
     )
     image_uuid: Mapped[uuid_lib.UUID] = mapped_column(
         GUID(), ForeignKey("images.uuid"), nullable=False
@@ -396,25 +420,59 @@ class ImageEvaluation(Base):
 
     # Bilateral ASPECTS zone scores
     c_left_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
-    c_right_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
-    ic_left_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
-    ic_right_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
+    c_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    ic_left_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    ic_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
     l_left_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
-    l_right_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
+    l_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
     i_left_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
-    i_right_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
-    m1_left_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
-    m1_right_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
-    m2_left_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
-    m2_right_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
-    m3_left_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
-    m3_right_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
-    m4_left_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
-    m4_right_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
-    m5_left_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
-    m5_right_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
-    m6_left_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
-    m6_right_score: Mapped[RegionScore] = mapped_column(Enum(RegionScore), nullable=False)
+    i_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m1_left_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m1_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m2_left_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m2_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m3_left_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m3_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m4_left_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m4_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m5_left_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m5_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m6_left_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
+    m6_right_score: Mapped[RegionScore] = mapped_column(
+        Enum(RegionScore), nullable=False
+    )
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     annotation_session: Mapped["AnnotationSession"] = relationship(
@@ -432,6 +490,7 @@ class ImageEvaluation(Base):
 # Admin tables
 # ---------------------------------------------------------------------------
 
+
 class DoctorDatasetAssignment(Base):
     """Admin delegates exactly one active dataset to a doctor at a time."""
 
@@ -445,7 +504,8 @@ class DoctorDatasetAssignment(Base):
         GUID(), ForeignKey("datasets.dataset_uuid"), nullable=False
     )
     assigned_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         default=lambda: datetime.now(timezone.utc),
         server_default=text("CURRENT_TIMESTAMP"),
     )
@@ -469,7 +529,8 @@ class AdminAuditLog(Base):
     target_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     detail: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         default=lambda: datetime.now(timezone.utc),
         server_default=text("CURRENT_TIMESTAMP"),
     )

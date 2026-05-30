@@ -1,0 +1,22 @@
+# Dev-only compose — runs Postgres on localhost:5432 so the backend can run on the host.
+# Usage: sudo docker compose -f docker/docker-compose.dev.yaml up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: medfabric
+      POSTGRES_USER: medfabric
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medfabric"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_dev_data:

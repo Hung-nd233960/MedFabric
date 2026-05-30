@@ -9,14 +9,13 @@ from sqlalchemy.orm import Session
 from app.db.models import AdminAuditLog, DoctorDatasetAssignment, Doctors
 from app.services.errors import (
     AssignmentNotFoundError,
-    DatabaseError,
     UserNotFoundError,
 )
-
 
 # ---------------------------------------------------------------------------
 # Doctor management
 # ---------------------------------------------------------------------------
+
 
 def list_doctors(db: Session, include_inactive: bool = False) -> List[Doctors]:
     q = db.query(Doctors)
@@ -38,6 +37,7 @@ def set_doctor_active(db: Session, doctor_uuid: uuid.UUID, active: bool) -> Doct
 # ---------------------------------------------------------------------------
 # Dataset assignment
 # ---------------------------------------------------------------------------
+
 
 def assign_dataset(
     db: Session, doctor_uuid: uuid.UUID, dataset_uuid: uuid.UUID
@@ -88,6 +88,7 @@ def revoke_assignment(db: Session, assignment_id: int) -> None:
 # ---------------------------------------------------------------------------
 # Audit log
 # ---------------------------------------------------------------------------
+
 
 def audit_log(
     db: Session,

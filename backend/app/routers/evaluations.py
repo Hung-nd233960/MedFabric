@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db.models import AnnotationSession, Doctors, ImageSet, Patient
+from app.db.models import AnnotationSession, Doctors, ImageSet
 from app.db.schemas import (
     AnnotationSessionRead,
     DraftItem,
@@ -19,7 +19,7 @@ from app.db.schemas import (
     SaveDraft,
     SubmitAnnotation,
 )
-from app.deps import get_current_admin, get_current_doctor
+from app.deps import get_current_doctor
 from app.services.errors import (
     AnnotationSessionAlreadySubmittedError,
     AnnotationSessionNotFoundError,
@@ -47,14 +47,18 @@ def submit(
     except AnnotationSessionNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     if ann_sess.doctor_uuid != doctor.uuid:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your session")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not your session"
+        )
 
     try:
         return submit_annotation(db, body)
     except AnnotationSessionAlreadySubmittedError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     except InvalidEvaluationError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
 
 
 @router.get(
@@ -71,11 +75,16 @@ def get_set_eval(
     except AnnotationSessionNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     if ann_sess.doctor_uuid != doctor.uuid:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your session")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not your session"
+        )
 
     result = get_image_set_evaluation(db, annotation_session_uuid)
     if not result:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No set-level evaluation found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No set-level evaluation found",
+        )
     return result
 
 
@@ -93,7 +102,9 @@ def get_image_evals(
     except AnnotationSessionNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     if ann_sess.doctor_uuid != doctor.uuid:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your session")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not your session"
+        )
 
     return get_image_evaluations(db, annotation_session_uuid)
 
@@ -110,9 +121,13 @@ def save_auto_draft(
     except AnnotationSessionNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     if ann_sess.doctor_uuid != doctor.uuid:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your session")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not your session"
+        )
     if ann_sess.submitted_at is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Session already submitted")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Session already submitted"
+        )
 
     now = datetime.now(timezone.utc)
     ann_sess.auto_draft_payload = body.model_dump_json()
@@ -138,9 +153,13 @@ def save_draft(
     except AnnotationSessionNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     if ann_sess.doctor_uuid != doctor.uuid:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your session")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not your session"
+        )
     if ann_sess.submitted_at is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Session already submitted")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Session already submitted"
+        )
 
     now = datetime.now(timezone.utc)
     ann_sess.draft_payload = body.model_dump_json()
@@ -174,11 +193,15 @@ def get_submission_by_image_set(
         .first()
     )
     if ann_sess is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No submission found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No submission found"
+        )
 
     set_eval = get_image_set_evaluation(db, ann_sess.annotation_session_uuid)
     if not set_eval:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evaluation data missing")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Evaluation data missing"
+        )
 
     _SCORE_FIELDS = [
         f"{z}_{side}_score"
@@ -218,6 +241,7 @@ def get_draft_by_image_set(
 ):
     """Retrieve the most recent draft snapshot — whichever of manual or auto is newer."""
     from sqlalchemy import or_
+
     ann_sess = (
         db.query(AnnotationSession)
         .filter(
@@ -234,14 +258,15 @@ def get_draft_by_image_set(
         .first()
     )
     if ann_sess is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No draft found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No draft found"
+        )
 
     # Pick whichever snapshot is newer within this session
     manual_ts = ann_sess.draft_saved_at
     auto_ts = ann_sess.auto_draft_saved_at
-    use_auto = (
-        ann_sess.auto_draft_payload is not None
-        and (manual_ts is None or (auto_ts is not None and auto_ts > manual_ts))
+    use_auto = ann_sess.auto_draft_payload is not None and (
+        manual_ts is None or (auto_ts is not None and auto_ts > manual_ts)
     )
 
     if use_auto:
@@ -268,6 +293,7 @@ def list_my_drafts(
 ):
     """List all active drafts for the current doctor (manual or auto-save)."""
     from sqlalchemy import or_
+
     rows = (
         db.query(AnnotationSession, ImageSet)
         .join(ImageSet, AnnotationSession.image_set_uuid == ImageSet.uuid)
@@ -297,32 +323,39 @@ def list_my_drafts(
 
     # Dataset index map: count position within dataset
     from sqlalchemy import func as _func
-    index_rows = (
-        db.query(ImageSet.uuid, _func.row_number().over(
-            partition_by=ImageSet.dataset_uuid, order_by=ImageSet.uuid
-        ).label("idx"))
-        .subquery()
-    )
+
+    index_rows = db.query(
+        ImageSet.uuid,
+        _func.row_number()
+        .over(partition_by=ImageSet.dataset_uuid, order_by=ImageSet.uuid)
+        .label("idx"),
+    ).subquery()
     index_map = dict(db.query(index_rows.c.uuid, index_rows.c.idx).all())
 
     result = []
     for sess, img_set in rows:
         is_manual = sess.draft_payload is not None
-        result.append(DraftItem(
-            annotation_session_uuid=sess.annotation_session_uuid,
-            image_set_uuid=img_set.uuid,
-            image_set_name=img_set.image_set_name,
-            dataset_index=index_map.get(img_set.uuid, 0),
-            icd_code=img_set.icd_code,
-            num_images=img_set.num_images,
-            draft_saved_at=sess.draft_saved_at if is_manual else sess.auto_draft_saved_at,
-            draft_source="manual" if is_manual else "auto",
-            evaluated_by_me=img_set.uuid in submitted_set_uuids,
-        ))
+        result.append(
+            DraftItem(
+                annotation_session_uuid=sess.annotation_session_uuid,
+                image_set_uuid=img_set.uuid,
+                image_set_name=img_set.image_set_name,
+                dataset_index=index_map.get(img_set.uuid, 0),
+                icd_code=img_set.icd_code,
+                num_images=img_set.num_images,
+                draft_saved_at=(
+                    sess.draft_saved_at if is_manual else sess.auto_draft_saved_at
+                ),
+                draft_source="manual" if is_manual else "auto",
+                evaluated_by_me=img_set.uuid in submitted_set_uuids,
+            )
+        )
     return result
 
 
-@router.delete("/draft/by-image-set/{image_set_uuid}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/draft/by-image-set/{image_set_uuid}", status_code=status.HTTP_204_NO_CONTENT
+)
 def delete_draft_by_image_set(
     image_set_uuid: uuid.UUID,
     db: Session = Depends(get_db),
@@ -330,6 +363,7 @@ def delete_draft_by_image_set(
 ):
     """Delete the active draft (manual or auto) for a doctor's image set."""
     from sqlalchemy import or_
+
     ann_sess = (
         db.query(AnnotationSession)
         .filter(
@@ -346,7 +380,9 @@ def delete_draft_by_image_set(
         .first()
     )
     if ann_sess is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No draft found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No draft found"
+        )
 
     now = datetime.now(timezone.utc)
     ann_sess.draft_payload = None

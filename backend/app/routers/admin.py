@@ -32,7 +32,10 @@ from app.services.admin import (
     revoke_assignment,
     set_doctor_active,
 )
-from app.services.credentials import change_password as reset_doctor_password, register_doctor
+from app.services.credentials import (
+    change_password as reset_doctor_password,
+    register_doctor,
+)
 from app.services.errors import (
     AssignmentNotFoundError,
     DuplicateEntryError,
@@ -45,6 +48,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 # ---------------------------------------------------------------------------
 # Doctor management
 # ---------------------------------------------------------------------------
+
 
 @router.get("/doctors", response_model=List[DoctorRead])
 def list_all_doctors(
@@ -77,7 +81,12 @@ def create_doctor(
     except DuplicateEntryError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     audit_log(
-        db, admin.uuid, "CREATE", "doctors", str(doctor.uuid), f"Created {doctor.username}"
+        db,
+        admin.uuid,
+        "CREATE",
+        "doctors",
+        str(doctor.uuid),
+        f"Created {doctor.username}",
     )
     return doctor
 
@@ -90,14 +99,17 @@ def update_doctor(
     admin: Doctors = Depends(get_current_admin),
 ):
     from app.services.credentials import get_doctor_by_uuid as _get_doc
+
     doctor = None
     try:
         if body.is_active is not None:
             doctor = set_doctor_active(db, doctor_uuid, body.is_active)
             audit_log(
-                db, admin.uuid,
+                db,
+                admin.uuid,
                 "DEACTIVATE" if not body.is_active else "ACTIVATE",
-                "doctors", str(doctor_uuid),
+                "doctors",
+                str(doctor_uuid),
             )
         if body.password is not None:
             doctor = reset_doctor_password(
@@ -143,7 +155,13 @@ def update_doctor(
             db.commit()
             db.refresh(doc)
             doctor = doc
-            audit_log(db, admin.uuid, "SET_TEST" if body.is_test else "UNSET_TEST", "doctors", str(doctor_uuid))
+            audit_log(
+                db,
+                admin.uuid,
+                "SET_TEST" if body.is_test else "UNSET_TEST",
+                "doctors",
+                str(doctor_uuid),
+            )
     except UserNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     if doctor is None:
@@ -158,12 +176,14 @@ def update_doctor(
 # Dataset assignment
 # ---------------------------------------------------------------------------
 
+
 def _assignment_with_progress(db: Session, assignment) -> DoctorDatasetAssignmentRead:
     """Build a DoctorDatasetAssignmentRead augmented with dataset total and doctor progress."""
     total = (
         db.query(func.count(ImageSet.uuid))
         .filter(ImageSet.dataset_uuid == assignment.dataset_uuid)
-        .scalar() or 0
+        .scalar()
+        or 0
     )
     doctor_prog = (
         db.query(func.count(func.distinct(AnnotationSession.image_set_uuid)))
@@ -173,7 +193,8 @@ def _assignment_with_progress(db: Session, assignment) -> DoctorDatasetAssignmen
             AnnotationSession.doctor_uuid == assignment.doctor_uuid,
             AnnotationSession.submitted_at.isnot(None),
         )
-        .scalar() or 0
+        .scalar()
+        or 0
     )
     return DoctorDatasetAssignmentRead(
         id=assignment.id,
@@ -186,7 +207,11 @@ def _assignment_with_progress(db: Session, assignment) -> DoctorDatasetAssignmen
     )
 
 
-@router.post("/assignments", response_model=DoctorDatasetAssignmentRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/assignments",
+    response_model=DoctorDatasetAssignmentRead,
+    status_code=status.HTTP_201_CREATED,
+)
 def assign_doctor_to_dataset(
     body: AssignDatasetRequest,
     db: Session = Depends(get_db),
@@ -212,7 +237,9 @@ def get_doctor_assignment(
 ):
     result = get_active_assignment(db, doctor_uuid)
     if not result:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No active assignment")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No active assignment"
+        )
     return _assignment_with_progress(db, result)
 
 
@@ -226,12 +253,19 @@ def revoke_doctor_assignment(
         revoke_assignment(db, assignment_id)
     except AssignmentNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    audit_log(db, admin.uuid, "REVOKE_ASSIGNMENT", "doctor_dataset_assignments", str(assignment_id))
+    audit_log(
+        db,
+        admin.uuid,
+        "REVOKE_ASSIGNMENT",
+        "doctor_dataset_assignments",
+        str(assignment_id),
+    )
 
 
 # ---------------------------------------------------------------------------
 # Draft management
 # ---------------------------------------------------------------------------
+
 
 @router.get("/drafts", response_model=List[DraftItem])
 def list_all_drafts(
@@ -240,6 +274,7 @@ def list_all_drafts(
 ):
     """List all active drafts across all doctors."""
     from sqlalchemy import or_
+
     rows = (
         db.query(AnnotationSession, ImageSet, Doctors)
         .join(ImageSet, AnnotationSession.image_set_uuid == ImageSet.uuid)
@@ -257,17 +292,20 @@ def list_all_drafts(
     )
 
     from sqlalchemy import func as _func
-    index_rows = (
-        db.query(ImageSet.uuid, _func.row_number().over(
-            partition_by=ImageSet.dataset_uuid, order_by=ImageSet.uuid
-        ).label("idx"))
-        .subquery()
-    )
+
+    index_rows = db.query(
+        ImageSet.uuid,
+        _func.row_number()
+        .over(partition_by=ImageSet.dataset_uuid, order_by=ImageSet.uuid)
+        .label("idx"),
+    ).subquery()
     index_map = dict(db.query(index_rows.c.uuid, index_rows.c.idx).all())
 
     submitted_pairs = {
         (row.doctor_uuid, row.image_set_uuid)
-        for row in db.query(AnnotationSession.doctor_uuid, AnnotationSession.image_set_uuid)
+        for row in db.query(
+            AnnotationSession.doctor_uuid, AnnotationSession.image_set_uuid
+        )
         .filter(AnnotationSession.submitted_at.isnot(None))
         .all()
     }
@@ -275,23 +313,29 @@ def list_all_drafts(
     result = []
     for sess, img_set, doctor in rows:
         is_manual = sess.draft_payload is not None
-        result.append(DraftItem(
-            annotation_session_uuid=sess.annotation_session_uuid,
-            image_set_uuid=img_set.uuid,
-            image_set_name=img_set.image_set_name,
-            dataset_index=index_map.get(img_set.uuid, 0),
-            icd_code=img_set.icd_code,
-            num_images=img_set.num_images,
-            draft_saved_at=sess.draft_saved_at if is_manual else sess.auto_draft_saved_at,
-            draft_source="manual" if is_manual else "auto",
-            evaluated_by_me=(doctor.uuid, img_set.uuid) in submitted_pairs,
-            doctor_uuid=doctor.uuid,
-            doctor_username=doctor.username,
-        ))
+        result.append(
+            DraftItem(
+                annotation_session_uuid=sess.annotation_session_uuid,
+                image_set_uuid=img_set.uuid,
+                image_set_name=img_set.image_set_name,
+                dataset_index=index_map.get(img_set.uuid, 0),
+                icd_code=img_set.icd_code,
+                num_images=img_set.num_images,
+                draft_saved_at=(
+                    sess.draft_saved_at if is_manual else sess.auto_draft_saved_at
+                ),
+                draft_source="manual" if is_manual else "auto",
+                evaluated_by_me=(doctor.uuid, img_set.uuid) in submitted_pairs,
+                doctor_uuid=doctor.uuid,
+                doctor_username=doctor.username,
+            )
+        )
     return result
 
 
-@router.delete("/drafts/{annotation_session_uuid}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/drafts/{annotation_session_uuid}", status_code=status.HTTP_204_NO_CONTENT
+)
 def admin_delete_draft(
     annotation_session_uuid: uuid.UUID,
     db: Session = Depends(get_db),
@@ -308,13 +352,18 @@ def admin_delete_draft(
         .first()
     )
     if ann_sess is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Draft not found"
+        )
 
     ann_sess.draft_payload = None
     ann_sess.draft_deleted_at = datetime.now(timezone.utc)
     db.commit()
     audit_log(
-        db, admin.uuid, "DELETE_DRAFT", "annotation_sessions",
+        db,
+        admin.uuid,
+        "DELETE_DRAFT",
+        "annotation_sessions",
         str(annotation_session_uuid),
         f"Admin deleted draft for doctor={ann_sess.doctor_uuid}",
     )
@@ -324,6 +373,7 @@ def admin_delete_draft(
 # Submissions view
 # ---------------------------------------------------------------------------
 
+
 @router.get("/submissions", response_model=List[SubmissionRecord])
 def list_submissions(
     dataset_uuid: uuid.UUID | None = None,
@@ -332,6 +382,7 @@ def list_submissions(
 ):
     """List all submitted annotation sessions with doctor info."""
     from sqlalchemy import func as _func
+
     q = (
         db.query(AnnotationSession, ImageSet, Doctors)
         .join(ImageSet, AnnotationSession.image_set_uuid == ImageSet.uuid)
@@ -342,12 +393,12 @@ def list_submissions(
         q = q.filter(ImageSet.dataset_uuid == dataset_uuid)
     q = q.order_by(AnnotationSession.submitted_at.desc())
 
-    index_rows = (
-        db.query(ImageSet.uuid, _func.row_number().over(
-            partition_by=ImageSet.dataset_uuid, order_by=ImageSet.uuid
-        ).label("idx"))
-        .subquery()
-    )
+    index_rows = db.query(
+        ImageSet.uuid,
+        _func.row_number()
+        .over(partition_by=ImageSet.dataset_uuid, order_by=ImageSet.uuid)
+        .label("idx"),
+    ).subquery()
     index_map = dict(db.query(index_rows.c.uuid, index_rows.c.idx).all())
 
     return [
@@ -385,12 +436,16 @@ def get_submission_by_image_set_admin(
         .first()
     )
     if ann_sess is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No submission found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No submission found"
+        )
 
     doctor = db.query(Doctors).filter(Doctors.uuid == doctor_uuid).first()
     set_eval = get_image_set_evaluation(db, ann_sess.annotation_session_uuid)
     if not set_eval:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evaluation data missing")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Evaluation data missing"
+        )
 
     _SCORE_FIELDS = [
         f"{z}_{side}_score"
@@ -425,6 +480,7 @@ def get_submission_by_image_set_admin(
 # ---------------------------------------------------------------------------
 # Audit log
 # ---------------------------------------------------------------------------
+
 
 @router.get("/audit-log", response_model=List[AdminAuditLogRead])
 def get_admin_audit_log(

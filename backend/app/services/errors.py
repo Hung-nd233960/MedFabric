@@ -9,14 +9,18 @@ class MedFabricError(Exception):
 class AuthError(MedFabricError):
     pass
 
+
 class InvalidCredentialsError(AuthError):
     pass
+
 
 class UserNotFoundError(AuthError):
     pass
 
+
 class UnauthorizedError(AuthError):
     pass
+
 
 class InactiveAccountError(AuthError):
     pass
@@ -26,8 +30,10 @@ class InactiveAccountError(AuthError):
 class DatabaseError(MedFabricError):
     pass
 
+
 class DuplicateEntryError(DatabaseError):
     pass
+
 
 class ConstraintViolationError(DatabaseError):
     pass
@@ -37,11 +43,14 @@ class ConstraintViolationError(DatabaseError):
 class DataSetError(MedFabricError):
     pass
 
+
 class DataSetNotFoundError(DataSetError):
     pass
 
+
 class DataSetAlreadyExistsError(DataSetError):
     pass
+
 
 class InvalidDataSetError(DataSetError):
     pass
@@ -51,11 +60,14 @@ class InvalidDataSetError(DataSetError):
 class PatientError(MedFabricError):
     pass
 
+
 class PatientNotFoundError(PatientError):
     pass
 
+
 class PatientAlreadyExistsError(PatientError):
     pass
+
 
 class PatientInvalidDataError(PatientError):
     pass
@@ -65,14 +77,18 @@ class PatientInvalidDataError(PatientError):
 class ImageSetError(MedFabricError):
     pass
 
+
 class ImageSetNotFoundError(ImageSetError):
     pass
+
 
 class ImageSetAlreadyExistsError(ImageSetError):
     pass
 
+
 class InvalidImageSetError(ImageSetError):
     pass
+
 
 class InvalidImageSetPathError(ImageSetError):
     pass
@@ -82,8 +98,10 @@ class InvalidImageSetPathError(ImageSetError):
 class ImageError(MedFabricError):
     pass
 
+
 class ImageNotFoundError(ImageError):
     pass
+
 
 class InvalidImageError(ImageError):
     pass
@@ -93,11 +111,14 @@ class InvalidImageError(ImageError):
 class EvaluationError(MedFabricError):
     pass
 
+
 class EvaluationNotFoundError(EvaluationError):
     pass
 
+
 class EvaluationAlreadyExistsError(EvaluationError):
     pass
+
 
 class InvalidEvaluationError(EvaluationError):
     pass
@@ -107,8 +128,10 @@ class InvalidEvaluationError(EvaluationError):
 class AnnotationSessionError(MedFabricError):
     pass
 
+
 class AnnotationSessionNotFoundError(AnnotationSessionError):
     pass
+
 
 class AnnotationSessionAlreadySubmittedError(AnnotationSessionError):
     pass
@@ -118,6 +141,7 @@ class AnnotationSessionAlreadySubmittedError(AnnotationSessionError):
 class LoginSessionError(MedFabricError):
     pass
 
+
 class LoginSessionNotFoundError(LoginSessionError):
     pass
 
@@ -125,6 +149,7 @@ class LoginSessionNotFoundError(LoginSessionError):
 # Assignment
 class AssignmentError(MedFabricError):
     pass
+
 
 class AssignmentNotFoundError(AssignmentError):
     pass

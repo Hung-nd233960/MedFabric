@@ -54,7 +54,9 @@ def register_doctor(
         return doctor
     except IntegrityError as exc:
         db.rollback()
-        raise DuplicateEntryError(f"Username or email already exists: {username}") from exc
+        raise DuplicateEntryError(
+            f"Username or email already exists: {username}"
+        ) from exc
     except SQLAlchemyError as exc:
         db.rollback()
         raise DatabaseError(f"Failed to register doctor '{username}'") from exc

@@ -21,6 +21,7 @@ from app.routers import (
     admin,
     annotation_sessions,
     auth,
+    bug_reports,
     dashboard,
     datasets,
     evaluations,
@@ -46,7 +47,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=()"
+        )
         return response
 
 
@@ -80,7 +83,9 @@ def _add_missing_columns() -> None:
 async def lifespan(app: FastAPI):
     set_startup_time()
     get_about()  # load and cache about.toml; logs name/version/creator
-    logger.info("MedFabric %s starting up — creating tables if needed", settings.app_version)
+    logger.info(
+        "MedFabric %s starting up — creating tables if needed", settings.app_version
+    )
     Base.metadata.create_all(bind=engine)
     _add_missing_columns()
     yield
@@ -117,6 +122,7 @@ API_PREFIX = "/api"
 for router_module in [
     about,
     auth,
+    bug_reports,
     datasets,
     patients,
     image_sets,

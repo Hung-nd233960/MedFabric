@@ -34,6 +34,7 @@ def _auto_window_from_dicom(folder_path: Path):
     """Read WL/WW from the first DICOM file in the folder. Returns (wl, ww) or (None, None)."""
     try:
         import pydicom
+
         for p in sorted(folder_path.iterdir()):
             if p.is_file() and p.suffix.lower() in _DICOM_EXTENSIONS:
                 dcm = pydicom.dcmread(str(p), stop_before_pixels=True)

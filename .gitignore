@@ -10,6 +10,8 @@ deprecated/
 .pnpm-store/
 .yarn-cache/
 .cache/
+node_modules/
+package-lock.json
 
 
 # Editor settings

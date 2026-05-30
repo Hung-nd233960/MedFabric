@@ -17,7 +17,7 @@ def get_token_from_request(request: Request) -> Optional[str]:
     """Extract bearer token from Authorization header."""
     auth = request.headers.get("Authorization")
     if auth and auth.startswith("Bearer "):
-        return auth[len("Bearer "):]
+        return auth[len("Bearer ") :]
     return None
 
 
@@ -48,7 +48,9 @@ def get_current_doctor(
         try:
             login_session = get_login_session(db, uuid.UUID(sid))
         except ValueError:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Malformed session ID")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Malformed session ID"
+            )
         if not login_session or not login_session.is_active:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

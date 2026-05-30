@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List
 
 from sqlalchemy.orm import Session
 
@@ -47,7 +47,9 @@ def get_annotation_session(
     return sess
 
 
-def mark_submitted(db: Session, annotation_session_uuid: uuid.UUID) -> AnnotationSession:
+def mark_submitted(
+    db: Session, annotation_session_uuid: uuid.UUID
+) -> AnnotationSession:
     sess = get_annotation_session(db, annotation_session_uuid)
     if sess.submitted_at is not None:
         raise AnnotationSessionAlreadySubmittedError(
@@ -62,9 +64,7 @@ def mark_submitted(db: Session, annotation_session_uuid: uuid.UUID) -> Annotatio
 def list_sessions_for_doctor(
     db: Session, doctor_uuid: uuid.UUID, submitted_only: bool = False
 ) -> List[AnnotationSession]:
-    q = db.query(AnnotationSession).filter(
-        AnnotationSession.doctor_uuid == doctor_uuid
-    )
+    q = db.query(AnnotationSession).filter(AnnotationSession.doctor_uuid == doctor_uuid)
     if submitted_only:
         q = q.filter(AnnotationSession.submitted_at.isnot(None))
     return q.order_by(AnnotationSession.started_at.desc()).all()

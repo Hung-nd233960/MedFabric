@@ -35,7 +35,10 @@ def get_startup_time() -> datetime | None:
 @lru_cache(maxsize=1)
 def get_about() -> AboutInfo:
     if not _ABOUT_PATH.exists():
-        logger.warning("about.toml not found at %s — About endpoint will return empty data", _ABOUT_PATH)
+        logger.warning(
+            "about.toml not found at %s — About endpoint will return empty data",
+            _ABOUT_PATH,
+        )
         return AboutInfo()
     with open(_ABOUT_PATH, "rb") as f:
         data = tomllib.load(f)

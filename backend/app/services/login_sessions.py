@@ -23,15 +23,15 @@ def create_login_session(db: Session, doctor_uuid: uuid.UUID) -> LoginSession:
 
 
 def get_login_session(db: Session, session_uuid: uuid.UUID) -> Optional[LoginSession]:
-    return db.query(LoginSession).filter(
-        LoginSession.session_uuid == session_uuid
-    ).first()
+    return (
+        db.query(LoginSession).filter(LoginSession.session_uuid == session_uuid).first()
+    )
 
 
 def deactivate_login_session(db: Session, session_uuid: uuid.UUID) -> None:
-    session = db.query(LoginSession).filter(
-        LoginSession.session_uuid == session_uuid
-    ).first()
+    session = (
+        db.query(LoginSession).filter(LoginSession.session_uuid == session_uuid).first()
+    )
     if session:
         session.is_active = False
         db.commit()

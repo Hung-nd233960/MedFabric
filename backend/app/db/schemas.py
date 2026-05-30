@@ -17,10 +17,10 @@ from app.db.models import (
     RegionScore,
 )
 
-
 # ---------------------------------------------------------------------------
 # Shared config
 # ---------------------------------------------------------------------------
+
 
 class _ORM(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -29,6 +29,7 @@ class _ORM(BaseModel):
 # ---------------------------------------------------------------------------
 # Auth
 # ---------------------------------------------------------------------------
+
 
 class RegisterRequest(BaseModel):
     username: str
@@ -123,12 +124,14 @@ class SetupAccountRequest(BaseModel):
 
 class RefreshRequest(BaseModel):
     """Body-based refresh (alternative to cookie approach)."""
+
     refresh_token: str
 
 
 # ---------------------------------------------------------------------------
 # Doctor / user
 # ---------------------------------------------------------------------------
+
 
 class DoctorRead(_ORM):
     uuid: uuid.UUID
@@ -174,6 +177,7 @@ class DoctorUpdate(BaseModel):
 # Dataset
 # ---------------------------------------------------------------------------
 
+
 class DataSetRead(_ORM):
     dataset_uuid: uuid.UUID
     name: str
@@ -197,6 +201,7 @@ class DataSetUpdate(BaseModel):
 # ---------------------------------------------------------------------------
 # Patient
 # ---------------------------------------------------------------------------
+
 
 class PatientRead(_ORM):
     patient_uuid: uuid.UUID
@@ -224,6 +229,7 @@ class PatientUpdate(BaseModel):
 # ---------------------------------------------------------------------------
 # ImageSet
 # ---------------------------------------------------------------------------
+
 
 class ImageSetRead(_ORM):
     uuid: uuid.UUID
@@ -266,6 +272,7 @@ class ImageSetUpdate(BaseModel):
 
 class ImageSetWithProgress(_ORM):
     """ImageSet row extended with evaluation progress for the dashboard."""
+
     dataset_index: int
     uuid: uuid.UUID
     dataset_uuid: uuid.UUID
@@ -288,6 +295,7 @@ class ImageSetWithProgress(_ORM):
 # Image (slice)
 # ---------------------------------------------------------------------------
 
+
 class ImageRead(_ORM):
     uuid: uuid.UUID
     image_name: str
@@ -298,6 +306,7 @@ class ImageRead(_ORM):
 # ---------------------------------------------------------------------------
 # Annotation session
 # ---------------------------------------------------------------------------
+
 
 class AnnotationSessionRead(_ORM):
     annotation_session_uuid: uuid.UUID
@@ -315,6 +324,7 @@ class AnnotationSessionCreate(BaseModel):
 
 class SaveDraft(BaseModel):
     """Partial annotation payload stored server-side; same shape as SubmitAnnotation."""
+
     annotation_session_uuid: uuid.UUID
     usability: Optional[ImageSetUsability] = None
     low_quality: bool = False
@@ -334,6 +344,7 @@ class DraftRead(BaseModel):
 # ImageSetEvaluation (set-level)
 # ---------------------------------------------------------------------------
 
+
 class ImageSetEvaluationRead(_ORM):
     id: int
     annotation_session_uuid: uuid.UUID
@@ -346,6 +357,7 @@ class ImageSetEvaluationRead(_ORM):
 # ---------------------------------------------------------------------------
 # ImageEvaluation (per-slice) — zone scores
 # ---------------------------------------------------------------------------
+
 
 class ZoneScores(BaseModel):
     c_left_score: RegionScore
@@ -382,8 +394,10 @@ class ImageEvaluationRead(_ORM, ZoneScores):
 # Submission payload (doctor submits entire image set at once)
 # ---------------------------------------------------------------------------
 
+
 class ImageEvaluationSubmit(ZoneScores):
     """One slice's data inside a full submission."""
+
     image_uuid: uuid.UUID
     region: Region
     notes: Optional[str] = None
@@ -397,6 +411,7 @@ class SubmitAnnotation(BaseModel):
     notes: optional set-level note.
     image_evaluations: only populated when usability=IschemicAssessable AND !low_quality.
     """
+
     annotation_session_uuid: uuid.UUID
     usability: ImageSetUsability
     low_quality: bool
@@ -407,6 +422,7 @@ class SubmitAnnotation(BaseModel):
 # ---------------------------------------------------------------------------
 # Admin
 # ---------------------------------------------------------------------------
+
 
 class DoctorDatasetAssignmentRead(_ORM):
     id: int
@@ -437,6 +453,7 @@ class AdminAuditLogRead(_ORM):
 # Dashboard
 # ---------------------------------------------------------------------------
 
+
 class DashboardStats(BaseModel):
     assigned_dataset: Optional[DataSetRead]
     my_progress: int
@@ -448,8 +465,10 @@ class DashboardStats(BaseModel):
 # Drafts and History
 # ---------------------------------------------------------------------------
 
+
 class DraftItem(BaseModel):
     """One active draft entry for the Drafts tab."""
+
     annotation_session_uuid: uuid.UUID
     image_set_uuid: uuid.UUID
     image_set_name: str
@@ -467,6 +486,7 @@ class DraftItem(BaseModel):
 
 class HistoryEvent(BaseModel):
     """One activity event for the History tab."""
+
     event_type: str  # "submitted" | "draft_saved" | "draft_deleted"
     timestamp: datetime
     annotation_session_uuid: uuid.UUID
@@ -480,6 +500,7 @@ class HistoryEvent(BaseModel):
 # Export
 # ---------------------------------------------------------------------------
 
+
 class ExportRequest(BaseModel):
     dataset_uuid: Optional[uuid.UUID] = None
     format: str = "xlsx"
@@ -488,6 +509,7 @@ class ExportRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Admin Submissions
 # ---------------------------------------------------------------------------
+
 
 class SubmissionRecord(BaseModel):
     annotation_session_uuid: uuid.UUID

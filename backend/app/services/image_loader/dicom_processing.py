@@ -67,7 +67,13 @@ def dicom_to_metadata(file_path: Path) -> Dict[str, str]:
     except InvalidDicomError as exc:
         raise InvalidDicomFileError(f"Invalid DICOM file: {file_path}") from exc
     keys = [
-        "PatientName", "PatientID", "StudyDate", "Modality",
-        "SliceThickness", "PixelSpacing", "WindowCenter", "WindowWidth",
+        "PatientName",
+        "PatientID",
+        "StudyDate",
+        "Modality",
+        "SliceThickness",
+        "PixelSpacing",
+        "WindowCenter",
+        "WindowWidth",
     ]
     return {k: str(getattr(dcm, k, "")) for k in keys}

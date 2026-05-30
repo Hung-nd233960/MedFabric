@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db.models import AnnotationSession, Doctors, ImageSet, LoginSession
+from app.db.models import AnnotationSession, Doctors, ImageSet
 from app.db.schemas import AnnotationSessionCreate, AnnotationSessionRead, HistoryEvent
 from app.deps import get_current_doctor
 from app.services.annotation_sessions import (
@@ -32,7 +32,9 @@ def _get_latest_login_session(db: Session, doctor_uuid: uuid.UUID) -> uuid.UUID:
     return sessions[0].session_uuid
 
 
-@router.post("/", response_model=AnnotationSessionRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=AnnotationSessionRead, status_code=status.HTTP_201_CREATED
+)
 def open_annotation_session(
     body: AnnotationSessionCreate,
     db: Session = Depends(get_db),
@@ -65,12 +67,12 @@ def my_history(
     """Return a chronological list of annotation activity events for the current doctor."""
     from sqlalchemy import func as _func
 
-    index_rows = (
-        db.query(ImageSet.uuid, _func.row_number().over(
-            partition_by=ImageSet.dataset_uuid, order_by=ImageSet.uuid
-        ).label("idx"))
-        .subquery()
-    )
+    index_rows = db.query(
+        ImageSet.uuid,
+        _func.row_number()
+        .over(partition_by=ImageSet.dataset_uuid, order_by=ImageSet.uuid)
+        .label("idx"),
+    ).subquery()
     index_map = dict(db.query(index_rows.c.uuid, index_rows.c.idx).all())
 
     sessions = (
@@ -92,11 +94,23 @@ def my_history(
         )
         # All three events are independent — a session can have all of them
         if sess.draft_saved_at:
-            events.append(HistoryEvent(event_type="draft_saved", timestamp=sess.draft_saved_at, **base))
+            events.append(
+                HistoryEvent(
+                    event_type="draft_saved", timestamp=sess.draft_saved_at, **base
+                )
+            )
         if sess.draft_deleted_at:
-            events.append(HistoryEvent(event_type="draft_deleted", timestamp=sess.draft_deleted_at, **base))
+            events.append(
+                HistoryEvent(
+                    event_type="draft_deleted", timestamp=sess.draft_deleted_at, **base
+                )
+            )
         if sess.submitted_at:
-            events.append(HistoryEvent(event_type="submitted", timestamp=sess.submitted_at, **base))
+            events.append(
+                HistoryEvent(
+                    event_type="submitted", timestamp=sess.submitted_at, **base
+                )
+            )
 
     events.sort(key=lambda e: e.timestamp, reverse=True)
     return events
@@ -113,5 +127,7 @@ def get_one_annotation_session(
     except AnnotationSessionNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     if sess.doctor_uuid != doctor.uuid:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your session")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not your session"
+        )
     return sess

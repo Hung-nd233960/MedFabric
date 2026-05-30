@@ -37,7 +37,9 @@ def create_access_token(subject: str, extra: Optional[dict] = None) -> str:
     payload = {"sub": subject, "exp": expire, "type": "access"}
     if extra:
         payload.update(extra)
-    return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+    return jwt.encode(
+        payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
+    )
 
 
 def create_refresh_token(subject: str) -> str:
@@ -45,7 +47,9 @@ def create_refresh_token(subject: str) -> str:
         hours=settings.refresh_token_expire_hours
     )
     payload = {"sub": subject, "exp": expire, "type": "refresh"}
-    return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+    return jwt.encode(
+        payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
+    )
 
 
 def decode_token(token: str) -> dict:

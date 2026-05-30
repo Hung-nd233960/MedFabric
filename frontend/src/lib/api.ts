@@ -55,6 +55,24 @@ api.interceptors.response.use(
   }
 );
 
+// Proactive token refresh — reuses the same deduplication promise as the 401 interceptor
+export function silentRefresh(): Promise<string | null> {
+  if (!refreshing) {
+    refreshing = api
+      .post<AuthResponse>("/auth/refresh")
+      .then((r) => {
+        useAuthStore.getState().setAccessToken(r.data.access_token, r.data.must_change_password, r.data.must_set_name, r.data.preferences);
+        return r.data.access_token;
+      })
+      .catch(() => {
+        useAuthStore.getState().logout();
+        return null;
+      })
+      .finally(() => { refreshing = null; });
+  }
+  return refreshing;
+}
+
 // Typed helpers
 export const authApi = {
   login: (username: string, password: string) =>
@@ -156,6 +174,20 @@ export const adminApi = {
 export const aboutApi = {
   get: () => api.get("/about"),
   getDev: () => api.get("/about/dev"),
+};
+
+export const bugReportApi = {
+  submit: (data: {
+    type: "bug" | "feature";
+    text: string;
+    page: string;
+    context?: {
+      annotation_session_uuid?: string | null;
+      image_set_uuid?: string | null;
+      image_set_name?: string | null;
+      image_index?: number | null;
+    } | null;
+  }) => api.post("/bug-reports", data),
 };
 
 export const exportApi = {
