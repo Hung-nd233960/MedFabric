@@ -51,6 +51,13 @@ const USABILITY_TOOLTIPS: Record<ImageSetUsability, ReactNode> = {
   Irrelevant:          <span className="flex items-center gap-2"><span>Wrong scan, wrong patient, or non-diagnostic. Include reason in notes.</span><TooltipKbd>Shift+4</TooltipKbd></span>,
 };
 
+const USABILITY_TOOLTIPS_PLAIN: Record<ImageSetUsability, ReactNode> = {
+  IschemicAssessable: <span>ASPECTS scoring applies — ischemic stroke or healthy patient</span>,
+  HemorrhagicPresent: <span>Hemorrhage detected — ASPECTS not applicable</span>,
+  Anomaly:            <span>Other abnormality present — ASPECTS not applicable (eg. brain tumors).</span>,
+  Irrelevant:         <span>Wrong scan, wrong patient, or non-diagnostic.</span>,
+};
+
 export default function SetLevelEvaluation({
   readOnly,
   notesRef: externalNotesRef,
@@ -104,7 +111,7 @@ export default function SetLevelEvaluation({
             <WithTooltip
               key={u}
               type="medical"
-              content={USABILITY_TOOLTIPS[u]}
+              content={readOnly ? USABILITY_TOOLTIPS_PLAIN[u] : USABILITY_TOOLTIPS[u]}
               side="top"
               delayDuration={120}
             >
@@ -137,7 +144,9 @@ export default function SetLevelEvaluation({
       {/* Low Quality — tickbox, only active for IschemicAssessable */}
       <WithTooltip
         type="medical"
-        content={<span className="flex items-center gap-2"><span>Poor image quality — artifacts or technical issues reducing diagnostic confidence</span><TooltipKbd>Shift+Q</TooltipKbd></span>}
+        content={readOnly
+          ? <span>Poor image quality — artifacts or technical issues reducing diagnostic confidence</span>
+          : <span className="flex items-center gap-2"><span>Poor image quality — artifacts or technical issues reducing diagnostic confidence</span><TooltipKbd>Shift+Q</TooltipKbd></span>}
         side="top"
       >
         <div className={cn(

@@ -11,12 +11,12 @@ import { useEffect, useRef, useState } from "react";
 import type { RegionScore } from "@/lib/types";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, RotateCcw, Send, ArrowLeft, Trash2, Save, X, ClipboardList, Loader2, Bot } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, RotateCcw, Send, ArrowLeft, Trash2, Save, X, ClipboardList, Loader2, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { WithTooltip, TooltipKbd, NavKbd } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger, WithTooltip, TooltipKbd, NavKbd } from "@/components/ui/tooltip";
 import SetLevelEvaluation from "@/components/label/SetLevelEvaluation";
 import SliceEvaluation from "@/components/label/SliceEvaluation";
 import ValidationStatus from "@/components/label/ValidationStatus";
@@ -127,6 +127,15 @@ export default function LabelPage() {
   const [wwInput, setWwInput] = useState(String(windowWidth));
   const [jumpImgInput, setJumpImgInput] = useState(String(currentIndex + 1));
   const [jumpSetInput, setJumpSetInput] = useState(String(queuePos + 1));
+  const [jumpImgFocused, setJumpImgFocused] = useState(false);
+  const [jumpSetFocused, setJumpSetFocused] = useState(false);
+  const [wlFocused, setWlFocused] = useState(false);
+  const [wwFocused, setWwFocused] = useState(false);
+  const [jumpImgFlash, setJumpImgFlash] = useState(false);
+  const [jumpSetFlash, setJumpSetFlash] = useState(false);
+  const [wlFlash, setWlFlash] = useState(false);
+  const [wwFlash, setWwFlash] = useState(false);
+  const flashTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const wlInputRef = useRef<HTMLInputElement>(null);
   const wwInputRef = useRef<HTMLInputElement>(null);
@@ -333,6 +342,22 @@ export default function LabelPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usability, lowQuality, setNotes, slices]);
 
+  // Guard browser-level navigation (refresh, tab close, back button) when annotation is dirty
+  useEffect(() => {
+    if (isReadMode || isPreviewMode) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      const st = useLabelStore.getState();
+      const dirty =
+        st.usability !== null ||
+        st.lowQuality ||
+        st.setNotes.trim() !== "" ||
+        (Object.values(st.slices) as SliceEvalState[]).some(s => s.region !== "None" || s.notes.trim() !== "");
+      if (dirty) { e.preventDefault(); e.returnValue = ""; }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isReadMode, isPreviewMode]);
+
   // Register navbar navigation interceptor while on this page (skip in read/preview mode)
   useEffect(() => {
     if (isReadMode || isPreviewMode) return;
@@ -445,6 +470,45 @@ export default function LabelPage() {
     } else {
       setJumpSetInput(String(queuePos + 1));
     }
+  };
+
+  // Preemptive number-input guards
+  const jumpImgNum = parseInt(jumpImgInput);
+  const jumpImgError: string | null =
+    jumpImgInput !== "" && !isNaN(jumpImgNum)
+      ? jumpImgNum < 1 ? "Min is 1"
+      : jumpImgNum > images.length ? `Max is ${images.length}`
+      : null
+    : null;
+
+  const jumpSetNum = parseInt(jumpSetInput);
+  const jumpSetError: string | null =
+    jumpSetInput !== "" && !isNaN(jumpSetNum)
+      ? jumpSetNum < 1 ? "Min is 1"
+      : jumpSetNum > queue.length ? `Max is ${queue.length}`
+      : null
+    : null;
+
+  const wwError: string | null =
+    wwInput !== "" && !isNaN(parseInt(wwInput)) && parseInt(wwInput) < 1 ? "Min is 1" : null;
+
+  const flashTimerKeys = flashTimers; // alias for clarity inside callbacks
+  const triggerFlash = (key: string, setter: React.Dispatch<React.SetStateAction<boolean>>) => {
+    setter(true);
+    clearTimeout(flashTimerKeys.current[key]);
+    flashTimerKeys.current[key] = setTimeout(() => setter(false), 1200);
+  };
+
+  // Positive integers only (Jump to Image, Jump to Set, WW)
+  const blockNonDigit = (e: React.KeyboardEvent<HTMLInputElement>, onBlocked?: () => void) => {
+    const PASS = ["Backspace","Delete","ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Home","End","Tab","Enter","Escape"];
+    if (!PASS.includes(e.key) && !/^\d$/.test(e.key)) { e.preventDefault(); onBlocked?.(); }
+  };
+
+  // Integers including negative (WL — Hounsfield units can be negative)
+  const blockNonInt = (e: React.KeyboardEvent<HTMLInputElement>, onBlocked?: () => void) => {
+    const PASS = ["Backspace","Delete","ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Home","End","Tab","Enter","Escape"];
+    if (!PASS.includes(e.key) && !/^[-\d]$/.test(e.key)) { e.preventDefault(); onBlocked?.(); }
   };
 
   type BatchAction = "submit-all" | "draft-all" | "submit-ready-draft-incomplete" | "submit-ready-drop-incomplete";
@@ -1199,21 +1263,32 @@ export default function LabelPage() {
                             <ChevronLeft className="h-4 w-4" />
                           </Button>
                         </WithTooltip>
-                        <WithTooltip content={<span className="flex items-center gap-2"><span>Jump to image</span><TooltipKbd>I</TooltipKbd></span>} side="top">
-                          <Input
-                            ref={jumpImgInputRef}
-                            type="number"
-                            className={`h-8 w-16 text-center text-base ${NO_SPINNER}`}
-                            value={jumpImgInput}
-                            onChange={(e) => setJumpImgInput(e.target.value)}
-                            onBlur={(e) => { if (!skipJumpImgApplyRef.current) applyJumpImage(e.target.value); skipJumpImgApplyRef.current = false; }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") { applyJumpImage(jumpImgInput); e.currentTarget.blur(); }
-                              else if (e.key === "Escape") { skipJumpImgApplyRef.current = true; setJumpImgInput(String(currentIndex + 1)); e.currentTarget.blur(); }
-                            }}
-                            min={1} max={images.length}
-                          />
-                        </WithTooltip>
+                        <Tooltip open={jumpImgFlash ? true : jumpImgError !== null && jumpImgFocused ? true : jumpImgFocused ? false : undefined}>
+                          <TooltipTrigger asChild>
+                            <Input
+                              ref={jumpImgInputRef}
+                              type="number"
+                              className={`h-8 w-16 text-center text-base ${NO_SPINNER} ${jumpImgError ? "border-red-500 focus-visible:ring-red-500/30" : ""}`}
+                              value={jumpImgInput}
+                              onChange={(e) => setJumpImgInput(e.target.value.replace(/[^\d]/g, ""))}
+                              onFocus={() => setJumpImgFocused(true)}
+                              onBlur={(e) => { setJumpImgFocused(false); if (!skipJumpImgApplyRef.current) applyJumpImage(e.target.value); skipJumpImgApplyRef.current = false; }}
+                              onKeyDown={(e) => {
+                                blockNonDigit(e, () => triggerFlash("jumpImg", setJumpImgFlash));
+                                if (e.key === "Enter") { applyJumpImage(jumpImgInput); e.currentTarget.blur(); }
+                                else if (e.key === "Escape") { skipJumpImgApplyRef.current = true; setJumpImgInput(String(currentIndex + 1)); e.currentTarget.blur(); }
+                              }}
+                              min={1} max={images.length}
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            {jumpImgFlash
+                              ? <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-yellow-400 shrink-0" /><span>Numbers only</span></span>
+                              : jumpImgError
+                                ? <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-red-400 shrink-0" /><span>{jumpImgError}</span></span>
+                                : <span className="flex items-center gap-2"><span>Jump to image</span><TooltipKbd>I</TooltipKbd></span>}
+                          </TooltipContent>
+                        </Tooltip>
                         <span className="text-base text-muted-foreground shrink-0">of {images.length}</span>
                         <WithTooltip content={<span className="flex items-center gap-2"><span>Next image</span><NavKbd dir="right" /></span>} side="top">
                           <Button
@@ -1246,42 +1321,62 @@ export default function LabelPage() {
                     )}
 
                     <div className="flex items-center gap-2">
-                      <WithTooltip content={<span className="flex items-center gap-2"><span>Focus Window Level</span><TooltipKbd>W</TooltipKbd></span>} side="top">
-                        <div className="flex items-center gap-2">
-                          <Label className="text-base text-muted-foreground shrink-0 cursor-default">WL</Label>
-                          <Input
-                            ref={wlInputRef}
-                            type="number"
-                            className={`h-7 w-16 text-base ${NO_SPINNER}`}
-                            value={wlInput}
-                            onChange={(e) => setWlInput(e.target.value)}
-                            onBlur={() => { if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
-                              else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWlInput(String(windowLevel)); e.currentTarget.blur(); }
-                              else if (e.key === "Tab") { e.preventDefault(); wwInputRef.current?.focus(); wwInputRef.current?.select(); }
-                            }}
-                          />
-                        </div>
-                      </WithTooltip>
-                      <WithTooltip content={<span className="flex items-center gap-2"><span>Focus Window Width</span><span className="flex items-center gap-1"><TooltipKbd>W</TooltipKbd><TooltipKbd>Tab</TooltipKbd></span></span>} side="top">
-                        <div className="flex items-center gap-2">
-                          <Label className="text-base text-muted-foreground shrink-0 cursor-default">WW</Label>
-                          <Input
-                            ref={wwInputRef}
-                            type="number"
-                            className={`h-7 w-16 text-base ${NO_SPINNER}`}
-                            value={wwInput}
-                            onChange={(e) => setWwInput(e.target.value)}
-                            onBlur={() => { if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
-                              else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWwInput(String(windowWidth)); e.currentTarget.blur(); }
-                              else if (e.key === "Tab") { e.preventDefault(); wlInputRef.current?.focus(); wlInputRef.current?.select(); }
-                            }}
-                          />
-                        </div>
-                      </WithTooltip>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-base text-muted-foreground shrink-0 cursor-default">WL</Label>
+                        <Tooltip open={wlFlash ? true : wlFocused ? false : undefined}>
+                          <TooltipTrigger asChild>
+                            <Input
+                              ref={wlInputRef}
+                              type="number"
+                              className={`h-7 w-16 text-base ${NO_SPINNER}`}
+                              value={wlInput}
+                              onChange={(e) => setWlInput(e.target.value.replace(/[^\d-]/g, ""))}
+                              onFocus={() => setWlFocused(true)}
+                              onBlur={() => { setWlFocused(false); if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
+                              onKeyDown={(e) => {
+                                blockNonInt(e, () => triggerFlash("wl", setWlFlash));
+                                if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
+                                else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWlInput(String(windowLevel)); e.currentTarget.blur(); }
+                                else if (e.key === "Tab") { e.preventDefault(); wwInputRef.current?.focus(); wwInputRef.current?.select(); }
+                              }}
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            {wlFlash
+                              ? <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-yellow-400 shrink-0" /><span>Digits or − only</span></span>
+                              : <span className="flex items-center gap-2"><span>Focus Window Level</span><TooltipKbd>W</TooltipKbd></span>}
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-base text-muted-foreground shrink-0 cursor-default">WW</Label>
+                        <Tooltip open={wwFlash ? true : wwError !== null && wwFocused ? true : wwFocused ? false : undefined}>
+                          <TooltipTrigger asChild>
+                            <Input
+                              ref={wwInputRef}
+                              type="number"
+                              className={`h-7 w-16 text-base ${NO_SPINNER} ${wwError ? "border-red-500 focus-visible:ring-red-500/30" : ""}`}
+                              value={wwInput}
+                              onChange={(e) => setWwInput(e.target.value.replace(/[^\d]/g, ""))}
+                              onFocus={() => setWwFocused(true)}
+                              onBlur={() => { setWwFocused(false); if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
+                              onKeyDown={(e) => {
+                                blockNonDigit(e, () => triggerFlash("ww", setWwFlash));
+                                if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
+                                else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWwInput(String(windowWidth)); e.currentTarget.blur(); }
+                                else if (e.key === "Tab") { e.preventDefault(); wlInputRef.current?.focus(); wlInputRef.current?.select(); }
+                              }}
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            {wwFlash
+                              ? <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-yellow-400 shrink-0" /><span>Numbers only</span></span>
+                              : wwError
+                                ? <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-red-400 shrink-0" /><span>{wwError}</span></span>
+                                : <span className="flex items-center gap-2"><span>Focus Window Width</span><span className="flex items-center gap-1"><TooltipKbd>W</TooltipKbd><TooltipKbd>Tab</TooltipKbd></span></span>}
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
                       <WithTooltip content={<span className="flex items-center gap-2"><span>Reset to WL {defaultWindowLevel} / WW {defaultWindowWidth}</span><TooltipKbd>Shift+W</TooltipKbd></span>} side="top">
                         <Button
                           variant="outline" size="icon" className="h-7 w-7 shrink-0"
@@ -1344,21 +1439,32 @@ export default function LabelPage() {
                               <ChevronLeft className="h-4 w-4" />
                             </Button>
                           </WithTooltip>
-                          <WithTooltip content={<span className="flex items-center gap-2"><span>Jump to set</span><TooltipKbd>Shift+I</TooltipKbd></span>} side="top">
-                            <Input
-                              ref={jumpSetInputRef}
-                              type="number"
-                              className={`h-8 w-14 text-center text-base ${NO_SPINNER}`}
-                              value={jumpSetInput}
-                              onChange={(e) => setJumpSetInput(e.target.value)}
-                              onBlur={(e) => { if (!skipJumpSetApplyRef.current) applyJumpSet(e.target.value); skipJumpSetApplyRef.current = false; }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") { applyJumpSet(jumpSetInput); e.currentTarget.blur(); }
-                                else if (e.key === "Escape") { skipJumpSetApplyRef.current = true; setJumpSetInput(String(queuePos + 1)); e.currentTarget.blur(); }
-                              }}
-                              min={1} max={queue.length}
-                            />
-                          </WithTooltip>
+                          <Tooltip open={jumpSetFlash ? true : jumpSetError !== null && jumpSetFocused ? true : jumpSetFocused ? false : undefined}>
+                            <TooltipTrigger asChild>
+                              <Input
+                                ref={jumpSetInputRef}
+                                type="number"
+                                className={`h-8 w-14 text-center text-base ${NO_SPINNER} ${jumpSetError ? "border-red-500 focus-visible:ring-red-500/30" : ""}`}
+                                value={jumpSetInput}
+                                onChange={(e) => setJumpSetInput(e.target.value.replace(/[^\d]/g, ""))}
+                                onFocus={() => setJumpSetFocused(true)}
+                                onBlur={(e) => { setJumpSetFocused(false); if (!skipJumpSetApplyRef.current) applyJumpSet(e.target.value); skipJumpSetApplyRef.current = false; }}
+                                onKeyDown={(e) => {
+                                  blockNonDigit(e, () => triggerFlash("jumpSet", setJumpSetFlash));
+                                  if (e.key === "Enter") { applyJumpSet(jumpSetInput); e.currentTarget.blur(); }
+                                  else if (e.key === "Escape") { skipJumpSetApplyRef.current = true; setJumpSetInput(String(queuePos + 1)); e.currentTarget.blur(); }
+                                }}
+                                min={1} max={queue.length}
+                              />
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              {jumpSetFlash
+                                ? <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-yellow-400 shrink-0" /><span>Numbers only</span></span>
+                                : jumpSetError
+                                  ? <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-red-400 shrink-0" /><span>{jumpSetError}</span></span>
+                                  : <span className="flex items-center gap-2"><span>Jump to set</span><TooltipKbd>Shift+I</TooltipKbd></span>}
+                            </TooltipContent>
+                          </Tooltip>
                           <span className="text-sm text-muted-foreground shrink-0">of {queue.length}</span>
                           <WithTooltip content={<span className="flex items-center gap-2"><span>Next image set</span><NavKbd dir="shiftRight" /></span>} side="top">
                             <Button
@@ -1530,8 +1636,13 @@ export default function LabelPage() {
                           className="w-full gap-2 border-foreground text-foreground font-semibold"
                           onClick={() => setShowManagementBoard(true)}
                         >
-                          <ClipboardList className="h-4 w-4" />
-                          Management Board
+                          {showKbdHints ? (
+                            <span className="flex w-full items-center gap-2">
+                              <ClipboardList className="h-4 w-4 shrink-0" />
+                              <span className="flex-1 text-left text-xs">Management Board</span>
+                              <kbd className="font-mono border border-current/30 bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none shrink-0">M</kbd>
+                            </span>
+                          ) : <><ClipboardList className="h-4 w-4" />Management Board</>}
                         </Button>
                       </WithTooltip>
                       <WithTooltip content={<span className="flex items-center gap-2"><span>Exit to Dashboard</span><TooltipKbd>Shift+Esc</TooltipKbd></span>} side="top">
@@ -1539,8 +1650,13 @@ export default function LabelPage() {
                           className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white"
                           onClick={handleExit}
                         >
-                          <ArrowLeft className="h-4 w-4" />
-                          {isAdminRead ? "Return to Submissions" : "Return to Dashboard"}
+                          {showKbdHints ? (
+                            <span className="flex w-full items-center gap-2">
+                              <ArrowLeft className="h-4 w-4 shrink-0" />
+                              <span className="flex-1 text-left text-xs">{isAdminRead ? "Return to Submissions" : "Return to Dashboard"}</span>
+                              <kbd className="font-mono border border-current/30 bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none shrink-0">Shift+Esc</kbd>
+                            </span>
+                          ) : <><ArrowLeft className="h-4 w-4" />{isAdminRead ? "Return to Submissions" : "Return to Dashboard"}</>}
                         </Button>
                       </WithTooltip>
                     </>
@@ -1554,8 +1670,13 @@ export default function LabelPage() {
                             className="flex-1 gap-2 border-foreground text-foreground font-semibold"
                             onClick={() => setShowManagementBoard(true)}
                           >
-                            <ClipboardList className="h-4 w-4" />
-                            Management Board
+                            {showKbdHints ? (
+                              <span className="flex w-full items-center gap-2">
+                                <ClipboardList className="h-4 w-4 shrink-0" />
+                                <span className="flex-1 text-left text-xs">Management Board</span>
+                                <kbd className="font-mono border border-current/30 bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none shrink-0">M</kbd>
+                              </span>
+                            ) : <><ClipboardList className="h-4 w-4" />Management Board</>}
                           </Button>
                         </WithTooltip>
                         <WithTooltip content={<span className="flex items-center gap-2"><span>AI Assist (In Development)</span><TooltipKbd>Shift+A</TooltipKbd></span>} side="top">
@@ -1578,8 +1699,13 @@ export default function LabelPage() {
                             disabled={savingDraft || submitting}
                             onClick={handleSaveDraft}
                           >
-                            <Save className="h-4 w-4" />
-                            {savingDraft ? "Saving…" : "Save Draft"}
+                            {showKbdHints ? (
+                              <span className="flex w-full items-center gap-2">
+                                <Save className="h-4 w-4 shrink-0" />
+                                <span className="flex-1 text-left text-xs">{savingDraft ? "Saving…" : "Save Draft"}</span>
+                                <kbd className="font-mono border border-current/30 bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none shrink-0">Ctrl+S</kbd>
+                              </span>
+                            ) : <><Save className="h-4 w-4" />{savingDraft ? "Saving…" : "Save Draft"}</>}
                           </Button>
                         </WithTooltip>
                         <WithTooltip content={<span className="flex items-center gap-2"><span>Submit annotation</span><TooltipKbd>Ctrl+Enter</TooltipKbd></span>} side="top">
@@ -1588,8 +1714,13 @@ export default function LabelPage() {
                             disabled={!anyReady || submitting || navigating}
                             onClick={() => setSubmitDialogMode(allReady ? "all-ready" : "partial-ready")}
                           >
-                            <Send className="h-4 w-4" />
-                            {submitting ? "Submitting…" : anyReady ? "Submit Annotation" : "Not Ready"}
+                            {showKbdHints ? (
+                              <span className="flex w-full items-center gap-2">
+                                <Send className="h-4 w-4 shrink-0" />
+                                <span className="flex-1 text-left text-xs">{submitting ? "Submitting…" : anyReady ? "Submit Annotation" : "Not Ready"}</span>
+                                <kbd className="font-mono border border-current/30 bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none shrink-0">Ctrl+Enter</kbd>
+                              </span>
+                            ) : <><Send className="h-4 w-4" />{submitting ? "Submitting…" : anyReady ? "Submit Annotation" : "Not Ready"}</>}
                           </Button>
                         </WithTooltip>
                       </div>
@@ -1599,8 +1730,13 @@ export default function LabelPage() {
                             className="flex-1 gap-2 bg-purple-600 hover:bg-purple-700 text-white"
                             onClick={handleExit}
                           >
-                            <ArrowLeft className="h-4 w-4" />
-                            Exit to Dashboard
+                            {showKbdHints ? (
+                              <span className="flex w-full items-center gap-2">
+                                <ArrowLeft className="h-4 w-4 shrink-0" />
+                                <span className="flex-1 text-left text-xs">Exit to Dashboard</span>
+                                <kbd className="font-mono border border-current/30 bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none shrink-0">Shift+Esc</kbd>
+                              </span>
+                            ) : <><ArrowLeft className="h-4 w-4" />Exit to Dashboard</>}
                           </Button>
                         </WithTooltip>
                         <WithTooltip content={<span className="flex items-center gap-2"><span>Reset all annotations</span><TooltipKbd>Shift+Del</TooltipKbd></span>} side="top">
@@ -1609,8 +1745,13 @@ export default function LabelPage() {
                             className="flex-1 gap-2 text-destructive hover:text-destructive"
                             onClick={() => setConfirmReset(true)}
                           >
-                            <Trash2 className="h-4 w-4" />
-                            Reset All Annotations
+                            {showKbdHints ? (
+                              <span className="flex w-full items-center gap-2">
+                                <Trash2 className="h-4 w-4 shrink-0" />
+                                <span className="flex-1 text-left text-xs">Reset All Annotations</span>
+                                <kbd className="font-mono border border-current/30 bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none shrink-0">Shift+Del</kbd>
+                              </span>
+                            ) : <><Trash2 className="h-4 w-4" />Reset All Annotations</>}
                           </Button>
                         </WithTooltip>
                       </div>
@@ -1648,21 +1789,32 @@ export default function LabelPage() {
                             <ChevronLeft className="h-4 w-4" />
                           </Button>
                         </WithTooltip>
-                        <WithTooltip content={<span className="flex items-center gap-2"><span>Jump to image</span><TooltipKbd>I</TooltipKbd></span>} side="top">
-                          <Input
-                            ref={jumpImgInputRef}
-                            type="number"
-                            className={`h-8 w-16 text-center text-base ${NO_SPINNER}`}
-                            value={jumpImgInput}
-                            onChange={(e) => setJumpImgInput(e.target.value)}
-                            onBlur={(e) => { if (!skipJumpImgApplyRef.current) applyJumpImage(e.target.value); skipJumpImgApplyRef.current = false; }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") { applyJumpImage(jumpImgInput); e.currentTarget.blur(); }
-                              else if (e.key === "Escape") { skipJumpImgApplyRef.current = true; setJumpImgInput(String(currentIndex + 1)); e.currentTarget.blur(); }
-                            }}
-                            min={1} max={images.length}
-                          />
-                        </WithTooltip>
+                        <Tooltip open={jumpImgFlash ? true : jumpImgError !== null && jumpImgFocused ? true : jumpImgFocused ? false : undefined}>
+                          <TooltipTrigger asChild>
+                            <Input
+                              ref={jumpImgInputRef}
+                              type="number"
+                              className={`h-8 w-16 text-center text-base ${NO_SPINNER} ${jumpImgError ? "border-red-500 focus-visible:ring-red-500/30" : ""}`}
+                              value={jumpImgInput}
+                              onChange={(e) => setJumpImgInput(e.target.value.replace(/[^\d]/g, ""))}
+                              onFocus={() => setJumpImgFocused(true)}
+                              onBlur={(e) => { setJumpImgFocused(false); if (!skipJumpImgApplyRef.current) applyJumpImage(e.target.value); skipJumpImgApplyRef.current = false; }}
+                              onKeyDown={(e) => {
+                                blockNonDigit(e, () => triggerFlash("jumpImg", setJumpImgFlash));
+                                if (e.key === "Enter") { applyJumpImage(jumpImgInput); e.currentTarget.blur(); }
+                                else if (e.key === "Escape") { skipJumpImgApplyRef.current = true; setJumpImgInput(String(currentIndex + 1)); e.currentTarget.blur(); }
+                              }}
+                              min={1} max={images.length}
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            {jumpImgFlash
+                              ? <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-yellow-400 shrink-0" /><span>Numbers only</span></span>
+                              : jumpImgError
+                                ? <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-red-400 shrink-0" /><span>{jumpImgError}</span></span>
+                                : <span className="flex items-center gap-2"><span>Jump to image</span><TooltipKbd>I</TooltipKbd></span>}
+                          </TooltipContent>
+                        </Tooltip>
                         <span className="text-base text-muted-foreground shrink-0">of {images.length}</span>
                         <WithTooltip content={<span className="flex items-center gap-2"><span>Next image</span><NavKbd dir="right" /></span>} side="top">
                           <Button
@@ -1695,42 +1847,62 @@ export default function LabelPage() {
                     )}
 
                     <div className="flex items-center gap-2">
-                      <WithTooltip content={<span className="flex items-center gap-2"><span>Focus Window Level</span><TooltipKbd>W</TooltipKbd></span>} side="top">
-                        <div className="flex items-center gap-2">
-                          <Label className="text-base text-muted-foreground shrink-0 cursor-default">WL</Label>
-                          <Input
-                            ref={wlInputRef}
-                            type="number"
-                            className={`h-7 w-16 text-base ${NO_SPINNER}`}
-                            value={wlInput}
-                            onChange={(e) => setWlInput(e.target.value)}
-                            onBlur={() => { if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
-                              else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWlInput(String(windowLevel)); e.currentTarget.blur(); }
-                              else if (e.key === "Tab") { e.preventDefault(); wwInputRef.current?.focus(); wwInputRef.current?.select(); }
-                            }}
-                          />
-                        </div>
-                      </WithTooltip>
-                      <WithTooltip content={<span className="flex items-center gap-2"><span>Focus Window Width</span><span className="flex items-center gap-1"><TooltipKbd>W</TooltipKbd><TooltipKbd>Tab</TooltipKbd></span></span>} side="top">
-                        <div className="flex items-center gap-2">
-                          <Label className="text-base text-muted-foreground shrink-0 cursor-default">WW</Label>
-                          <Input
-                            ref={wwInputRef}
-                            type="number"
-                            className={`h-7 w-16 text-base ${NO_SPINNER}`}
-                            value={wwInput}
-                            onChange={(e) => setWwInput(e.target.value)}
-                            onBlur={() => { if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
-                              else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWwInput(String(windowWidth)); e.currentTarget.blur(); }
-                              else if (e.key === "Tab") { e.preventDefault(); wlInputRef.current?.focus(); wlInputRef.current?.select(); }
-                            }}
-                          />
-                        </div>
-                      </WithTooltip>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-base text-muted-foreground shrink-0 cursor-default">WL</Label>
+                        <Tooltip open={wlFlash ? true : wlFocused ? false : undefined}>
+                          <TooltipTrigger asChild>
+                            <Input
+                              ref={wlInputRef}
+                              type="number"
+                              className={`h-7 w-16 text-base ${NO_SPINNER}`}
+                              value={wlInput}
+                              onChange={(e) => setWlInput(e.target.value.replace(/[^\d-]/g, ""))}
+                              onFocus={() => setWlFocused(true)}
+                              onBlur={() => { setWlFocused(false); if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
+                              onKeyDown={(e) => {
+                                blockNonInt(e, () => triggerFlash("wl", setWlFlash));
+                                if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
+                                else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWlInput(String(windowLevel)); e.currentTarget.blur(); }
+                                else if (e.key === "Tab") { e.preventDefault(); wwInputRef.current?.focus(); wwInputRef.current?.select(); }
+                              }}
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            {wlFlash
+                              ? <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-yellow-400 shrink-0" /><span>Digits or − only</span></span>
+                              : <span className="flex items-center gap-2"><span>Focus Window Level</span><TooltipKbd>W</TooltipKbd></span>}
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-base text-muted-foreground shrink-0 cursor-default">WW</Label>
+                        <Tooltip open={wwFlash ? true : wwError !== null && wwFocused ? true : wwFocused ? false : undefined}>
+                          <TooltipTrigger asChild>
+                            <Input
+                              ref={wwInputRef}
+                              type="number"
+                              className={`h-7 w-16 text-base ${NO_SPINNER} ${wwError ? "border-red-500 focus-visible:ring-red-500/30" : ""}`}
+                              value={wwInput}
+                              onChange={(e) => setWwInput(e.target.value.replace(/[^\d]/g, ""))}
+                              onFocus={() => setWwFocused(true)}
+                              onBlur={() => { setWwFocused(false); if (!skipWindowApplyRef.current) applyWindow(); skipWindowApplyRef.current = false; }}
+                              onKeyDown={(e) => {
+                                blockNonDigit(e, () => triggerFlash("ww", setWwFlash));
+                                if (e.key === "Enter") { applyWindow(); e.currentTarget.blur(); }
+                                else if (e.key === "Escape") { skipWindowApplyRef.current = true; setWwInput(String(windowWidth)); e.currentTarget.blur(); }
+                                else if (e.key === "Tab") { e.preventDefault(); wlInputRef.current?.focus(); wlInputRef.current?.select(); }
+                              }}
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            {wwFlash
+                              ? <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-yellow-400 shrink-0" /><span>Numbers only</span></span>
+                              : wwError
+                                ? <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-red-400 shrink-0" /><span>{wwError}</span></span>
+                                : <span className="flex items-center gap-2"><span>Focus Window Width</span><span className="flex items-center gap-1"><TooltipKbd>W</TooltipKbd><TooltipKbd>Tab</TooltipKbd></span></span>}
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
                       <WithTooltip content={<span className="flex items-center gap-2"><span>Reset to WL {defaultWindowLevel} / WW {defaultWindowWidth}</span><TooltipKbd>Shift+W</TooltipKbd></span>} side="top">
                         <Button
                           variant="outline" size="icon" className="h-7 w-7 shrink-0"
@@ -1793,21 +1965,32 @@ export default function LabelPage() {
                             <ChevronLeft className="h-4 w-4" />
                           </Button>
                         </WithTooltip>
-                        <WithTooltip content={<span className="flex items-center gap-2"><span>Jump to set</span><TooltipKbd>Shift+I</TooltipKbd></span>} side="top">
-                          <Input
-                            ref={jumpSetInputRef}
-                            type="number"
-                            className={`h-8 w-14 text-center text-base ${NO_SPINNER}`}
-                            value={jumpSetInput}
-                            onChange={(e) => setJumpSetInput(e.target.value)}
-                            onBlur={(e) => { if (!skipJumpSetApplyRef.current) applyJumpSet(e.target.value); skipJumpSetApplyRef.current = false; }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") { applyJumpSet(jumpSetInput); e.currentTarget.blur(); }
-                              else if (e.key === "Escape") { skipJumpSetApplyRef.current = true; setJumpSetInput(String(queuePos + 1)); e.currentTarget.blur(); }
-                            }}
-                            min={1} max={queue.length}
-                          />
-                        </WithTooltip>
+                        <Tooltip open={jumpSetFlash ? true : jumpSetError !== null && jumpSetFocused ? true : jumpSetFocused ? false : undefined}>
+                          <TooltipTrigger asChild>
+                            <Input
+                              ref={jumpSetInputRef}
+                              type="number"
+                              className={`h-8 w-14 text-center text-base ${NO_SPINNER} ${jumpSetError ? "border-red-500 focus-visible:ring-red-500/30" : ""}`}
+                              value={jumpSetInput}
+                              onChange={(e) => setJumpSetInput(e.target.value.replace(/[^\d]/g, ""))}
+                              onFocus={() => setJumpSetFocused(true)}
+                              onBlur={(e) => { setJumpSetFocused(false); if (!skipJumpSetApplyRef.current) applyJumpSet(e.target.value); skipJumpSetApplyRef.current = false; }}
+                              onKeyDown={(e) => {
+                                blockNonDigit(e, () => triggerFlash("jumpSet", setJumpSetFlash));
+                                if (e.key === "Enter") { applyJumpSet(jumpSetInput); e.currentTarget.blur(); }
+                                else if (e.key === "Escape") { skipJumpSetApplyRef.current = true; setJumpSetInput(String(queuePos + 1)); e.currentTarget.blur(); }
+                              }}
+                              min={1} max={queue.length}
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            {jumpSetFlash
+                              ? <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-yellow-400 shrink-0" /><span>Numbers only</span></span>
+                              : jumpSetError
+                                ? <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-red-400 shrink-0" /><span>{jumpSetError}</span></span>
+                                : <span className="flex items-center gap-2"><span>Jump to set</span><TooltipKbd>Shift+I</TooltipKbd></span>}
+                          </TooltipContent>
+                        </Tooltip>
                         <span className="text-sm text-muted-foreground shrink-0">of {queue.length}</span>
                         <WithTooltip content={<span className="flex items-center gap-2"><span>Next image set</span><NavKbd dir="shiftRight" /></span>} side="top">
                           <Button
@@ -1979,8 +2162,13 @@ export default function LabelPage() {
                         className="w-full gap-2 border-foreground text-foreground font-semibold"
                         onClick={() => setShowManagementBoard(true)}
                       >
-                        <ClipboardList className="h-4 w-4" />
-                        Management Board
+                        {showKbdHints ? (
+                          <span className="flex w-full items-center gap-2">
+                            <ClipboardList className="h-4 w-4 shrink-0" />
+                            <span className="flex-1 text-left text-xs">Management Board</span>
+                            <kbd className="font-mono border border-current/30 bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none shrink-0">M</kbd>
+                          </span>
+                        ) : <><ClipboardList className="h-4 w-4" />Management Board</>}
                       </Button>
                     </WithTooltip>
                     <WithTooltip content={<span className="flex items-center gap-2"><span>Exit to Dashboard</span><TooltipKbd>Shift+Esc</TooltipKbd></span>} side="top">
@@ -1988,8 +2176,13 @@ export default function LabelPage() {
                         className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white"
                         onClick={handleExit}
                       >
-                        <ArrowLeft className="h-4 w-4" />
-                        {isAdminRead ? "Return to Submissions" : "Return to Dashboard"}
+                        {showKbdHints ? (
+                          <span className="flex w-full items-center gap-2">
+                            <ArrowLeft className="h-4 w-4 shrink-0" />
+                            <span className="flex-1 text-left text-xs">{isAdminRead ? "Return to Submissions" : "Return to Dashboard"}</span>
+                            <kbd className="font-mono border border-current/30 bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none shrink-0">Shift+Esc</kbd>
+                          </span>
+                        ) : <><ArrowLeft className="h-4 w-4" />{isAdminRead ? "Return to Submissions" : "Return to Dashboard"}</>}
                       </Button>
                     </WithTooltip>
                   </>
@@ -2003,15 +2196,20 @@ export default function LabelPage() {
                           className="flex-1 gap-2 border-foreground text-foreground font-semibold"
                           onClick={() => setShowManagementBoard(true)}
                         >
-                          <ClipboardList className="h-4 w-4" />
-                          Management Board
+                          {showKbdHints ? (
+                            <span className="flex w-full items-center gap-2">
+                              <ClipboardList className="h-4 w-4 shrink-0" />
+                              <span className="flex-1 text-left text-xs">Management Board</span>
+                              <kbd className="font-mono border border-current/30 bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none shrink-0">M</kbd>
+                            </span>
+                          ) : <><ClipboardList className="h-4 w-4" />Management Board</>}
                         </Button>
                       </WithTooltip>
                       <WithTooltip content={<span className="flex items-center gap-2"><span>AI Assist (In Development)</span><TooltipKbd>Shift+A</TooltipKbd></span>} side="top">
-                        <span>
+                        <span className="flex-1">
                           <Button
                             variant="outline"
-                            className="flex-1 gap-2"
+                            className="w-full gap-2"
                             disabled
                           >
                             <Bot className="h-4 w-4" />
@@ -2027,8 +2225,13 @@ export default function LabelPage() {
                           disabled={savingDraft || submitting}
                           onClick={handleSaveDraft}
                         >
-                          <Save className="h-4 w-4" />
-                          {savingDraft ? "Saving…" : "Save Draft"}
+                          {showKbdHints ? (
+                            <span className="flex w-full items-center gap-2">
+                              <Save className="h-4 w-4 shrink-0" />
+                              <span className="flex-1 text-left text-xs">{savingDraft ? "Saving…" : "Save Draft"}</span>
+                              <kbd className="font-mono border border-current/30 bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none shrink-0">Ctrl+S</kbd>
+                            </span>
+                          ) : <><Save className="h-4 w-4" />{savingDraft ? "Saving…" : "Save Draft"}</>}
                         </Button>
                       </WithTooltip>
                       <WithTooltip content={<span className="flex items-center gap-2"><span>Submit annotation</span><TooltipKbd>Ctrl+Enter</TooltipKbd></span>} side="top">
@@ -2037,8 +2240,13 @@ export default function LabelPage() {
                           disabled={!anyReady || submitting || navigating}
                           onClick={() => setSubmitDialogMode(allReady ? "all-ready" : "partial-ready")}
                         >
-                          <Send className="h-4 w-4" />
-                          {submitting ? "Submitting…" : anyReady ? "Submit Annotation" : "Not Ready"}
+                          {showKbdHints ? (
+                            <span className="flex w-full items-center gap-2">
+                              <Send className="h-4 w-4 shrink-0" />
+                              <span className="flex-1 text-left text-xs">{submitting ? "Submitting…" : anyReady ? "Submit Annotation" : "Not Ready"}</span>
+                              <kbd className="font-mono border border-current/30 bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none shrink-0">Ctrl+Enter</kbd>
+                            </span>
+                          ) : <><Send className="h-4 w-4" />{submitting ? "Submitting…" : anyReady ? "Submit Annotation" : "Not Ready"}</>}
                         </Button>
                       </WithTooltip>
                     </div>
@@ -2048,8 +2256,13 @@ export default function LabelPage() {
                           className="flex-1 gap-2 bg-purple-600 hover:bg-purple-700 text-white"
                           onClick={handleExit}
                         >
-                          <ArrowLeft className="h-4 w-4" />
-                          Exit to Dashboard
+                          {showKbdHints ? (
+                            <span className="flex w-full items-center gap-2">
+                              <ArrowLeft className="h-4 w-4 shrink-0" />
+                              <span className="flex-1 text-left text-xs">Exit to Dashboard</span>
+                              <kbd className="font-mono border border-current/30 bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none shrink-0">Shift+Esc</kbd>
+                            </span>
+                          ) : <><ArrowLeft className="h-4 w-4" />Exit to Dashboard</>}
                         </Button>
                       </WithTooltip>
                       <WithTooltip content={<span className="flex items-center gap-2"><span>Reset all annotations</span><TooltipKbd>Shift+Del</TooltipKbd></span>} side="top">
@@ -2058,8 +2271,13 @@ export default function LabelPage() {
                           className="flex-1 gap-2 text-destructive hover:text-destructive"
                           onClick={() => setConfirmReset(true)}
                         >
-                          <Trash2 className="h-4 w-4" />
-                          Reset All Annotations
+                          {showKbdHints ? (
+                            <span className="flex w-full items-center gap-2">
+                              <Trash2 className="h-4 w-4 shrink-0" />
+                              <span className="flex-1 text-left text-xs">Reset All Annotations</span>
+                              <kbd className="font-mono border border-current/30 bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none shrink-0">Shift+Del</kbd>
+                            </span>
+                          ) : <><Trash2 className="h-4 w-4" />Reset All Annotations</>}
                         </Button>
                       </WithTooltip>
                     </div>
@@ -2091,17 +2309,32 @@ export default function LabelPage() {
                         <ChevronLeft className="h-4 w-4" />
                       </Button>
                     </WithTooltip>
-                    <WithTooltip content={<span className="flex items-center gap-2"><span>Jump to set</span><TooltipKbd>Shift+I</TooltipKbd></span>} side="top">
-                      <Input ref={jumpSetInputRef} type="number" className={`h-8 w-14 text-center text-base ${NO_SPINNER}`}
-                        value={jumpSetInput}
-                        onChange={(e) => setJumpSetInput(e.target.value)}
-                        onBlur={(e) => { if (!skipJumpSetApplyRef.current) applyJumpSet(e.target.value); skipJumpSetApplyRef.current = false; }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") { applyJumpSet(jumpSetInput); e.currentTarget.blur(); }
-                          else if (e.key === "Escape") { skipJumpSetApplyRef.current = true; setJumpSetInput(String(queuePos + 1)); e.currentTarget.blur(); }
-                        }}
-                        min={1} max={queue.length} />
-                    </WithTooltip>
+                    <Tooltip open={jumpSetFlash ? true : jumpSetError !== null && jumpSetFocused ? true : jumpSetFocused ? false : undefined}>
+                      <TooltipTrigger asChild>
+                        <Input
+                          ref={jumpSetInputRef}
+                          type="number"
+                          className={`h-8 w-14 text-center text-base ${NO_SPINNER} ${jumpSetError ? "border-red-500 focus-visible:ring-red-500/30" : ""}`}
+                          value={jumpSetInput}
+                          onChange={(e) => setJumpSetInput(e.target.value.replace(/[^\d]/g, ""))}
+                          onFocus={() => setJumpSetFocused(true)}
+                          onBlur={(e) => { setJumpSetFocused(false); if (!skipJumpSetApplyRef.current) applyJumpSet(e.target.value); skipJumpSetApplyRef.current = false; }}
+                          onKeyDown={(e) => {
+                            blockNonDigit(e, () => triggerFlash("jumpSet", setJumpSetFlash));
+                            if (e.key === "Enter") { applyJumpSet(jumpSetInput); e.currentTarget.blur(); }
+                            else if (e.key === "Escape") { skipJumpSetApplyRef.current = true; setJumpSetInput(String(queuePos + 1)); e.currentTarget.blur(); }
+                          }}
+                          min={1} max={queue.length}
+                        />
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        {jumpSetFlash
+                          ? <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-yellow-400 shrink-0" /><span>Numbers only</span></span>
+                          : jumpSetError
+                            ? <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-red-400 shrink-0" /><span>{jumpSetError}</span></span>
+                            : <span className="flex items-center gap-2"><span>Jump to set</span><TooltipKbd>Shift+I</TooltipKbd></span>}
+                      </TooltipContent>
+                    </Tooltip>
                     <span className="text-sm text-muted-foreground shrink-0">of {queue.length}</span>
                     <WithTooltip content={<span className="flex items-center gap-2"><span>Next image set</span><NavKbd dir="shiftRight" /></span>} side="top">
                       <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" disabled={navigating}

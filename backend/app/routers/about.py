@@ -1,4 +1,4 @@
-"""Public endpoints — software information from about.toml and runtime diagnostics."""
+"""Public endpoints — software information, runtime diagnostics, and health check."""
 
 import re
 import sys
@@ -6,8 +6,9 @@ from datetime import datetime, timezone
 
 import fastapi
 import sqlalchemy
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.about import AboutInfo, get_about, get_startup_time
@@ -15,6 +16,29 @@ from app.core.config import get_settings
 from app.core.database import get_db
 
 router = APIRouter(prefix="/about", tags=["about"])
+
+
+@router.get("/health", tags=["health"])
+def health(response: Response, db: Session = Depends(get_db)) -> dict:
+    """Liveness + readiness probe. No authentication required.
+
+    Returns 200 {"status": "ok"} when the app and database are reachable.
+    Returns 503 {"status": "degraded", "detail": "..."} on DB failure.
+    Intended for Uptime Kuma / load-balancer health checks.
+    """
+    try:
+        db.execute(text("SELECT 1"))
+        db_ok = True
+    except SQLAlchemyError as exc:
+        db_ok = False
+        db_error = str(exc)
+
+    if not db_ok:
+        response.status_code = 503
+        return {"status": "degraded", "detail": db_error}
+
+    version = get_about().get("version", "unknown")
+    return {"status": "ok", "version": version}
 
 
 @router.get("", response_model=None)

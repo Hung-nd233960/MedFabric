@@ -13,6 +13,11 @@ deprecated/
 node_modules/
 package-lock.json
 
+# Frontend build output (includes self-hosted font woff2 files)
+frontend/dist/
+frontend/tsconfig.app.tsbuildinfo
+frontend/tsconfig.node.tsbuildinfo
+
 
 # Editor settings
 .vscode/

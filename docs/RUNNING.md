@@ -119,6 +119,41 @@ The import is **idempotent** — re-running skips records that already exist.
 
 ---
 
+## Monitoring (Uptime Kuma)
+
+Uptime Kuma is included in the production Compose stack and starts automatically.
+
+**First-time setup:**
+1. Open `http://<server-ip>:3001` — you will be prompted to create an admin account (local only, no external service).
+2. Add the three monitors below.
+
+**Monitors to configure:**
+
+| Name | Type | URL / Host | Expected | Interval |
+|---|---|---|---|---|
+| MedFabric API | HTTP(S) | `http://backend:8000/api/about/health` | Status 200 | 60 s |
+| MedFabric Frontend | HTTP(S) | `http://frontend:80/` | Status 200 | 60 s |
+| PostgreSQL | TCP Port | Host `postgres`, Port `5432` | Reachable | 60 s |
+
+> All three targets use Docker service names — they resolve on the internal Compose network and are not reachable from outside the host. Uptime Kuma's own UI is the only thing that needs to be on port 3001.
+
+**Alert channels** (configure under *Settings → Notifications*):
+
+- **Email (SMTP)** — recommended for a hospital intranet; point at the institution's mail relay.
+- **Telegram / Slack / Discord** — optional for personal alerts during development.
+
+**Interpreting the health endpoint:**
+
+```
+GET /api/about/health
+→ 200 {"status": "ok", "version": "3.x.x"}       # app + DB both reachable
+→ 503 {"status": "degraded", "detail": "..."}     # DB unreachable
+```
+
+A 503 from this endpoint means the backend started but cannot reach PostgreSQL — check `sudo docker compose logs postgres`.
+
+---
+
 ## Bug reports
 
 Reports are written to `/data/bug_reports.jsonl` inside the backend container.

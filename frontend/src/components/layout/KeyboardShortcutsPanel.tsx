@@ -211,7 +211,10 @@ export default function KeyboardShortcutsPanel() {
               <span className="ml-2 font-mono text-xs opacity-50">{tab === "general" ? "G" : "L"}</span>
             </button>
           ))}
-          <span className="ml-auto self-center text-xs text-muted-foreground/50 font-mono pr-1">Tab to switch</span>
+          <span className="ml-auto self-center flex items-center gap-1.5 pr-1">
+            <Kbd>Tab</Kbd>
+            <span className="text-xs text-muted-foreground/50">to switch</span>
+          </span>
         </div>
 
         {/* Content — horizontal flex of auto-width columns */}

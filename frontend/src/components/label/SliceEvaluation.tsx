@@ -48,6 +48,12 @@ const REGION_TOOLTIPS: Record<Region, React.ReactNode> = {
   CoronaRadiata: <span className="flex items-center gap-2"><span>This region contains M4, M5, M6</span><TooltipKbd>Shift+C</TooltipKbd></span>,
 };
 
+const REGION_TOOLTIPS_PLAIN: Record<Region, React.ReactNode> = {
+  None:          <span>This slice is neither Basal Ganglia nor Corona Radiata</span>,
+  BasalGanglia:  <span>This region contains C, IC, L, I, M1, M2, M3</span>,
+  CoronaRadiata: <span>This region contains M4, M5, M6</span>,
+};
+
 interface SliceEvaluationProps {
   imageUuid: string;
   readOnly?: boolean;
@@ -93,7 +99,7 @@ export default function SliceEvaluation({ imageUuid, readOnly, zoneModeCell, zon
         <Label className="text-base uppercase tracking-wide text-muted-foreground">Region</Label>
         <div className="flex gap-2">
           {REGIONS.map((r) => (
-            <WithTooltip key={r} type="medical" content={REGION_TOOLTIPS[r]} side="top" delayDuration={120}>
+            <WithTooltip key={r} type="medical" content={readOnly ? REGION_TOOLTIPS_PLAIN[r] : REGION_TOOLTIPS[r]} side="top" delayDuration={120}>
               <button
                 type="button"
                 onClick={readOnly ? undefined : () => setRegion(imageUuid, r)}

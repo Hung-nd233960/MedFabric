@@ -467,6 +467,13 @@ export default function DashboardPage() {
       const shift = e.shiftKey;
       const ctrl = e.ctrlKey || e.metaKey;
 
+      // Shift+' — toggle keyboard shortcut hint panel
+      if (!ctrl && e.code === "Quote" && shift) {
+        e.preventDefault();
+        setDashboardHintOpen(!dashboardHintOpen);
+        return;
+      }
+
       // Confirm dialogs handle their own keys via ConfirmDialog's capture listener;
       // consume any remaining keys here so they don't leak to table navigation.
       if (confirmDeleteDrafts || confirmLaunch) { e.preventDefault(); return; }
@@ -624,7 +631,7 @@ export default function DashboardPage() {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activeTab, kbHighlight, sortedSets, selectedSets, selectedDrafts, toggleSet, toggleAllSets, toggleAllDrafts, // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab, kbHighlight, sortedSets, selectedSets, selectedDrafts, toggleSet, toggleAllSets, toggleAllDrafts, dashboardHintOpen, // eslint-disable-line react-hooks/exhaustive-deps
       confirmDeleteDrafts, confirmLaunch, handleAnnotateSets, handleReadSets, handlePreviewSets,
       doAnnotateSets, doReadSets, doPreviewSets, handleDeleteDrafts, mode, visualMode, visualAnchor]);
 
@@ -1122,9 +1129,12 @@ export default function DashboardPage() {
             <span className="font-semibold text-muted-foreground flex items-center gap-1.5">
               <Keyboard className="h-3.5 w-3.5" /> Shortcuts
             </span>
-            <button type="button" onClick={() => setDashboardHintOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors" title="Minimize">
-              <Minus className="h-3.5 w-3.5" />
-            </button>
+            <div className="flex items-center gap-1.5">
+              <kbd className="font-mono border border-primary/40 bg-primary text-black px-1.5 py-0.5 rounded text-xs leading-none">Shift+'</kbd>
+              <button type="button" onClick={() => setDashboardHintOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors" title="Minimize">
+                <Minus className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
           <div className="px-3 py-2 space-y-0.5">
             {([
@@ -1141,6 +1151,8 @@ export default function DashboardPage() {
               { combo: "Shift+A / R / P",  desc: "Launch sets" },
               { combo: "Del / Shift+D",    desc: "Delete drafts" },
               { combo: "Esc",              desc: "Clear / deselect" },
+              null,
+              { combo: "Shift+'",          desc: "Toggle this panel" },
             ] as ({ combo: string; desc: string } | null)[]).map((row, i) =>
               row === null
                 ? <hr key={i} className="border-border my-1" />
@@ -1157,10 +1169,11 @@ export default function DashboardPage() {
         <button
           type="button"
           onClick={() => setDashboardHintOpen(true)}
-          className="fixed right-0 bottom-32 rounded-l-md border border-r-0 border-border bg-background/95 backdrop-blur-sm shadow-md px-1.5 py-3 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors z-30"
-          title="Show shortcuts"
+          className="fixed right-0 bottom-32 rounded-l-md border border-r-0 border-border bg-background/95 backdrop-blur-sm shadow-md px-2 py-3 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors z-30 flex flex-col items-center gap-1.5"
+          title="Show shortcuts (Shift+')"
         >
           <Keyboard className="h-4 w-4" />
+          <kbd className="font-mono border border-primary/40 bg-primary text-black px-1 py-0.5 rounded text-[9px] leading-none">Shift+'</kbd>
         </button>
       ) : null}
 

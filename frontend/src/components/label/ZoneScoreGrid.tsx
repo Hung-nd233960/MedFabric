@@ -135,8 +135,8 @@ function ZoneRow({ zone, imageUuid, readOnly, rowIndex, zoneModeCell, zoneModeAn
   const selRight = inSel("right") && !hlRight;
 
   return (
-    <div className={cn("items-center py-1", showKbdHints ? "grid grid-cols-[5%_4%_1fr_1fr]" : "grid grid-cols-[4%_1fr_1fr]")}>
-      {showKbdHints && (
+    <div className={cn("items-center py-1", (showKbdHints && !readOnly) ? "grid grid-cols-[5%_4%_1fr_1fr]" : "grid grid-cols-[4%_1fr_1fr]")}>
+      {showKbdHints && !readOnly && (
         <div className="flex justify-center">
           {zoneModeCell != null ? (
             <kbd className={cn(
@@ -246,8 +246,8 @@ export default function ZoneScoreGrid({ imageUuid, readOnly, zoneModeCell, zoneM
       </div>
 
       {/* Header — same grid-cols as ZoneRow so columns align */}
-      <div className={showKbdHints ? "grid grid-cols-[5%_4%_1fr_1fr]" : "grid grid-cols-[4%_1fr_1fr]"}>
-        {showKbdHints && <div />}<div />
+      <div className={(showKbdHints && !readOnly) ? "grid grid-cols-[5%_4%_1fr_1fr]" : "grid grid-cols-[4%_1fr_1fr]"}>
+        {showKbdHints && !readOnly && <div />}<div />
         <div className={cn(
           "text-sm font-semibold pb-1 border-b border-border flex items-center",
           leftComplete ? "text-green-400 border-green-400/40" : "text-red-400 border-red-400/40"
@@ -357,7 +357,7 @@ export default function ZoneScoreGrid({ imageUuid, readOnly, zoneModeCell, zoneM
             </>)}
           </div>
         );
-      })() : showKbdHints ? (
+      })() : showKbdHints && !readOnly ? (
         <div className="border-t border-border/40 bg-muted/20 px-2 py-1 text-xs font-mono select-none flex items-center gap-1.5 rounded-b mt-1">
           <span className="text-muted-foreground/60">Press</span>
           <kbd className="font-mono border border-amber-500/50 bg-background text-amber-400 px-1.5 py-0.5 rounded text-xs leading-none">Z</kbd>
