@@ -1605,7 +1605,7 @@ export default function LabelPage() {
                             <span className="text-muted-foreground w-20 shrink-0">Time</span>
                             <span className="text-sm">
                               {annotationMeta?.timestamp
-                                ? new Date(annotationMeta.timestamp).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" })
+                                ? new Date(annotationMeta.timestamp).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" })
                                 : "—"}
                             </span>
                           </div>
@@ -2131,7 +2131,7 @@ export default function LabelPage() {
                           <span className="text-muted-foreground w-20 shrink-0">Time</span>
                           <span className="text-sm">
                             {annotationMeta?.timestamp
-                              ? new Date(annotationMeta.timestamp).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" })
+                              ? new Date(annotationMeta.timestamp).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" })
                               : "—"}
                           </span>
                         </div>

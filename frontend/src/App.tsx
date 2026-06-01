@@ -20,6 +20,8 @@ import ImageSetsPage from "@/pages/admin/ImageSetsPage";
 import AssignmentsPage from "@/pages/admin/AssignmentsPage";
 import ExportPage from "@/pages/admin/ExportPage";
 import SubmissionsPage from "@/pages/admin/SubmissionsPage";
+import AnalyticsPage from "@/pages/admin/AnalyticsPage";
+import NotificationsPage from "@/pages/admin/NotificationsPage";
 import ChangePasswordPage from "@/pages/ChangePasswordPage";
 import SettingsPage from "@/pages/SettingsPage";
 
@@ -85,7 +87,9 @@ export default function App() {
           <Route path="image-sets" element={<ImageSetsPage />} />
           <Route path="assignments" element={<AssignmentsPage />} />
           <Route path="submissions" element={<SubmissionsPage />} />
+          <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="export" element={<ExportPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

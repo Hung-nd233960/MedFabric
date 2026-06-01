@@ -3,7 +3,7 @@
 import uuid as _uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -139,6 +139,7 @@ def login(
     request: Request,
     body: LoginRequest,
     response: Response,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     try:
@@ -150,6 +151,8 @@ def login(
         ) from exc
     except InactiveAccountError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    from app.services.telegram import notify_login
+    background_tasks.add_task(notify_login, doctor)
     return _build_token_response(doctor, response, db)
 
 

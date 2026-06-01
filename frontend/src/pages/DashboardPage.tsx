@@ -93,7 +93,7 @@ function StatCard({
 
 function formatDateTime(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" });
+  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" });
 }
 
 const EVENT_VARIANTS: Record<string, "success" | "warning" | "destructive" | "outline"> = {
@@ -654,7 +654,7 @@ export default function DashboardPage() {
           </div>
           <div className="text-right shrink-0">
             <p className="text-lg font-semibold">{(() => {
-              const h = new Date().getHours();
+              const h = parseInt(new Date().toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: "Asia/Ho_Chi_Minh" }), 10);
               const greet = h >= 5 && h < 12 ? "Good Morning,"
                 : h >= 12 && h < 18 ? "Good Afternoon,"
                 : h >= 18 && h < 22 ? "Good Evening,"

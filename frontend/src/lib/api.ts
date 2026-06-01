@@ -169,6 +169,15 @@ export const adminApi = {
     api.get("/admin/submissions", { params: datasetUuid ? { dataset_uuid: datasetUuid } : {} }),
   getSubmissionByImageSetAdmin: (imageSetUuid: string, doctorUuid: string) =>
     api.get(`/admin/submission/by-image-set/${imageSetUuid}`, { params: { doctor_uuid: doctorUuid } }),
+  getAnalytics: (datasetUuid: string) =>
+    api.get("/admin/analytics", { params: { dataset_uuid: datasetUuid } }),
+};
+
+export const telegramApi = {
+  status: () => api.get<{ configured: boolean; chat_id: string | null }>("/admin/telegram/status"),
+  sendTest: () => api.post("/admin/telegram/test"),
+  previewReport: () => api.get<{ text: string }>("/admin/telegram/preview-report"),
+  sendReport: () => api.post("/admin/telegram/send-report"),
 };
 
 export const aboutApi = {

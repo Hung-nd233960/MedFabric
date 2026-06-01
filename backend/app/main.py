@@ -81,6 +81,8 @@ def _add_missing_columns() -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    from app.services.scheduler import start_scheduler, stop_scheduler
+
     set_startup_time()
     get_about()  # load and cache about.toml; logs name/version/creator
     logger.info(
@@ -88,7 +90,9 @@ async def lifespan(_app: FastAPI):
     )
     Base.metadata.create_all(bind=engine)
     _add_missing_columns()
+    start_scheduler()
     yield
+    stop_scheduler()
     logger.info("MedFabric shutting down")
 
 

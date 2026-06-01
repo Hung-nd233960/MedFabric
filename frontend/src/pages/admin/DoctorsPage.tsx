@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { UserPlus, ShieldOff, ShieldCheck, KeyRound, FlaskConical } from "lucide-react";
+import { UserPlus, ShieldOff, ShieldCheck, KeyRound, FlaskConical, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -16,12 +16,15 @@ import {
 import { adminApi } from "@/lib/api";
 import type { Doctor } from "@/lib/types";
 
-const ONLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
 
 function isOnline(last_seen: string | null): boolean {
   if (!last_seen) return false;
   return Date.now() - new Date(last_seen).getTime() < ONLINE_THRESHOLD_MS;
 }
+
+type SortCol = "username" | "role" | "status" | "source" | "created";
+type SortDir = "asc" | "desc";
 
 export default function DoctorsPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -32,6 +35,30 @@ export default function DoctorsPage() {
   const [resetTarget, setResetTarget] = useState<Doctor | null>(null);
   const [resetPw, setResetPw] = useState("");
   const [resetSaving, setResetSaving] = useState(false);
+  const [sortCol, setSortCol] = useState<SortCol>("username");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const handleSort = (col: SortCol) => {
+    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  };
+
+  const SortIcon = (col: SortCol) =>
+    sortCol !== col
+      ? <ArrowUpDown className="h-3 w-3 opacity-40 shrink-0" />
+      : sortDir === "asc" ? <ArrowUp className="h-3 w-3 shrink-0" /> : <ArrowDown className="h-3 w-3 shrink-0" />;
+
+  const sorted = useMemo(() => [...doctors].sort((a, b) => {
+    let cmp = 0;
+    switch (sortCol) {
+      case "username": cmp = a.username.localeCompare(b.username); break;
+      case "role":     cmp = a.role.localeCompare(b.role); break;
+      case "status":   cmp = (a.is_active ? 1 : 0) - (b.is_active ? 1 : 0); break;
+      case "source":   cmp = a.registration_source.localeCompare(b.registration_source); break;
+      case "created":  cmp = a.created_at.localeCompare(b.created_at); break;
+    }
+    return sortDir === "asc" ? cmp : -cmp;
+  }), [doctors, sortCol, sortDir]);
 
   const load = async () => {
     try {
@@ -103,31 +130,29 @@ export default function DoctorsPage() {
     }
   };
 
+  const Th = ({ col, label }: { col: SortCol; label: string }) => (
+    <th className="text-left px-4 py-3 font-medium">
+      <button type="button" onClick={() => handleSort(col)} className="flex items-center gap-1 hover:text-foreground transition-colors text-muted-foreground data-[active]:text-foreground" data-active={sortCol === col ? "" : undefined}>
+        {label}{SortIcon(col)}
+      </button>
+    </th>
+  );
+
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Doctors</h1>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <Switch
-              id="show-inactive"
-              checked={showInactive}
-              onCheckedChange={setShowInactive}
-            />
-            <Label htmlFor="show-inactive" className="text-sm text-muted-foreground cursor-pointer">
-              Show inactive
-            </Label>
+            <Switch id="show-inactive" checked={showInactive} onCheckedChange={setShowInactive} />
+            <Label htmlFor="show-inactive" className="text-sm text-muted-foreground cursor-pointer">Show inactive</Label>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="gap-1.5">
-                <UserPlus className="h-4 w-4" /> Add Doctor
-              </Button>
+              <Button size="sm" className="gap-1.5"><UserPlus className="h-4 w-4" /> Add Doctor</Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create Doctor Account</DialogTitle>
-              </DialogHeader>
+              <DialogHeader><DialogTitle>Create Doctor Account</DialogTitle></DialogHeader>
               <div className="space-y-3 mt-2">
                 {(["username", "full_name", "password", "email"] as const).map((f) => (
                   <div key={f} className="space-y-1">
@@ -142,30 +167,18 @@ export default function DoctorsPage() {
                 ))}
                 <div className="space-y-1">
                   <Label>Role</Label>
-                  <select
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-                    value={form.role}
-                    onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))}
-                  >
+                  <select className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm" value={form.role} onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))}>
                     <option value="Doctor">Doctor</option>
                     <option value="Admin">Admin</option>
                   </select>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Switch
-                    id="is-test"
-                    checked={form.role === "Admin" ? true : form.is_test}
-                    disabled={form.role === "Admin"}
-                    onCheckedChange={(checked) => setForm((p) => ({ ...p, is_test: checked }))}
-                  />
+                  <Switch id="is-test" checked={form.role === "Admin" ? true : form.is_test} disabled={form.role === "Admin"} onCheckedChange={(checked) => setForm((p) => ({ ...p, is_test: checked }))} />
                   <Label htmlFor="is-test" className={`cursor-pointer select-none ${form.role === "Admin" ? "text-muted-foreground" : ""}`}>
-                    Testing account{" "}
-                    <span className="text-muted-foreground text-xs">(annotations excluded from global progress)</span>
+                    Testing account <span className="text-muted-foreground text-xs">(annotations excluded from global progress)</span>
                   </Label>
                 </div>
-                <Button className="w-full mt-2" disabled={saving} onClick={createDoctor}>
-                  {saving ? "Creating…" : "Create"}
-                </Button>
+                <Button className="w-full mt-2" disabled={saving} onClick={createDoctor}>{saving ? "Creating…" : "Create"}</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -176,76 +189,48 @@ export default function DoctorsPage() {
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr>
-              <th className="text-left px-4 py-3 font-medium">Username</th>
-              <th className="text-left px-4 py-3 font-medium">Full Name</th>
-              <th className="text-left px-4 py-3 font-medium">Email</th>
-              <th className="text-left px-4 py-3 font-medium">Role</th>
-              <th className="text-left px-4 py-3 font-medium">Status</th>
-              <th className="text-left px-4 py-3 font-medium">Source</th>
-              <th className="text-left px-4 py-3 font-medium">Created</th>
+              <Th col="username" label="Username" />
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Full Name</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Email</th>
+              <Th col="role" label="Role" />
+              <Th col="status" label="Status" />
+              <Th col="source" label="Source" />
+              <Th col="created" label="Created" />
               <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {doctors.map((d) => (
+            {sorted.map((d) => (
               <tr key={d.uuid} className="hover:bg-muted/30">
                 <td className="px-4 py-3 font-medium">
                   <span className="flex items-center gap-2">
                     <span
                       className={`h-2 w-2 rounded-full shrink-0 ${isOnline(d.last_seen) ? "bg-green-400" : "bg-muted-foreground/30"}`}
-                      title={isOnline(d.last_seen) ? `Online (last seen ${new Date(d.last_seen!).toLocaleTimeString(undefined, { timeZone: "Asia/Bangkok" })})` : d.last_seen ? `Last seen ${new Date(d.last_seen).toLocaleString(undefined, { timeZone: "Asia/Bangkok" })}` : "Never seen"}
+                      title={isOnline(d.last_seen) ? `Online (last seen ${new Date(d.last_seen!).toLocaleTimeString(undefined, { timeZone: "Asia/Ho_Chi_Minh" })})` : d.last_seen ? `Last seen ${new Date(d.last_seen).toLocaleString(undefined, { timeZone: "Asia/Ho_Chi_Minh" })}` : "Never seen"}
                     />
                     {d.username}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">{d.full_name ?? <span className="italic text-yellow-600 text-xs">Not set</span>}</td>
                 <td className="px-4 py-3 text-muted-foreground">{d.email ?? "—"}</td>
-                <td className="px-4 py-3">
-                  <Badge variant={d.role === "Admin" ? "default" : "secondary"}>{d.role}</Badge>
-                </td>
+                <td className="px-4 py-3"><Badge variant={d.role === "Admin" ? "default" : "secondary"}>{d.role}</Badge></td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <Badge variant={d.is_active ? "success" : "destructive"}>
-                      {d.is_active ? "Active" : "Inactive"}
-                    </Badge>
-                    {d.is_test && (
-                      <Badge variant="outline" className="text-purple-500 border-purple-500/50">
-                        <FlaskConical className="h-3 w-3 mr-1" />Testing
-                      </Badge>
-                    )}
-                    {d.must_change_password && (
-                      <Badge variant="outline" className="text-yellow-600 border-yellow-500">
-                        Reset Pending
-                      </Badge>
-                    )}
-                    {d.must_set_name && (
-                      <Badge variant="outline" className="text-orange-600 border-orange-500">
-                        Name Pending
-                      </Badge>
-                    )}
+                    <Badge variant={d.is_active ? "success" : "destructive"}>{d.is_active ? "Active" : "Inactive"}</Badge>
+                    {d.is_test && <Badge variant="outline" className="text-purple-500 border-purple-500/50"><FlaskConical className="h-3 w-3 mr-1" />Testing</Badge>}
+                    {d.must_change_password && <Badge variant="outline" className="text-yellow-600 border-yellow-500">Reset Pending</Badge>}
+                    {d.must_set_name && <Badge variant="outline" className="text-orange-600 border-orange-500">Name Pending</Badge>}
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <Badge
-                    variant="outline"
-                    className={d.registration_source === "self_registered"
-                      ? "text-blue-600 border-blue-500"
-                      : "text-muted-foreground"}
-                  >
+                  <Badge variant="outline" className={d.registration_source === "self_registered" ? "text-blue-600 border-blue-500" : "text-muted-foreground"}>
                     {d.registration_source === "self_registered" ? "Self-registered" : "Admin"}
                   </Badge>
                 </td>
-                <td className="px-4 py-3 text-muted-foreground text-xs">
-                  {new Date(d.created_at).toLocaleDateString(undefined, { timeZone: "Asia/Bangkok" })}
-                </td>
+                <td className="px-4 py-3 text-muted-foreground text-xs">{new Date(d.created_at).toLocaleDateString(undefined, { timeZone: "Asia/Ho_Chi_Minh" })}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={() => { setResetTarget(d); setResetPw(""); }}
-                    >
+                    <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => { setResetTarget(d); setResetPw(""); }}>
                       <KeyRound className="h-3.5 w-3.5" /> Reset Password
                     </Button>
                     {d.role === "Admin" ? (
@@ -253,64 +238,34 @@ export default function DoctorsPage() {
                         <FlaskConical className="h-3.5 w-3.5" /> Always Test
                       </Button>
                     ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1.5"
-                        onClick={() => toggleTest(d)}
-                        title={d.is_test ? "Remove test flag (blocked if account has submissions)" : "Mark as testing account"}
-                      >
-                        <FlaskConical className="h-3.5 w-3.5" />
-                        {d.is_test ? "Unmark Test" : "Mark as Test"}
+                      <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => toggleTest(d)} title={d.is_test ? "Remove test flag" : "Mark as testing account"}>
+                        <FlaskConical className="h-3.5 w-3.5" />{d.is_test ? "Unmark Test" : "Mark as Test"}
                       </Button>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={() => toggleActive(d)}
-                    >
-                      {d.is_active ? (
-                        <><ShieldOff className="h-3.5 w-3.5" /> Deactivate</>
-                      ) : (
-                        <><ShieldCheck className="h-3.5 w-3.5" /> Reactivate</>
-                      )}
+                    <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => toggleActive(d)}>
+                      {d.is_active ? <><ShieldOff className="h-3.5 w-3.5" /> Deactivate</> : <><ShieldCheck className="h-3.5 w-3.5" /> Reactivate</>}
                     </Button>
                   </div>
                 </td>
               </tr>
             ))}
-            {doctors.length === 0 && (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">No doctors found</td></tr>
-            )}
+            {sorted.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">No doctors found</td></tr>}
           </tbody>
         </table>
       </div>
-      {/* Reset Password modal */}
+
       {resetTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-background border border-border rounded-lg p-6 w-full max-w-sm shadow-xl space-y-4">
             <h2 className="text-base font-semibold">Reset Password</h2>
-            <p className="text-sm text-muted-foreground">
-              Set a temporary password for <span className="font-medium text-foreground">{resetTarget.username}</span>.
-              They will be required to change it on next login.
-            </p>
+            <p className="text-sm text-muted-foreground">Set a temporary password for <span className="font-medium text-foreground">{resetTarget.username}</span>. They will be required to change it on next login.</p>
             <div className="space-y-1">
               <Label>New Temporary Password</Label>
-              <Input
-                type="password"
-                value={resetPw}
-                onChange={(e) => setResetPw(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && resetPassword()}
-              />
+              <Input type="password" value={resetPw} onChange={(e) => setResetPw(e.target.value)} onKeyDown={(e) => e.key === "Enter" && resetPassword()} />
             </div>
             <div className="flex gap-2">
-              <Button className="flex-1" disabled={resetSaving} onClick={resetPassword}>
-                {resetSaving ? "Resetting…" : "Reset Password"}
-              </Button>
-              <Button variant="outline" className="flex-1" onClick={() => setResetTarget(null)}>
-                Cancel
-              </Button>
+              <Button className="flex-1" disabled={resetSaving} onClick={resetPassword}>{resetSaving ? "Resetting…" : "Reset Password"}</Button>
+              <Button variant="outline" className="flex-1" onClick={() => setResetTarget(null)}>Cancel</Button>
             </div>
           </div>
         </div>

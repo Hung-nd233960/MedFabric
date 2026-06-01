@@ -25,6 +25,7 @@ frontend/tsconfig.node.tsbuildinfo
 # Env / secrets
 .env
 .env.*
+!examples/example.env
 
 dev_data/
 results/

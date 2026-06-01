@@ -42,7 +42,7 @@ function formatUptime(seconds: number): string {
 }
 
 function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium", timeZone: "Asia/Bangkok" });
+  return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium", timeZone: "Asia/Ho_Chi_Minh" });
 }
 
 export default function AboutDialog({

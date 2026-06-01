@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     # Registration — leave empty to disable self-registration
     registration_code: str = ""
 
+    # Telegram notifications — both must be set to enable
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+    scheduler_timezone: str = "UTC"
+
     # App
     app_title: str = "MedFabric"
     app_version: str = "3.0.0-alpha"

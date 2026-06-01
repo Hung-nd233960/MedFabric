@@ -28,6 +28,7 @@ from app.services.admin import (
     audit_log,
     get_active_assignment,
     get_audit_log,
+    get_dataset_analytics,
     list_doctors,
     revoke_assignment,
     set_doctor_active,
@@ -489,3 +490,82 @@ def get_admin_audit_log(
     _=Depends(get_current_admin),
 ):
     return get_audit_log(db, limit=limit, offset=offset)
+
+
+# ---------------------------------------------------------------------------
+# Analytics
+# ---------------------------------------------------------------------------
+
+
+@router.get("/analytics")
+def dataset_analytics(
+    dataset_uuid: uuid.UUID,
+    db: Session = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    """Aggregated analytics for a dataset: global stats (non-test) + per-doctor breakdown."""
+    return get_dataset_analytics(db, dataset_uuid)
+
+
+# ---------------------------------------------------------------------------
+# Telegram notification testing panel
+# ---------------------------------------------------------------------------
+
+
+@router.get("/telegram/status")
+def telegram_status(_=Depends(get_current_admin)):
+    from app.services.telegram import is_configured
+    from app.core.config import get_settings
+
+    configured = is_configured()
+    chat_id = get_settings().telegram_chat_id
+    masked = f"...{chat_id[-4:]}" if configured and len(chat_id) >= 4 else None
+    return {"configured": configured, "chat_id": masked}
+
+
+@router.post("/telegram/test")
+async def telegram_send_test(_=Depends(get_current_admin)):
+    from app.services.telegram import send_message, is_configured
+
+    if not is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Telegram is not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID missing).",
+        )
+    ok = await send_message("🔧 <b>Test message from MedFabric Admin</b>")
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Telegram send failed — check token and chat ID.",
+        )
+    return {"sent": True}
+
+
+@router.get("/telegram/preview-report")
+async def telegram_preview_report(
+    db: Session = Depends(get_db), _=Depends(get_current_admin)
+):
+    from app.services.telegram import build_report, is_configured
+
+    if not is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Telegram is not configured.",
+        )
+    text = await build_report(db)
+    return {"text": text}
+
+
+@router.post("/telegram/send-report")
+async def telegram_send_report_now(
+    db: Session = Depends(get_db), _=Depends(get_current_admin)
+):
+    from app.services.telegram import send_12h_report, is_configured
+
+    if not is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Telegram is not configured.",
+        )
+    await send_12h_report(db)
+    return {"sent": True}

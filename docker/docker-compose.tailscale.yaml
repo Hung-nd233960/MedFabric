@@ -34,6 +34,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       EXPOSE_API_DOCS: ${EXPOSE_API_DOCS:-false}
       DOCKER_VERSION: ${DOCKER_VERSION:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      SCHEDULER_TIMEZONE: ${SCHEDULER_TIMEZONE:-UTC}
     volumes:
       - ${DATASET_ROOT:-../data_sets}:/data/datasets:ro
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -46,6 +49,17 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+
+  kuma:
+    image: louislam/uptime-kuma:2
+    restart: unless-stopped
+    volumes:
+      - kuma_data:/app/data
+    ports:
+      - "${KUMA_PORT:-3002}:3001"
+    depends_on:
+      - backend
+      - frontend
 
   tailscale:
     build:
@@ -81,3 +95,4 @@ services:
 volumes:
   postgres_data:
   tailscale_state:
+  kuma_data:

@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, FolderOpen } from "lucide-react";
+import { Plus, FolderOpen, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -9,17 +9,41 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { datasetsApi, imageSetsApi, patientsApi } from "@/lib/api";
 import type { DataSet, ImageSetWithProgress, Patient } from "@/lib/types";
 
+type SortCol = "name" | "icd" | "slices" | "evaluators" | "status";
+type SortDir = "asc" | "desc";
+
 export default function ImageSetsPage() {
   const [datasets, setDatasets] = useState<DataSet[]>([]);
   const [selectedDataset, setSelectedDataset] = useState("");
   const [imageSets, setImageSets] = useState<ImageSetWithProgress[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    image_set_name: "", folder_path: "", patient_uuid: "",
-    image_window_level: "", image_window_width: "", icd_code: "", description: "",
-  });
+  const [form, setForm] = useState({ image_set_name: "", folder_path: "", patient_uuid: "", image_window_level: "", image_window_width: "", icd_code: "", description: "" });
   const [saving, setSaving] = useState(false);
+  const [sortCol, setSortCol] = useState<SortCol>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const handleSort = (col: SortCol) => {
+    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  };
+
+  const SortIcon = (col: SortCol) =>
+    sortCol !== col
+      ? <ArrowUpDown className="h-3 w-3 opacity-40 shrink-0" />
+      : sortDir === "asc" ? <ArrowUp className="h-3 w-3 shrink-0" /> : <ArrowDown className="h-3 w-3 shrink-0" />;
+
+  const sorted = useMemo(() => [...imageSets].sort((a, b) => {
+    let cmp = 0;
+    switch (sortCol) {
+      case "name":       cmp = a.image_set_name.localeCompare(b.image_set_name); break;
+      case "icd":        cmp = (a.icd_code ?? "").localeCompare(b.icd_code ?? ""); break;
+      case "slices":     cmp = a.num_images - b.num_images; break;
+      case "evaluators": cmp = a.total_evaluators - b.total_evaluators; break;
+      case "status":     cmp = (a.is_active ? 1 : 0) - (b.is_active ? 1 : 0); break;
+    }
+    return sortDir === "asc" ? cmp : -cmp;
+  }), [imageSets, sortCol, sortDir]);
 
   useEffect(() => {
     datasetsApi.list(true).then(r => {
@@ -38,10 +62,7 @@ export default function ImageSetsPage() {
   }, [selectedDataset]);
 
   const createImageSet = async () => {
-    if (!form.image_set_name.trim() || !form.folder_path.trim() || !form.patient_uuid) {
-      toast.error("Name, folder path, and patient are required");
-      return;
-    }
+    if (!form.image_set_name.trim() || !form.folder_path.trim() || !form.patient_uuid) { toast.error("Name, folder path, and patient are required"); return; }
     setSaving(true);
     try {
       await imageSetsApi.create({
@@ -62,24 +83,26 @@ export default function ImageSetsPage() {
     }
   };
 
+  const Th = ({ col, label }: { col: SortCol; label: string }) => (
+    <th className="text-left px-4 py-3 font-medium">
+      <button type="button" onClick={() => handleSort(col)} className="flex items-center gap-1 hover:text-foreground transition-colors text-muted-foreground data-[active]:text-foreground" data-active={sortCol === col ? "" : undefined}>
+        {label}{SortIcon(col)}
+      </button>
+    </th>
+  );
+
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">Image Sets</h1>
-          <select
-            className="h-8 rounded-md border border-input bg-transparent px-3 text-sm"
-            value={selectedDataset}
-            onChange={e => setSelectedDataset(e.target.value)}
-          >
+          <select className="h-8 rounded-md border border-input bg-transparent px-3 text-sm" value={selectedDataset} onChange={e => setSelectedDataset(e.target.value)}>
             {datasets.map(d => <option key={d.dataset_uuid} value={d.dataset_uuid}>{d.name}</option>)}
           </select>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="gap-1.5" disabled={!selectedDataset}>
-              <Plus className="h-4 w-4" /> Register Image Set
-            </Button>
+            <Button size="sm" className="gap-1.5" disabled={!selectedDataset}><Plus className="h-4 w-4" /> Register Image Set</Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Register Image Set</DialogTitle></DialogHeader>
@@ -110,22 +133,27 @@ export default function ImageSetsPage() {
       <div className="rounded-lg border overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
-            <tr>{["Name", "ICD", "Slices", "WL/WW", "Evaluators", "Status"].map(h => <th key={h} className="text-left px-4 py-3 font-medium">{h}</th>)}</tr>
+            <tr>
+              <Th col="name" label="Name" />
+              <Th col="icd" label="ICD" />
+              <Th col="slices" label="Slices" />
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">WL/WW</th>
+              <Th col="evaluators" label="Evaluators" />
+              <Th col="status" label="Status" />
+            </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {imageSets.map(s => (
+            {sorted.map(s => (
               <tr key={s.uuid} className="hover:bg-muted/30">
                 <td className="px-4 py-3 font-medium">{s.image_set_name}</td>
                 <td className="px-4 py-3 text-muted-foreground">{s.icd_code ?? "—"}</td>
                 <td className="px-4 py-3">{s.num_images}</td>
-                <td className="px-4 py-3 text-muted-foreground text-xs font-mono">
-                  {s.image_window_level ?? "—"} / {s.image_window_width ?? "—"}
-                </td>
+                <td className="px-4 py-3 text-muted-foreground text-xs font-mono">{s.image_window_level ?? "—"} / {s.image_window_width ?? "—"}</td>
                 <td className="px-4 py-3">{s.total_evaluators}</td>
                 <td className="px-4 py-3"><Badge variant={s.is_active ? "success" : "secondary"}>{s.is_active ? "Active" : "Inactive"}</Badge></td>
               </tr>
             ))}
-            {imageSets.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">No image sets</td></tr>}
+            {sorted.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">No image sets</td></tr>}
           </tbody>
         </table>
       </div>

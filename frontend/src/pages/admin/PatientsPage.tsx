@@ -1,12 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { datasetsApi, patientsApi } from "@/lib/api";
 import type { DataSet, Patient } from "@/lib/types";
+
+type SortCol = "patient_id" | "category" | "age" | "gender";
+type SortDir = "asc" | "desc";
 
 export default function PatientsPage() {
   const [datasets, setDatasets] = useState<DataSet[]>([]);
@@ -15,6 +18,29 @@ export default function PatientsPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ patient_id: "", category: "", age: "", gender: "" });
   const [saving, setSaving] = useState(false);
+  const [sortCol, setSortCol] = useState<SortCol>("patient_id");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const handleSort = (col: SortCol) => {
+    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  };
+
+  const SortIcon = (col: SortCol) =>
+    sortCol !== col
+      ? <ArrowUpDown className="h-3 w-3 opacity-40 shrink-0" />
+      : sortDir === "asc" ? <ArrowUp className="h-3 w-3 shrink-0" /> : <ArrowDown className="h-3 w-3 shrink-0" />;
+
+  const sorted = useMemo(() => [...patients].sort((a, b) => {
+    let cmp = 0;
+    switch (sortCol) {
+      case "patient_id": cmp = a.patient_id.localeCompare(b.patient_id); break;
+      case "category":   cmp = (a.category ?? "").localeCompare(b.category ?? ""); break;
+      case "age":        cmp = (a.age ?? -1) - (b.age ?? -1); break;
+      case "gender":     cmp = (a.gender ?? "").localeCompare(b.gender ?? ""); break;
+    }
+    return sortDir === "asc" ? cmp : -cmp;
+  }), [patients, sortCol, sortDir]);
 
   useEffect(() => {
     datasetsApi.list(true).then(r => {
@@ -50,16 +76,20 @@ export default function PatientsPage() {
     }
   };
 
+  const Th = ({ col, label }: { col: SortCol; label: string }) => (
+    <th className="text-left px-4 py-3 font-medium">
+      <button type="button" onClick={() => handleSort(col)} className="flex items-center gap-1 hover:text-foreground transition-colors text-muted-foreground data-[active]:text-foreground" data-active={sortCol === col ? "" : undefined}>
+        {label}{SortIcon(col)}
+      </button>
+    </th>
+  );
+
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">Patients</h1>
-          <select
-            className="h-8 rounded-md border border-input bg-transparent px-3 text-sm"
-            value={selectedDataset}
-            onChange={e => setSelectedDataset(e.target.value)}
-          >
+          <select className="h-8 rounded-md border border-input bg-transparent px-3 text-sm" value={selectedDataset} onChange={e => setSelectedDataset(e.target.value)}>
             {datasets.map(d => <option key={d.dataset_uuid} value={d.dataset_uuid}>{d.name}</option>)}
           </select>
         </div>
@@ -95,13 +125,14 @@ export default function PatientsPage() {
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr>
-              {["Patient ID", "Category", "Age", "Gender"].map(h => (
-                <th key={h} className="text-left px-4 py-3 font-medium">{h}</th>
-              ))}
+              <Th col="patient_id" label="Patient ID" />
+              <Th col="category" label="Category" />
+              <Th col="age" label="Age" />
+              <Th col="gender" label="Gender" />
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {patients.map(p => (
+            {sorted.map(p => (
               <tr key={p.patient_uuid} className="hover:bg-muted/30">
                 <td className="px-4 py-3 font-mono text-xs">{p.patient_id}</td>
                 <td className="px-4 py-3 text-muted-foreground">{p.category ?? "—"}</td>
@@ -109,7 +140,7 @@ export default function PatientsPage() {
                 <td className="px-4 py-3 text-muted-foreground">{p.gender ?? "—"}</td>
               </tr>
             ))}
-            {patients.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">No patients in this dataset</td></tr>}
+            {sorted.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">No patients in this dataset</td></tr>}
           </tbody>
         </table>
       </div>

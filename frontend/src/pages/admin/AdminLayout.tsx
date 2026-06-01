@@ -8,6 +8,8 @@ import {
   Download,
   ArrowLeft,
   ClipboardList,
+  BarChart2,
+  Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "@/components/layout/ThemeToggle";
@@ -20,7 +22,9 @@ const NAV_ITEMS = [
   { to: "image-sets", label: "Image Sets", icon: ImageIcon },
   { to: "assignments", label: "Assignments", icon: Link2 },
   { to: "submissions", label: "Submissions", icon: ClipboardList },
+  { to: "analytics", label: "Analytics", icon: BarChart2 },
   { to: "export", label: "Export", icon: Download },
+  { to: "notifications", label: "Notifications", icon: Bell },
 ];
 
 export default function AdminLayout() {

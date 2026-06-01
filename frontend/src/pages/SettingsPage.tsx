@@ -335,7 +335,7 @@ export default function SettingsPage() {
           control={
             <span className="text-sm text-muted-foreground">
               {me?.created_at
-                ? new Date(me.created_at).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Bangkok" })
+                ? new Date(me.created_at).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Ho_Chi_Minh" })
                 : "—"}
             </span>
           }
