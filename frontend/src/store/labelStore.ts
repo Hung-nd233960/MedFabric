@@ -256,15 +256,18 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
     })),
 
   setScore: (imageUuid, field, score) =>
-    set((s) => ({
-      slices: {
-        ...s.slices,
-        [imageUuid]: {
-          ...s.slices[imageUuid],
-          scores: { ...s.slices[imageUuid].scores, [field]: score },
+    set((s) => {
+      if ((s.slices[imageUuid]?.scores[field] ?? null) === score) return s;
+      return {
+        slices: {
+          ...s.slices,
+          [imageUuid]: {
+            ...s.slices[imageUuid],
+            scores: { ...s.slices[imageUuid].scores, [field]: score },
+          },
         },
-      },
-    })),
+      };
+    }),
 
   setSliceNotes: (imageUuid, notes) =>
     set((s) => ({

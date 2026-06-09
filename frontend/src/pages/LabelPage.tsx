@@ -999,6 +999,22 @@ export default function LabelPage() {
             return;
           }
 
+          // Tab — navigate forward by scope without scoring (disabled in Vis Mode)
+          if (!shift && !ctrl && key === "Tab") {
+            e.preventDefault();
+            if (zoneModeVisual) return;
+            if (zoneModeScope === "row") {
+              setZoneModeCursor(c => c ? { ...c, row: (c.row + 1) % zmZones.length } : c);
+            } else if (zoneModeScope === "col") {
+              setZoneModeCursor(c => c ? { ...c, col: c.col === "left" ? "right" : "left" } : c);
+            } else if (zoneModeScope === "cell") {
+              const ci = zoneModeCursor.row * 2 + (zoneModeCursor.col === "left" ? 0 : 1);
+              const ni = (ci + 1) % totalCells;
+              setZoneModeCursor({ row: Math.floor(ni / 2), col: ni % 2 === 0 ? "left" : "right" });
+            }
+            return;
+          }
+
           // Directional navigation — arrow keys and/or hjkl depending on navMode
           if (!ctrl) {
             if (nav.up(e, navMode)) {
@@ -1063,6 +1079,11 @@ export default function LabelPage() {
               }
             } else {
               setScore(zmImg.uuid, `${zmZones[zoneModeCursor.row]}_${zoneModeCursor.col}_score`, null);
+              if (key === "0") {
+                const ci = zoneModeCursor.row * 2 + (zoneModeCursor.col === "left" ? 0 : 1);
+                const ni = (ci + 1) % totalCells;
+                setZoneModeCursor({ row: Math.floor(ni / 2), col: ni % 2 === 0 ? "left" : "right" });
+              }
             }
             return;
           }

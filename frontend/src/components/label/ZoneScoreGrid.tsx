@@ -164,7 +164,7 @@ function ZoneRow({ zone, imageUuid, readOnly, rowIndex, zoneModeCell, zoneModeAn
         </span>
       </WithTooltip>
       <div className={cn(
-        "flex gap-1 flex-wrap px-1 rounded transition-all",
+        "flex flex-wrap gap-1 px-1 rounded transition-all",
         hlLeft  && (inVis ? "ring-2 ring-rose-400/70 bg-rose-400/10" : "ring-2 ring-amber-400/70 bg-amber-400/10"),
         selLeft && (inVis ? "ring-1 ring-rose-400/40 bg-rose-400/5"  : "ring-1 ring-amber-400/40 bg-amber-400/5"),
       )}>
@@ -179,9 +179,15 @@ function ZoneRow({ zone, imageUuid, readOnly, rowIndex, zoneModeCell, zoneModeAn
             isVis={inVis}
           />
         ))}
+        {(hlLeft || selLeft) && showKbdHints && leftScore !== null && (
+          <kbd className={cn(
+            "font-mono border px-1 py-0 rounded text-xs leading-none self-center",
+            inVis ? "border-rose-400/50 bg-rose-400/15 text-rose-300" : "border-amber-400/50 bg-amber-400/15 text-amber-300"
+          )}>0</kbd>
+        )}
       </div>
       <div className={cn(
-        "flex gap-1 flex-wrap px-1 rounded transition-all",
+        "flex flex-wrap gap-1 px-1 rounded transition-all",
         hlRight  && (inVis ? "ring-2 ring-rose-400/70 bg-rose-400/10" : "ring-2 ring-amber-400/70 bg-amber-400/10"),
         selRight && (inVis ? "ring-1 ring-rose-400/40 bg-rose-400/5"  : "ring-1 ring-amber-400/40 bg-amber-400/5"),
       )}>
@@ -196,6 +202,12 @@ function ZoneRow({ zone, imageUuid, readOnly, rowIndex, zoneModeCell, zoneModeAn
             isVis={inVis}
           />
         ))}
+        {(hlRight || selRight) && showKbdHints && rightScore !== null && (
+          <kbd className={cn(
+            "font-mono border px-1 py-0 rounded text-xs leading-none self-center",
+            inVis ? "border-rose-400/50 bg-rose-400/15 text-rose-300" : "border-amber-400/50 bg-amber-400/15 text-amber-300"
+          )}>0</kbd>
+        )}
       </div>
     </div>
   );
@@ -331,27 +343,28 @@ export default function ZoneScoreGrid({ imageUuid, readOnly, zoneModeCell, zoneM
             {showKbdHints && (<>
             <div className="flex items-center justify-between gap-2">
               {hint({ children: navArrows.length > 0
-                ? <><span>Navigate</span>{navArrows.map(k => <ADim key={k}>{navLabel(ARROW_DIR[k as keyof typeof ARROW_DIR], navMode)}</ADim>)}</>
+                ? <><span>Navigate</span>{navArrows.map(k => <ADim key={k}>{navLabel(ARROW_DIR[k as keyof typeof ARROW_DIR], navMode)}</ADim>)}{!isVisual && <><span className={cn("mx-0.5", isVisual ? "text-rose-200/30" : "text-amber-200/30")}>·</span><ADim>Tab</ADim></>}</>
                 : <span className={cn("italic", isVisual ? "text-rose-200/30" : "text-amber-200/30")}>no navigation</span>
               })}
-              {hint({ children: <><ADim>Shift</ADim><span>+num or</span><ADim>&lt;</ADim><ADim>&gt;</ADim><span>to select</span></> })}
+              {hint({ children: <><ADim>Del</ADim><span>/</span><ADim>Back</ADim><span>clear score</span></> })}
             </div>
             <div className="flex items-center justify-between gap-2">
+              {hint({ children: <><ADim>Shift</ADim><span>+num or</span><ADim>&lt;</ADim><ADim>&gt;</ADim><span>to select</span></> })}
               {hint({ children: isVisual
                 ? <><ADim>V</ADim><span>/</span><ADim>Esc</ADim><span>exit Vis</span></>
                 : <><ADim>V</ADim><span>Vis Mode</span></>
+              })}
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              {hint({ children: ctrlAIsUnselect
+                ? <><ADim>Ctrl+A</ADim><span>to unselect</span></>
+                : <><ADim>Ctrl+A</ADim><span>to select all</span></>
               })}
               {hint({ children: isVisual
                 ? <><ADim>Z</ADim><span>exit Zone Mode</span></>
                 : scope === "cell"
                 ? <><ADim>Esc</ADim><span>/</span><ADim>Z</ADim><span>exit Zone Mode</span></>
                 : <><ADim>Esc</ADim><span>Cell Mode</span></>
-              })}
-            </div>
-            <div className="flex justify-center">
-              {hint({ children: ctrlAIsUnselect
-                ? <><ADim>Ctrl+A</ADim><span>to unselect</span></>
-                : <><ADim>Ctrl+A</ADim><span>to select all</span></>
               })}
             </div>
             </>)}
