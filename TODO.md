@@ -40,35 +40,61 @@ Labeling:
 - Low Quality Toggle change from Q to Shift + Q (Done)
 - After choosing Anomaly & Irrelevant (either by mouse or keyboard), jumps to the set-level notes (Done)
 - Rapid Zone Score Mode: When the set is Ischemic Assessable, zone is Basal / Corona already (Scenario 1) OR switching between zones BY KEYBOARD (Scenario 2), activate Rapid Zone Score Mode.
-+ Prepare before implement this mode: Change Basal/Corona/None region to Shift + B/C/N to prevent mistyping
-+ Scenario 1 uses a dedicated key (Z / Tab? which one?)
-+ Scenario 2: currently, pressing a zone while it is that zone itself (B while in Basal) would reset the zone annotation. I like that idea. So choosing a zone via keyboard also activate RZSM
-+ Currently, the zone scoring is a grid with columns of Left/Right, rows of zones, we make a hireachy like reading: top left cell, top right cell, then left lower cell,...so on (remember this order)
-+ RZSM when activated would point a cursor highlight to the cell of : (I have two options here: One is just put on top left, no matter the state OR the cell of priority NOT graded yet, by hireachy order (higher row, lefter column))
-+ In a highlighted cell, press (i have two options here: 0 means Damaged, 1 mean Not Damanged, 2 means Not Visible; or 1 means Damaged, 2 mean not Damaged, 3 means Not Visible, the former respects ASPECTS but the latter feels keys are closer together, or third option, some combinations of 3 nearby keys, no matter what it is) it would jump to the next cell of the hireachy, so on so on...
-+ RZSM is exit when user press the activation key or ESC, changing image set usability (if perform changing, jump to Image and Jump to Set, should RZSM keep ON if the jumped image/set is RZSM-capabled?)
-+ The cursor of RZSM can move anywhere in the grid via keyboard arrows and also Shift + Up/Down to move to same column, highest/lowest row. (but should we block overflowing keys or they cycle in the same row/column or let them overflow the hireachy?)
-+ This is for single-cell annotation, they can expand to multi-cell, Vim motions,...but try to think single-cell first
+
+- Prepare before implement this mode: Change Basal/Corona/None region to Shift + B/C/N to prevent mistyping
+
+- Scenario 1 uses a dedicated key (Z / Tab? which one?)
+- Scenario 2: currently, pressing a zone while it is that zone itself (B while in Basal) would reset the zone annotation. I like that idea. So choosing a zone via keyboard also activate RZSM
+- Currently, the zone scoring is a grid with columns of Left/Right, rows of zones, we make a hireachy like reading: top left cell, top right cell, then left lower cell,...so on (remember this order)
+- RZSM when activated would point a cursor highlight to the cell of : (I have two options here: One is just put on top left, no matter the state OR the cell of priority NOT graded yet, by hireachy order (higher row, lefter column))
+- In a highlighted cell, press (i have two options here: 0 means Damaged, 1 mean Not Damanged, 2 means Not Visible; or 1 means Damaged, 2 mean not Damaged, 3 means Not Visible, the former respects ASPECTS but the latter feels keys are closer together, or third option, some combinations of 3 nearby keys, no matter what it is) it would jump to the next cell of the hireachy, so on so on...
+- RZSM is exit when user press the activation key or ESC, changing image set usability (if perform changing, jump to Image and Jump to Set, should RZSM keep ON if the jumped image/set is RZSM-capabled?)
+- The cursor of RZSM can move anywhere in the grid via keyboard arrows and also Shift + Up/Down to move to same column, highest/lowest row. (but should we block overflowing keys or they cycle in the same row/column or let them overflow the hireachy?)
+- This is for single-cell annotation, they can expand to multi-cell, Vim motions,...but try to think single-cell first
 
 Dashboard:
+
 - Visual Mode in cells should also include how many image sets are done, how many image are in draft, how many are pending
 Labeing - Annotation
 - N (outside Zone Mode) focuses on Image Set Notes (Done)
 - Zone Mode:
-+ Change from -- Zone -- to -- Zone Mode --, -- Zone Vis -- to -- Zone Mode -- -- Vis-- (Done)
-+ Should mouse zone annotation exits Zone Mode ? I think Yes (Done)
-+ while in Zone Mode, Ctrl + A would Vis all zones (Done)
+
+- Change from -- Zone -- to -- Zone Mode --, -- Zone Vis -- to -- Zone Mode -- -- Vis-- (Done)
+
+- Should mouse zone annotation exits Zone Mode ? I think Yes (Done)
+- while in Zone Mode, Ctrl + A would Vis all zones (Done)
 Keyboard Shortcuts Box rework: (Done)
+
 - Two tabs: General and Label, while the box displayed, Tab would switch between tabs, L Label for  G is General. General contains site-wide and Dashboard, Annotation is the rest. Smart Tab Placement: While in Label, default to Label. While in Dashboard, default to General
 - Dialogues (Confirm draft deletion, system stability warning in Dashboard, prompt to Submit/Draft/exit annotating page in Labeling) now all can be keyboard-navigated with arrows, Enter and ESC, any side effects to take note of? (Done)
 - More admin features:
-+ See who is online? (Done)
+
+- See who is online? (Done)
+
 - Now is the hard part:
-+ Keyboard hints for each button direction and such. because UI is messy, we have option to turn it off for decluttering (Done)
+
+- Keyboard hints for each button direction and such. because UI is messy, we have option to turn it off for decluttering (Done)
 
 - Fix: Continue: The Settings page now have Accounts category below the Keyboard, displaying their username, email, real name, when this account made, badge shows if they are a doctor or an admin, testing badge or official badge, and a button to change password. Cancel that would lead you to the Settings again, not Dashboard. (although if changed password, going to dashboard is fair game). Remove the Change Password in navbar
 
-- Fix: When labeling, going to Settings in the navbar prompt you to submit, it jumped to Dashboard instead. 
+- Fix: When labeling, going to Settings in the navbar prompt you to submit, it jumped to Dashboard instead.
+
 ## Hard Features
 
 - Vietnamese Support
+
+## Jun 6
+
+- Research on rotating model, slice classification model, deboning model and registration atlas
+
+- Update the database with patient gender and age (DONE)
+
+- Adding the CQ500 image set as database
+
+- About the registration atlas, the atlas is based on age, but should doctors have the option to choose other kinds of atlas, at other ages as well?
+
+## Jun 9
+
+- While in Zone Mode: Cell, press Tab (not Shift + Tab) would move the cursor "forward" by hirearchy
+- in Zone Mode: Col, Tab would switch between columns
+- Zone Mode: Row, Tab would cycle forward rows

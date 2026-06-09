@@ -8,13 +8,14 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.db.models import Image, ImageFormat, ImageSet
+from app.db.models import Image, ImageFormat, ImageSet, Patient
 from app.services.errors import (
     DatabaseError,
     ImageSetAlreadyExistsError,
     ImageSetNotFoundError,
     InvalidImageSetPathError,
 )
+from app.services.image_loader.dicom_processing import extract_patient_demographics
 
 settings = get_settings()
 
@@ -47,6 +48,26 @@ def _auto_window_from_dicom(folder_path: Path):
     except Exception:
         pass
     return None, None
+
+
+def _backfill_patient_demographics(
+    db: Session, patient_uuid: uuid.UUID, sample_file: Path
+) -> None:
+    """Populate a patient's age/gender from DICOM if they are not already set.
+
+    Best-effort and non-fatal: only fills columns that are currently NULL so an
+    explicitly-provided value is never overwritten. Runs in the caller's
+    transaction (the surrounding commit persists it).
+    """
+    patient = db.query(Patient).filter(Patient.patient_uuid == patient_uuid).first()
+    if patient is None or (patient.age is not None and patient.gender is not None):
+        return
+
+    age, gender = extract_patient_demographics(sample_file)
+    if patient.age is None and age is not None:
+        patient.age = age
+    if patient.gender is None and gender is not None:
+        patient.gender = gender
 
 
 def register_image_set(
@@ -105,6 +126,9 @@ def register_image_set(
                 slice_index=idx,
             )
             db.add(image)
+
+        if image_format == ImageFormat.DICOM:
+            _backfill_patient_demographics(db, patient_uuid, image_files[0])
 
         db.commit()
         db.refresh(image_set)

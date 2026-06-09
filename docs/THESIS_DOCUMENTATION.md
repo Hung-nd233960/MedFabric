@@ -2,7 +2,8 @@
 
 > **Project:** MedFabric 3.0 — DICOM CT Scan Annotation Platform for ASPECTS Scoring  
 > **Stack:** FastAPI · React 18 · PostgreSQL 16 · Docker  
-> **Date:** May 2026
+> **Version:** 3.2.3  
+> **Date:** June 2026
 
 ---
 
@@ -14,6 +15,7 @@
 4. [API Specification](#4-api-specification)
 5. [Frontend Pages & Routes](#5-frontend-pages--routes)
 6. [Non-Functional Properties](#6-non-functional-properties)
+7. [Operational Features](#7-operational-features)
 
 ---
 
@@ -158,6 +160,37 @@ MedFabric is a **web-based DICOM annotation platform** for collecting bilateral 
 #### UC-A10: View Audit Log
 - **Actor:** Admin  
 - **Flow:** `GET /api/admin/audit-log` returns all admin mutations (create, deactivate, assign, reset-password, delete-draft, etc.) with timestamps
+
+#### UC-A11: View Dataset Analytics
+
+- **Actor:** Admin
+- **Flow:** Navigate to `/admin/analytics` → select a dataset → system returns annotated/unannotated counts, per-doctor contribution breakdown, and usability distribution as pie charts
+
+#### UC-A12: Manage Telegram Notifications
+
+- **Actor:** Admin
+- **Flow:** Navigate to `/admin/notifications` → view bot configuration status (configured / chat ID) → send test message, preview or manually trigger the 12h progress report via `POST /api/admin/telegram/*`
+
+---
+
+### 2.4 System Use Cases
+
+#### UC-S01: Automated 12h Telegram Report
+
+- **Actor:** System (APScheduler)
+- **Trigger:** Cron fires at 09:00 and 21:00 in the configured timezone
+- **Flow:** Scheduler queries submissions from the past 12 h + overall dataset progress → formats an HTML Telegram message → sends via Bot API
+
+#### UC-S02: Login Notification
+
+- **Actor:** System
+- **Trigger:** Non-test doctor successfully logs in
+- **Flow:** Sends a Telegram alert with doctor name and local timestamp; duplicate alerts suppressed for 30 minutes per doctor
+
+#### UC-S03: Submit Bug Report / Feature Request
+
+- **Actor:** Doctor or Admin
+- **Flow:** User opens the in-app feedback dialog → selects type (bug / feature), enters description, page and optional annotation context → `POST /api/bug-reports` → entry appended to `/data/bug_reports.jsonl`
 
 ---
 
@@ -519,6 +552,23 @@ Default windowing: WL=35, WW=100 (CT brain standard). Override via `?wl=&ww=` qu
 | GET | `/admin/submissions` | Admin | List all submitted sessions (`?dataset_uuid=...`) |
 | GET | `/admin/submission/by-image-set/{uuid}` | Admin | Read any doctor's submission (`?doctor_uuid=...`) |
 | GET | `/admin/audit-log` | Admin | Paginated admin action log (`?limit=&offset=`) |
+
+#### Analytics
+
+| Method | Path                             | Auth  | Description                                                                    |
+|--------|----------------------------------|-------|--------------------------------------------------------------------------------|
+| GET    | `/admin/analytics?dataset_uuid=` | Admin | Annotation counts, contributor breakdown, usability distribution for a dataset |
+
+**Analytics response fields:** `dataset` (name, total_image_sets), `global` (annotated_sets, unannotated_sets, contributors[], usability_counts), `per_doctor[]` (annotated_count, last_annotation, usability_counts)
+
+#### Telegram Notifications
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/admin/telegram/status` | Admin | Return `{ configured, chat_id }` |
+| POST | `/admin/telegram/test` | Admin | Send a test message to the configured chat |
+| GET | `/admin/telegram/preview-report` | Admin | Return the formatted 12h report text without sending |
+| POST | `/admin/telegram/send-report` | Admin | Immediately send the 12h report to the chat |
 
 ---
 
